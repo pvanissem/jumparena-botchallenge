@@ -184,6 +184,33 @@ Auch hier gilt: erst Freigabe des `bugfix.md`, dann Implementierung.
 
 ---
 
+## Test-Driven Development (Pflicht)
+
+In diesem Projekt wird **ausschließlich testgetrieben (TDD)** entwickelt. Das gilt für
+jede Implementierung, die unter das Spec-Gate fällt (siehe oben) – Ausnahmen sind
+höchstens die dort bereits genannten trivialen Änderungen (Typo-Fixes, Formatierung,
+reine Kommentare, Dependency-Bumps ohne API-Änderung).
+
+### Rot-Grün-Refactor-Zyklus (verbindlich)
+
+1. **Rot:** Zuerst einen (fehlschlagenden) Test schreiben, der ein Akzeptanzkriterium
+   aus `requirements.md` bzw. einen Teilschritt aus `tasks.md`/`design.md` abbildet.
+2. **Grün:** Minimalen Produktivcode schreiben, der genau diesen Test zum Bestehen
+   bringt – keine Vorgriffe auf spätere, noch nicht durch einen Test abgesicherte
+   Funktionalität (siehe YAGNI in `AGENTS.md`/Design-Prinzipien).
+3. **Refactor:** Code aufräumen (SOLID/Clean Code/DRY/KISS), während alle Tests grün
+   bleiben.
+
+- Produktivcode ohne zugehörigen, vorher geschriebenen Test wird **nicht** committet.
+- Tasks in `tasks.md` sollen so geschnitten sein, dass sie jeweils mit einem
+  Test-zuerst-Schritt beginnen (z.B. "Test für X schreiben (rot)" → "X implementieren
+  (grün)" → "Refactoring").
+- Test-Frameworks je Package: siehe jeweiliges Feature-`design.md` (z.B. Vitest für
+  TypeScript-Unit-Tests). Neue Packages/Module richten das passende Test-Setup ein,
+  **bevor** der erste Produktivcode für dieses Modul entsteht.
+
+---
+
 ## Allgemeine Arbeitsweise
 
 - Antworten und Spec-Dokumente auf Deutsch verfassen (Projektsprache), Code/Bezeichner in
@@ -192,3 +219,5 @@ Auch hier gilt: erst Freigabe des `bugfix.md`, dann Implementierung.
   `docs/07-offene-punkte.md` für bekannte offene Fragen.
 - Keine Implementierung ohne durchlaufenes Spec-Gate (siehe oben) – auch nicht "nur mal
   schnell testen".
+- Keine Implementierung ohne vorher geschriebenen (fehlschlagenden) Test – siehe
+  „Test-Driven Development" oben.

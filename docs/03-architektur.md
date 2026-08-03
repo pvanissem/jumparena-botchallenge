@@ -103,10 +103,38 @@
 | Build | Vite (schnell, einfach für ein Stand-Setup, kein Server nötig – reiner Static Build) |
 | Persistenz | Keine Backend-Persistenz nötig; Leaderboard optional als LocalStorage/JSON-Export |
 
-## Warum kein Server?
+## Warum kein Server? (für die Spielsimulation)
 
-Der Nutzer möchte explizit clientseitig arbeiten. Vorteile für den Messestand:
+Der Nutzer möchte die eigentliche Spielsimulation explizit clientseitig ausführen.
+Vorteile für den Messestand:
 - Kein Netzwerk/WLAN-Abhängigkeit, kein Server-Setup/-Ausfallrisiko vor Ort.
 - Einfaches Deployment: ein Laptop/Rechner reicht, Build kann sogar offline laufen.
-- Nachteil: Kein zentrales Leaderboard über mehrere Rechner/Stationen hinweg – falls das
-  gewünscht ist, siehe offene Punkte.
+- Nachteil: Kein zentrales Leaderboard über mehrere Rechner/Stationen hinweg – siehe
+  nächster Abschnitt für die Auflösung dieses Punkts.
+
+## Zentraler Server für Multi-Stationen-Betrieb (/present, /admin, Broadcast an /dev)
+
+> Entschieden in `.features/arena-hub-server/` (siehe dort `requirements.md` und
+> `design.md` für Details).
+
+Für den Betrieb von 4–5 unabhängigen `/dev`-Stationen plus einem zentralen
+Präsentations-/Admin-Rechner wird die "kein Server"-Entscheidung **eingeschränkt**
+(nicht aufgehoben): Für `/present` und `/admin` gibt es einen zentralen
+Node.js-Prozess, der **ausschließlich** als WebSocket-Router/Relay und
+Static-File-Host fungiert – er enthält keine Spiellogik, keine Bot-Sandbox, kein
+Scoring. Die eigentliche Simulation bleibt vollständig clientseitig, wie oben
+beschrieben.
+
+- `/admin` kann darüber Broadcast-Nachrichten an alle anderen verbundenen
+  Clients senden (z.B. eine Test-Ping-Nachricht als PoC).
+- `/present` empfängt diese Broadcasts und zeigt sie an.
+- `/dev`-Stationen können denselben Broadcast-Kanal ebenfalls empfangen
+  (Roundtrip-Nachweis), sind aber ansonsten unabhängige, isolierte Prozesse pro
+  Stationsrechner – sie kennen den Präsentationsrechner nicht und haben (noch)
+  keine Bot-Entwicklungslogik an den Server angebunden.
+- Persistenz: nur In-Memory für die Laufzeit des Serverprozesses, keine
+  Datenbank/Dateispeicherung.
+
+**Explizit weiterhin offen:** Wie das fertige Bot-Artefakt (`decide.js`) von
+einer `/dev`-Station zum Präsentationsrechner gelangt, ist **nicht** Teil dieser
+Server-Infrastruktur – siehe `docs/09-bot-artefakt-und-turnier.md`.

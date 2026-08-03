@@ -44,6 +44,14 @@ verworfen**, sondern in der Bot-Liste sichtbar als „ungültig" markiert.
 > Hinweis: Damit ist die ursprüngliche „kein Server"-Entscheidung aus
 > `docs/03` weiterhin gültig – nur mit modernem Browser-Datei-Zugriff statt
 > eines klassischen Upload-Endpoints.
+>
+> **Ergänzung (siehe `.features/arena-hub-server/`):** Für den Betrieb von
+> `/present` und `/admin` bei mehreren `/dev`-Stationen gibt es inzwischen einen
+> zentralen WebSocket-Router-Server (siehe `docs/03-architektur.md`, Abschnitt
+> "Zentraler Server für Multi-Stationen-Betrieb"). Dieser Server transportiert
+> aber **keine** Bot-Artefakte – der Weg eines fertigen `decide.js` von einer
+> `/dev`-Station zum Präsentationsrechner bleibt weiterhin **offen/t.b.d.** und
+> ist Gegenstand eines separaten, noch zu erstellenden Feature-Specs.
 
 ## Sandbox (Web Worker)
 

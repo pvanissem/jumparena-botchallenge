@@ -154,3 +154,11 @@ dlldata.c
 
 # NetBeans
 nbactions.xml
+
+### Node / TypeScript (Arena Hub Server) ###
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+npm-debug.log*
+

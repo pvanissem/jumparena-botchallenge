@@ -16,8 +16,12 @@ dem eigentlichen Umsetzungsstart geklärt/entschieden werden sollten.
 - [ ] **Level-Erstellung:** Tiled-Editor-Export vs. handgeschriebene Tilemap für den MVP?
 - [ ] **Finale/Show-Runde:** Sollen die Top-Bots am Ende nochmal gegeneinander antreten?
 - [ ] **Tie-Breaker-Regel** bei Score-Gleichstand im Leaderboard.
-- [ ] **Zentrales Leaderboard über mehrere Stationen/Rechner hinweg** – gewünscht oder reicht
-      ein einzelner Rechner/Screen? (Betrifft die "kein Server"-Entscheidung.)
+- [x] **Zentrales Leaderboard über mehrere Stationen/Rechner hinweg** – entschieden:
+      Ein zentraler Node.js-WebSocket-Router-Server verbindet `/present` und
+      `/admin` (mit Broadcast-Kanal auch zu `/dev`). Siehe
+      `.features/arena-hub-server/` und `docs/03-architektur.md`. Weiterhin offen:
+      der konkrete Transportweg für Bot-Artefakte von `/dev` zum
+      Präsentationsrechner (siehe `docs/09-bot-artefakt-und-turnier.md`).
 - [ ] **Scoring-Konstanten kalibrieren** (siehe 05-scoring-und-heats.md) mit Testbots vor dem Event.
 
 ## Technische Risiken
