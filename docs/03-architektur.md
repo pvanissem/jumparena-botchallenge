@@ -1,0 +1,112 @@
+# 03 – Technische Architektur
+
+## Überblick
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Browser (Client)                        │
+│                                                                │
+│  ┌──────────────┐        ┌────────────────────────────────┐  │
+│  │  Bot-Import   │──────▶│         Heat-Manager            │  │
+│  │  (.js Dateien)│        │  (wählt 16 Bots pro Runde aus)  │  │
+│  └──────────────┘        └───────────────┬────────────────┘  │
+│                                            │                   │
+│                                            ▼                   │
+│                        ┌───────────────────────────────────┐  │
+│                        │        Phaser Game Instance        │  │
+│                        │  ┌───────┐ ┌───────┐   ┌───────┐  │  │
+│                        │  │Grid   │ │Grid   │...│Grid   │  │  │
+│                        │  │Cell 1 │ │Cell 2 │   │Cell 16│  │  │
+│                        │  │(Cam)  │ │(Cam)  │   │(Cam)  │  │  │
+│                        │  └───────┘ └───────┘   └───────┘  │  │
+│                        │        gemeinsame Level-Szene       │  │
+│                        └───────────────┬───────────────────┘  │
+│                                          │  State-Snapshot pro Tick
+│                                          ▼                      │
+│              ┌───────────┐  ┌───────────┐       ┌───────────┐  │
+│              │ Worker #1 │  │ Worker #2 │  ...  │ Worker #16│  │
+│              │ decide()  │  │ decide()  │       │ decide()  │  │
+│              └───────────┘  └───────────┘       └───────────┘  │
+│                                          │  Action zurück       │
+│                                          ▼                      │
+│                        Simulation wendet Aktionen an           │
+│                        (Bewegung, Kollisionen mit Level,       │
+│                         Coin-Pickup, Hazard-Check)              │
+│                                                                │
+│                        ┌───────────────────────────────────┐  │
+│                        │        Scoring / Leaderboard        │  │
+│                        └───────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Komponenten
+
+### 1. Bot-Import
+- UI zum Hochladen/Auswählen von `.js`-Dateien (Drag&Drop oder Ordner-Scan via File System
+  Access API, sofern Browser-Unterstützung ausreicht; sonst klassischer `<input type="file"
+  multiple webkitdirectory>`).
+- Validierung: Datei muss eine Funktion `decide` exportieren/definieren (einfacher Parse-Check,
+  z.B. per Function-Constructor-Test in einem Worker, bevor sie "zugelassen" wird).
+- Zuordnung: Dateiname → Bot-Name, zufällige/feste Farbe & Sprite-Variante.
+
+### 2. Heat-Manager
+- Verwaltet die Liste aller eingepflegten Bots.
+- Teilt sie in Gruppen à 16 auf (konfigurierbar), verwaltet Rundenreihenfolge.
+- Startet pro Heat eine neue Simulation/Szene, sammelt danach die Ergebnisse ein.
+
+### 3. Phaser Game Instance – Grid aus Mini-Ansichten
+- **Eine gemeinsame Level-Szene** (Tilemap, Collectibles, Hazards) wird einmal geladen.
+- Pro Bot im aktuellen Heat: ein eigener Sprite in derselben Szene + eine eigene
+  **Kamera (`this.cameras.add(...)`)**, die nur diesen Bot verfolgt und in eine Grid-Zelle
+  gerendert wird (Phaser unterstützt mehrere Kameras mit eigenem Viewport auf einer Szene –
+  das ist performanter als 16 komplett separate Scene-Instanzen).
+- Kein Kollisions-Handling zwischen Bot-Sprites (eigene Physics-Gruppe pro Bot oder
+  `collideWorldBounds` ja, Bot-zu-Bot-Kollision explizit deaktiviert).
+
+### 4. Web-Worker-Pool
+- Ein Worker pro Bot im aktiven Heat (bei 16 Bots: 16 Worker – das ist unkritisch für moderne
+  Browser/Hardware).
+- Kommunikationsprotokoll (Vorschlag):
+  ```ts
+  // Main Thread → Worker
+  { type: "init", code: string }              // einmalig beim Laden
+  { type: "tick", state: BotState }            // pro Simulationsschritt
+
+  // Worker → Main Thread
+  { type: "ready" }
+  { type: "action", action: Action, tick: number }
+  { type: "error", message: string, tick: number }  // z.B. Syntax-/Laufzeitfehler
+  ```
+- Timeout-Handling im Main Thread: Falls innerhalb von z.B. 5ms keine Antwort auf `tick`
+  kommt, wird `idle` angenommen und mitgezählt (siehe 02-bot-api.md, Punkt 5).
+
+### 5. Simulation
+- Fixer Tick-Loop (~150ms) unabhängig vom Render-Loop (Phaser `time.addEvent` oder eigener
+  `setInterval`/`requestAnimationFrame`-Akkumulator).
+- Pro Tick: State für jeden Bot bauen → an Worker senden → Antworten sammeln (mit Timeout) →
+  Aktionen auf die Spielwelt anwenden → Kollisionen/Coin-Pickup/Hazard-Treffer/Ziel-Erreichen
+  prüfen → Score-Update.
+- Rendering läuft weiterhin mit 60fps, interpoliert zwischen den Tick-Zielpositionen für
+  flüssige Optik (optional, kann für MVP auch weggelassen werden – "snap to tile" reicht
+  fürs erste).
+
+### 6. Scoring/Leaderboard
+- Siehe [05-scoring-und-heats.md](05-scoring-und-heats.md).
+
+## Technologie-Stack (Vorschlag)
+
+| Bereich | Technologie |
+|---|---|
+| Rendering/Spiel-Engine | Phaser 3 (Arcade Physics reicht, kein Matter.js nötig) |
+| Sprache | TypeScript |
+| Bot-Sandbox | Web Worker (Standard-Browser-API, kein zusätzliches Sandboxing-Framework nötig) |
+| Build | Vite (schnell, einfach für ein Stand-Setup, kein Server nötig – reiner Static Build) |
+| Persistenz | Keine Backend-Persistenz nötig; Leaderboard optional als LocalStorage/JSON-Export |
+
+## Warum kein Server?
+
+Der Nutzer möchte explizit clientseitig arbeiten. Vorteile für den Messestand:
+- Kein Netzwerk/WLAN-Abhängigkeit, kein Server-Setup/-Ausfallrisiko vor Ort.
+- Einfaches Deployment: ein Laptop/Rechner reicht, Build kann sogar offline laufen.
+- Nachteil: Kein zentrales Leaderboard über mehrere Rechner/Stationen hinweg – falls das
+  gewünscht ist, siehe offene Punkte.
