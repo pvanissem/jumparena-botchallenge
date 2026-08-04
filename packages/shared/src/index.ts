@@ -1,2 +1,2 @@
-export type { InboundMessage, OutboundMessage, PingBroadcastMessage } from "./messages";
-export { isPingBroadcastMessage } from "./messages";
+export type { AudioSettingsMessage, InboundMessage, OutboundMessage, PingBroadcastMessage } from "./messages";
+export { isAudioSettingsMessage, isPingBroadcastMessage } from "./messages";

@@ -7,17 +7,26 @@ export interface PingBroadcastMessage {
 }
 
 /**
- * Messages a client may send to the server.
- *
- * Deliberately just one variant for now (YAGNI) - extend this union when a
- * new inbound message type is actually needed by a requirement.
+ * Master audio settings (music + sound effects share a single volume), sent
+ * by the Admin view and relayed to all other clients (e.g. Present), see
+ * `.features/game-audio/requirements.md` US-5.
  */
-export type InboundMessage = PingBroadcastMessage;
+export interface AudioSettingsMessage {
+  type: "audio-settings";
+  muted: boolean;
+  /** 0..1 */
+  volume: number;
+}
+
+/**
+ * Messages a client may send to the server.
+ */
+export type InboundMessage = PingBroadcastMessage | AudioSettingsMessage;
 
 /**
  * Messages the server relays to other clients.
  */
-export type OutboundMessage = PingBroadcastMessage;
+export type OutboundMessage = PingBroadcastMessage | AudioSettingsMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -29,5 +38,14 @@ export function isPingBroadcastMessage(value: unknown): value is PingBroadcastMe
     value.type === "ping-broadcast" &&
     typeof value.sentAt === "string" &&
     typeof value.text === "string"
+  );
+}
+
+export function isAudioSettingsMessage(value: unknown): value is AudioSettingsMessage {
+  return (
+    isRecord(value) &&
+    value.type === "audio-settings" &&
+    typeof value.muted === "boolean" &&
+    typeof value.volume === "number"
   );
 }

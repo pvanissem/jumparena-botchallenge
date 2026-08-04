@@ -5,6 +5,10 @@ export function BroadcastFeed({ lastMessage }: { lastMessage: OutboundMessage | 
     return <p data-testid="broadcast-feed">Noch keine Nachricht empfangen.</p>;
   }
 
+  if (lastMessage.type !== "ping-broadcast") {
+    return <p data-testid="broadcast-feed">Letzte Nachricht: {lastMessage.type}</p>;
+  }
+
   return (
     <p data-testid="broadcast-feed">
       [{lastMessage.sentAt}] {lastMessage.text}

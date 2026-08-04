@@ -1,12 +1,12 @@
 import type { PingBroadcastMessage } from "@arena/shared";
 import { describe, expect, it, vi } from "vitest";
 import type { BroadcastRouter } from "../BroadcastRouter";
-import { createPingBroadcastHandler } from "./handlePingBroadcast";
+import { createBroadcastRelayHandler } from "./createBroadcastRelayHandler";
 
-describe("createPingBroadcastHandler", () => {
+describe("createBroadcastRelayHandler", () => {
   it("delegates to the router with the sender id and message", () => {
     const router = { route: vi.fn() } as unknown as BroadcastRouter;
-    const handler = createPingBroadcastHandler(router);
+    const handler = createBroadcastRelayHandler<PingBroadcastMessage>(router);
 
     const message: PingBroadcastMessage = {
       type: "ping-broadcast",

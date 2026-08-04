@@ -1,4 +1,4 @@
-import { type InboundMessage, isPingBroadcastMessage } from "@arena/shared";
+import { type InboundMessage, isAudioSettingsMessage, isPingBroadcastMessage } from "@arena/shared";
 
 /**
  * Parses and validates a raw WebSocket payload into a typed InboundMessage.
@@ -15,6 +15,10 @@ export function parseInboundMessage(raw: string): InboundMessage | null {
   }
 
   if (isPingBroadcastMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isAudioSettingsMessage(candidate)) {
     return candidate;
   }
 

@@ -28,4 +28,14 @@ describe("parseInboundMessage", () => {
   it("returns null for valid JSON that is not an object", () => {
     expect(parseInboundMessage(JSON.stringify("just a string"))).toBeNull();
   });
+
+  it("parses a valid audio-settings payload", () => {
+    const raw = JSON.stringify({ type: "audio-settings", muted: true, volume: 0.4 });
+
+    expect(parseInboundMessage(raw)).toEqual({
+      type: "audio-settings",
+      muted: true,
+      volume: 0.4,
+    });
+  });
 });

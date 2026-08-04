@@ -13,6 +13,20 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /**
+ * `decodeURIComponent`, das bei fehlerhaft kodierten Pfaden (`URIError`)
+ * `null` statt eine Exception liefert – der Aufrufer behandelt `null` dann
+ * wie einen unbekannten Pfad (SPA-Fallback), analog zu `parseInboundMessage`
+ * in `@arena/shared` (Fail-Safe statt Crash bei fremdgesteuertem Input).
+ */
+function safeDecodeUriPath(rawPath: string): string | null {
+  try {
+    return decodeURIComponent(rawPath);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Serves the built client (Vite `dist` output) and falls back to
  * `index.html` for any unknown path, so that React Router can handle
  * client-side routes like /dev, /present, /admin on direct load/reload
@@ -20,8 +34,20 @@ const CONTENT_TYPES: Record<string, string> = {
  */
 export function createStaticServer(staticDir: string): Server {
   return createServer((req, res) => {
-    const requestedPath = (req.url ?? "/").split("?")[0];
-    const candidatePath = join(staticDir, requestedPath === "/" ? "index.html" : requestedPath);
+    const rawPath = (req.url ?? "/").split("?")[0];
+    // URLs kommen prozent-kodiert an (z.B. Leerzeichen -> %20, siehe Dateinamen
+    // wie "Terrain (16x16).png"). Ohne Dekodierung findet `existsSync` die
+    // Datei nie und der SPA-Fallback greift fälschlich auch für echte,
+    // existierende Assets (führte zu "Terrain hat keine Textur" im Client).
+    // `decodeURIComponent` wirft bei fehlerhaft kodierten URLs (z.B. ein
+    // einzelnes "%" ohne gültige Hex-Folge) – in diesem Fall wird wie bei
+    // einem unbekannten Pfad auf `index.html` zurückgefallen, statt den
+    // Serverprozess mit einer unbehandelten Exception abstürzen zu lassen.
+    const requestedPath = safeDecodeUriPath(rawPath);
+    const candidatePath =
+      requestedPath === null || requestedPath === "/"
+        ? join(staticDir, "index.html")
+        : join(staticDir, requestedPath);
 
     const filePath =
       existsSync(candidatePath) && candidatePath.startsWith(staticDir)
