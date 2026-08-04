@@ -85,6 +85,10 @@ export const LEVEL_ONE: LevelDef = {
   ],
 
   // --- Checkpoints (3) --------------------------------------------------
+  // y-Position entspricht der sichtbaren Fahnen-Position auf Bodenhöhe. Der
+  // Höhen-Offset beim Respawn (damit der Bot nicht im Terrain landet) wird
+  // NICHT hier, sondern in `loseLifeAndRespawn` (raceRules.ts) angewendet,
+  // damit die Fahnen visuell korrekt auf dem Boden stehen (siehe Chat-Verlauf).
   checkpoints: [
     { id: "checkpoint-1", x: 800, y: GROUND_Y - 0 }, // Start von P3
     { id: "checkpoint-2", x: 1470, y: GROUND_Y - 0 }, // Start von P5, nach der Kugelblitz-Lücke

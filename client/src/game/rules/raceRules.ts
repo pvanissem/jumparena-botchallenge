@@ -44,13 +44,18 @@ export function resolveHazardContact(
   return "hit";
 }
 
+/** Respawn-Offset nach oben (px): Checkpoints sitzen visuell auf Bodenhöhe
+ *  (Fahnen-Sprite), der Bot muss aber leicht darüber respawnen, sonst landet
+ *  er im Terrain und fällt sofort wieder durch (siehe Chat-Verlauf). */
+const RESPAWN_Y_OFFSET = 32;
+
 function loseLifeAndRespawn(state: RacerRuntimeState): RacerRuntimeState {
   const livesRemaining = state.livesRemaining - 1;
   const outOfLives = livesRemaining <= 0;
   return {
     ...state,
     x: state.lastCheckpoint.x,
-    y: state.lastCheckpoint.y,
+    y: state.lastCheckpoint.y - RESPAWN_Y_OFFSET,
     livesRemaining,
     deaths: state.deaths + 1,
     didNotFinish: outOfLives ? true : state.didNotFinish,

@@ -16,6 +16,11 @@ export function DevPage() {
   const [pausedReason, setPausedReason] = useState<string | null>(null);
   const [racer, setRacer] = useState<RacerRuntimeState | null>(null);
   const audioLocked = useAudioUnlockHint();
+  // Erhöht sich bei Klick auf "Neu starten" und wird als React-`key` an
+  // `ArenaView` gegeben, damit die Komponente komplett neu gemountet wird
+  // (zerstört das alte Phaser-Game sauber und startet die Szene mit frischem
+  // `create()`/Racer-State neu, siehe ArenaView.tsx Cleanup-Effect).
+  const [runId, setRunId] = useState(0);
 
   useEffect(() => {
     if (mode !== "bot" || !selectedBot) {
@@ -71,6 +76,19 @@ export function DevPage() {
           </select>
         )}
 
+        {(mode === "keyboard" || botSourceCode) && (
+          <button
+            type="button"
+            onClick={() => {
+              setRacer(null);
+              setPausedReason(null);
+              setRunId((id) => id + 1);
+            }}
+          >
+            Neu starten
+          </button>
+        )}
+
         {pausedReason && <p>Bot pausiert: {pausedReason}</p>}
         {racer && (
           <p>
@@ -81,6 +99,7 @@ export function DevPage() {
 
         {(mode === "keyboard" || botSourceCode) && (
           <ArenaView
+            key={runId}
             controlMode={mode}
             botSourceCode={botSourceCode}
             onStatusChange={(s) => {

@@ -68,7 +68,7 @@ describe("resolveHazardContact", () => {
 });
 
 describe("applyHazardContact", () => {
-  it("'hit' loses a life and respawns at lastCheckpoint", () => {
+  it("'hit' loses a life and respawns at lastCheckpoint, 32px above it", () => {
     const state = {
       ...createInitialRacerState(LEVEL),
       x: 50,
@@ -79,7 +79,7 @@ describe("applyHazardContact", () => {
     expect(next.livesRemaining).toBe(state.livesRemaining - 1);
     expect(next.deaths).toBe(state.deaths + 1);
     expect(next.x).toBe(20);
-    expect(next.y).toBe(58);
+    expect(next.y).toBe(26);
   });
 
   it("'stomped' does not change the racer state", () => {
@@ -103,7 +103,7 @@ describe("applyPitFall", () => {
     const next = applyPitFall(state);
     expect(next.livesRemaining).toBe(state.livesRemaining - 1);
     expect(next.x).toBe(state.lastCheckpoint.x);
-    expect(next.y).toBe(state.lastCheckpoint.y);
+    expect(next.y).toBe(state.lastCheckpoint.y - 32);
   });
 });
 
