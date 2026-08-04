@@ -413,6 +413,7 @@ export class RaceScene extends Phaser.Scene {
     if (body.velocity.y <= 0) return;
 
     body.setVelocityY(BOINGO_JUMP_VELOCITY);
+    this.playSfx(AUDIO_KEYS.BOINGO);
 
     const kind = utility.getData("kind") as UtilityKind;
     const spec = UTILITY_REGISTRY[kind];

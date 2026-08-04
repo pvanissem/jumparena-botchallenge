@@ -44,7 +44,7 @@ export const HAZARD_REGISTRY: Record<HazardKind, HazardSpec> = {
     texture: "spikes",
     stompable: false,
     behavior: "static",
-    hitbox: { width: 16, height: 10, offsetX: 0, offsetY: 6 },
+    hitbox: { width: 10, height: 10, offsetX: 3, offsetY: 6 },
   },
   loderix: {
     texture: "fire-on",
@@ -52,7 +52,7 @@ export const HAZARD_REGISTRY: Record<HazardKind, HazardSpec> = {
     inactiveTexture: "fire-off",
     stompable: false,
     behavior: "timed",
-    hitbox: { width: 12, height: 22, offsetX: 2, offsetY: 10 },
+    hitbox: { width: 10, height: 22, offsetX: 3, offsetY: 10 },
   },
   kugelblitz: {
     texture: "spiked-ball",

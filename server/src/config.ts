@@ -6,11 +6,21 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 export interface ServerConfig {
   port: number;
   staticDir: string;
+  /**
+   * Dev-Modus (`NODE_ENV=development`, siehe `server/package.json`s `dev`-Script):
+   * Statt der gebauten `client/dist` wird Vite im Middleware-Mode gegen
+   * `clientRoot` gemountet, damit `npm run dev` einen einzigen Prozess/Origin
+   * mit vollem HMR liefert (siehe `http/createDevServer.ts`).
+   */
+  isDev: boolean;
+  clientRoot: string;
 }
 
 export function loadConfig(): ServerConfig {
   const port = Number(process.env.PORT ?? 3000);
   const staticDir = process.env.STATIC_DIR ?? join(currentDir, "../../client/dist");
+  const isDev = process.env.NODE_ENV === "development";
+  const clientRoot = join(currentDir, "../../client");
 
-  return { port, staticDir };
+  return { port, staticDir, isDev, clientRoot };
 }

@@ -1,4 +1,5 @@
 import { loadConfig } from "./config";
+import { createDevServer } from "./http/createDevServer";
 import { createStaticServer } from "./http/createStaticServer";
 import { BroadcastRouter } from "./ws/BroadcastRouter";
 import { ClientRegistry } from "./ws/ClientRegistry";
@@ -16,11 +17,14 @@ dispatcher.register("audio-settings", createBroadcastRelayHandler(broadcastRoute
 
 const gateway = new WebSocketGateway(registry, dispatcher);
 
-const httpServer = createStaticServer(config.staticDir);
+const httpServer = config.isDev
+  ? await createDevServer(config.clientRoot)
+  : createStaticServer(config.staticDir);
 httpServer.on("upgrade", (request, socket, head) => {
   gateway.handleUpgrade(request, socket, head);
 });
 
 httpServer.listen(config.port, () => {
-  console.log(`Arena hub server listening on http://localhost:${config.port}`);
+  const mode = config.isDev ? "dev (Vite middleware, HMR)" : "static (client/dist)";
+  console.log(`Arena hub server listening on http://localhost:${config.port} [${mode}]`);
 });

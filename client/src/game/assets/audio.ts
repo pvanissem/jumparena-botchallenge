@@ -15,6 +15,7 @@ export const AUDIO_KEYS = {
   FALL: "fall",
   CHECKPOINT: "checkpoint",
   COMPLETE: "complete",
+  BOINGO: "boingo",
 } as const;
 
 export type AudioKey = (typeof AUDIO_KEYS)[keyof typeof AUDIO_KEYS];
@@ -33,4 +34,5 @@ export const AUDIO_SPECS: readonly AudioSpec[] = [
   { key: AUDIO_KEYS.FALL, path: `${BASE}/fall.mp3` },
   { key: AUDIO_KEYS.CHECKPOINT, path: `${BASE}/checkpoint.mp3` },
   { key: AUDIO_KEYS.COMPLETE, path: `${BASE}/complete.mp3` },
+  { key: AUDIO_KEYS.BOINGO, path: `${BASE}/boingo.mp3` },
 ];
