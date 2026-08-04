@@ -135,6 +135,37 @@ beschrieben.
 - Persistenz: nur In-Memory für die Laufzeit des Serverprozesses, keine
   Datenbank/Dateispeicherung.
 
+**Wichtige Klarstellung zu `/dev`:** Ein `/dev`-Prozess ist und bleibt ein rein
+lokaler, isolierter Node-Prozess pro Stationsrechner. Er hat und bekommt
+**keine** WebSocket-Verbindung, über die er Bot-Code an den Hub-Server sendet –
+`/dev` dient ausschließlich dazu, dass am Stand (mit Hilfe von `devkcode`) eine
+`.js`-Datei mit einer `decide(state)`-Funktion entsteht, die der Besucher lokal
+herunterlädt/exportiert. `/dev` "weiß" nichts von `/admin`, `/present` oder
+anderen Stationen.
+
+### Bot-Sammelstelle (Konzept, Umsetzung als eigenes Feature)
+
+Damit `/admin` und `/present` **denselben Stand an eingereichten Bot-Artefakten**
+sehen, braucht es eine zentrale Sammelstelle – naheliegenderweise beim ohnehin
+zentralen Hub-Server-Prozess:
+
+- Der Hub-Server hält eine **In-Memory-Bot-Registry** (nur für die Laufzeit des
+  Serverprozesses, keine Persistenz) mit den eingereichten Bot-Artefakten
+  (Quellcode + Metadaten wie Name/Autor/Farbe).
+- `/admin` und `/present` lesen/abonnieren dieselbe Registry über den
+  bestehenden WebSocket-Kanal – beide sehen also garantiert denselben Stand.
+- Der Server bleibt dabei reiner Relay/Speicher: Er **führt den Bot-Code nicht
+  aus** (keine Bot-Sandbox, keine Simulation auf dem Server) – das Ausführen
+  passiert weiterhin ausschließlich clientseitig (in `/present`, analog zur
+  Sandbox aus `docs/09-bot-artefakt-und-turnier.md`).
+- Als Zwischenlösung für das **Einspeisen** in die Sammelstelle: `/admin` bietet
+  einen manuellen Datei-Upload (Drag&Drop/File-Input) für `.js`-Bot-Artefakte an.
+  `/dev` ist daran **nicht** angebunden.
+
 **Explizit weiterhin offen:** Wie das fertige Bot-Artefakt (`decide.js`) von
-einer `/dev`-Station zum Präsentationsrechner gelangt, ist **nicht** Teil dieser
-Server-Infrastruktur – siehe `docs/09-bot-artefakt-und-turnier.md`.
+einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
+manuelles Kopieren, künftig evtl. ein eigener Transportmechanismus), ist
+**nicht** Teil dieser Server-Infrastruktur und bewusst ungelöst – siehe
+`docs/09-bot-artefakt-und-turnier.md`. Die Sammelstelle selbst (Registry im
+Hub-Server + Admin-Upload + Anzeige in `/admin`/`/present`) ist als eigenes
+Feature-Spec umzusetzen (siehe `docs/07-offene-punkte.md`).

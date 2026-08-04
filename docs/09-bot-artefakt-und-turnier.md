@@ -43,15 +43,25 @@ verworfen**, sondern in der Bot-Liste sichtbar als „ungültig" markiert.
 
 > Hinweis: Damit ist die ursprüngliche „kein Server"-Entscheidung aus
 > `docs/03` weiterhin gültig – nur mit modernem Browser-Datei-Zugriff statt
-> eines klassischen Upload-Endpoints.
+> eines klassischen Upload-Endpoints. Dieser lokale Import ist **ausschließlich
+> für den Testmodus innerhalb einer `/dev`-Station** relevant (siehe
+> "Testmodus" unten) – `/dev` bleibt dabei ein komplett isolierter, lokaler
+> Prozess ohne Verbindung zu `/admin` oder `/present` (siehe `docs/03`).
 >
 > **Ergänzung (siehe `.features/arena-hub-server/`):** Für den Betrieb von
 > `/present` und `/admin` bei mehreren `/dev`-Stationen gibt es inzwischen einen
 > zentralen WebSocket-Router-Server (siehe `docs/03-architektur.md`, Abschnitt
 > "Zentraler Server für Multi-Stationen-Betrieb"). Dieser Server transportiert
-> aber **keine** Bot-Artefakte – der Weg eines fertigen `decide.js` von einer
-> `/dev`-Station zum Präsentationsrechner bleibt weiterhin **offen/t.b.d.** und
-> ist Gegenstand eines separaten, noch zu erstellenden Feature-Specs.
+> aber (noch) **keine** Bot-Artefakte automatisch von `/dev` – `/dev` sendet
+> grundsätzlich nichts an den Server. Für `/admin` und `/present` ist stattdessen
+> eine **zentrale Bot-Sammelstelle** im Hub-Server vorgesehen (In-Memory-Registry,
+> siehe `docs/03-architektur.md`, Abschnitt "Bot-Sammelstelle"), die beide
+> Ansichten mit demselben Stand versorgt. Eingespeist wird diese Sammelstelle
+> vorerst über einen **manuellen Datei-Upload in `/admin`** (Zwischenlösung).
+> **Weiterhin offen/t.b.d.:** Wie das fertige Bot-Artefakt (`decide.js`) von
+> einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
+> manuelles Kopieren) – das ist bewusst nicht Teil der bisherigen Infrastruktur
+> und Gegenstand eines künftigen, separaten Feature-Specs.
 
 ## Sandbox (Web Worker)
 

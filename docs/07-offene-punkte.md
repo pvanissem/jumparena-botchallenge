@@ -19,9 +19,19 @@ dem eigentlichen Umsetzungsstart geklärt/entschieden werden sollten.
 - [x] **Zentrales Leaderboard über mehrere Stationen/Rechner hinweg** – entschieden:
       Ein zentraler Node.js-WebSocket-Router-Server verbindet `/present` und
       `/admin` (mit Broadcast-Kanal auch zu `/dev`). Siehe
-      `.features/arena-hub-server/` und `docs/03-architektur.md`. Weiterhin offen:
-      der konkrete Transportweg für Bot-Artefakte von `/dev` zum
-      Präsentationsrechner (siehe `docs/09-bot-artefakt-und-turnier.md`).
+      `.features/arena-hub-server/` und `docs/03-architektur.md`.
+- [x] **Wie sehen `/admin` und `/present` denselben Bot-Stand?** – entschieden:
+      Zentrale In-Memory-Bot-Sammelstelle im Hub-Server, aus der beide Ansichten
+      lesen (siehe `docs/03-architektur.md`, Abschnitt "Bot-Sammelstelle").
+      Eingespeist wird sie vorerst über manuellen Datei-Upload in `/admin`.
+      Umsetzung als eigenes Feature-Spec `bot-collection-point` (nach
+      `bot-decide-api` und `level-one-arena`).
+- [ ] **Transportweg Stationsrechner → Admin-Rechner:** Wie gelangt ein fertiges
+      Bot-Artefakt (`decide.js`) von einer isolierten `/dev`-Station auf den
+      Admin-Rechner (z.B. USB-Stick, manuelles Kopieren, künftig evtl. ein
+      eigener Mechanismus)? `/dev` bleibt bewusst ohne Netzwerkanbindung an den
+      Hub-Server (siehe `docs/03-architektur.md`, `docs/09-bot-artefakt-und-turnier.md`).
+      Weiterhin offen.
 - [ ] **Scoring-Konstanten kalibrieren** (siehe 05-scoring-und-heats.md) mit Testbots vor dem Event.
 
 ## Technische Risiken
