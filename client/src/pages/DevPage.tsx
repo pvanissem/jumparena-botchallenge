@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { currentBotSource } from "../bot/currentBotSource";
 import { AudioControls } from "../components/AudioControls";
+import { FinishOverlay } from "../components/FinishOverlay";
+import { ScoreHud } from "../components/ScoreHud";
 import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
 import { useArenaControls } from "../game/control/useArenaControls";
@@ -16,10 +18,6 @@ type BotDiagnosis = Pick<
 // unnötig vorzeitig beenden (didNotFinish, siehe raceRules.ts), sobald der
 // Bot ein paar Mal stirbt. Deshalb hier unendlich viele Leben.
 const UNLIMITED_LIVES = Number.POSITIVE_INFINITY;
-
-function formatLives(livesRemaining: number): string {
-  return Number.isFinite(livesRemaining) ? String(livesRemaining) : "∞";
-}
 
 function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
   switch (diagnosis.pausedReasonKind) {
@@ -47,6 +45,14 @@ export function DevPage() {
   // (zerstört das alte Phaser-Game sauber und startet die Szene mit frischem
   // `create()`/Racer-State neu, siehe ArenaView.tsx Cleanup-Effect).
   const [runId, setRunId] = useState(0);
+
+  const restart = () => {
+    setRacer(null);
+    setDiagnosis(null);
+    setRunId((id) => id + 1);
+  };
+
+  const runEnded = racer != null && (racer.finished || racer.didNotFinish);
 
   return (
     <main className="pixel-page">
@@ -78,24 +84,14 @@ export function DevPage() {
           <button
             type="button"
             className="pixel-btn pixel-btn--accent"
-            onClick={() => {
-              setRacer(null);
-              setDiagnosis(null);
-              setRunId((id) => id + 1);
-            }}
+            onClick={restart}
           >
             ↻ Neu
           </button>
 
           <AudioControls />
 
-          {racer && (
-            <div className="pixel-hud">
-              <span>🪙 {racer.coinsCollected}</span>
-              <span>❤️ {formatLives(racer.livesRemaining)}</span>
-              <span>⏱ {Math.round(racer.timeElapsedMs / 1000)}s</span>
-            </div>
-          )}
+          {racer && <ScoreHud racer={racer} />}
 
           {mode === "bot" && diagnosis && (
             <span className="pixel-status">{renderBotDiagnosis(diagnosis)}</span>
@@ -118,6 +114,7 @@ export function DevPage() {
               });
             }}
           />
+          {runEnded && racer && <FinishOverlay racer={racer} onRestart={restart} />}
         </div>
       </div>
     </main>

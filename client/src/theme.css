@@ -295,11 +295,116 @@ canvas {
 .pixel-hud {
   display: inline-flex;
   gap: 12px;
+  align-items: center;
   font-size: 9px;
   padding: 8px 12px;
   background: var(--bg-0);
   color: var(--neon-yellow);
   box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+.pixel-hud--score > span {
+  white-space: nowrap;
+}
+
+.pixel-hud__bonus {
+  color: var(--ink-dim);
+}
+
+.pixel-hud__bonus--on {
+  color: var(--neon-green);
+  text-shadow: 0 0 6px rgba(87, 255, 143, 0.6);
+}
+
+/* ---------- Info-Popup (Hover/Focus) ---------- */
+
+.pixel-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--bg-0);
+  background: var(--neon-cyan);
+  box-shadow: 0 0 0 2px var(--border-dark);
+  cursor: help;
+  outline: none;
+  font-size: 10px;
+}
+
+.pixel-info__pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  width: max-content;
+  max-width: min(440px, 80vw);
+  padding: 14px;
+  text-align: left;
+  font-size: 8px;
+  line-height: 2;
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    0 0 0 6px var(--neon-cyan),
+    0 0 0 9px var(--border-dark),
+    6px 8px 0 9px rgba(0, 0, 0, 0.5);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.pixel-info__pop > span {
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.pixel-info:hover .pixel-info__pop,
+.pixel-info:focus .pixel-info__pop,
+.pixel-info:focus-within .pixel-info__pop {
+  display: flex;
+}
+
+/* Kleiner Pixel-"Zipfel" zum Icon hoch */
+.pixel-info__pop::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+.pixel-info__title {
+  color: var(--neon-yellow);
+  text-shadow: 2px 2px 0 var(--border-dark);
+  margin-bottom: 2px;
+}
+
+.pixel-info__row {
+  color: var(--ink-dim);
+}
+
+.pixel-info__row b {
+  color: var(--neon-cyan);
+}
+
+.pixel-info__total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px solid var(--border-dark);
+  color: var(--neon-green);
+}
+
+.pixel-info__total b {
+  color: var(--neon-yellow);
 }
 
 .pixel-status {
@@ -316,6 +421,7 @@ canvas {
 /* ---------- Arena-Rahmen ---------- */
 
 .pixel-arena {
+  position: relative;
   padding: 6px;
   background: var(--bg-0);
   box-shadow:
@@ -331,4 +437,113 @@ canvas {
   max-height: calc(100vh - 90px);
   height: auto;
   width: auto;
+}
+
+/* ---------- Finish-Overlay ---------- */
+
+.pixel-overlay {
+  position: absolute;
+  inset: 6px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.7;
+  background: rgba(5, 5, 16, 0.82);
+  /* Retro-Scanlines über der Abdunklung */
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, 0.35) 2px 4px),
+    linear-gradient(rgba(5, 5, 16, 0.82), rgba(5, 5, 16, 0.82));
+  animation: pixel-overlay-in 0.12s steps(2) both;
+}
+
+@keyframes pixel-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pixel-overlay__card {
+  width: min(360px, 84%);
+  padding: 22px 24px;
+  text-align: center;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 4px var(--border-dark),
+    0 0 0 8px var(--neon-yellow),
+    0 0 0 12px var(--border-dark),
+    8px 12px 0 12px rgba(0, 0, 0, 0.55);
+  animation: pixel-card-pop 0.16s steps(3) both;
+}
+
+@keyframes pixel-card-pop {
+  from {
+    transform: scale(0.85) translateY(8px);
+  }
+  to {
+    transform: scale(1) translateY(0);
+  }
+}
+
+.pixel-overlay__title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+.pixel-overlay__title.is-win {
+  color: var(--neon-green);
+}
+
+.pixel-overlay__title.is-fail {
+  color: var(--danger);
+}
+
+.pixel-overlay__score {
+  font-size: 34px;
+  color: var(--neon-yellow);
+  text-shadow:
+    3px 3px 0 var(--border-dark),
+    0 0 14px rgba(255, 210, 63, 0.4);
+}
+
+.pixel-overlay__score-label {
+  margin-top: 4px;
+  font-size: 8px;
+  color: var(--ink-dim);
+  letter-spacing: 2px;
+}
+
+.pixel-overlay__rows {
+  margin: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-0);
+  box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+.pixel-overlay__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 9px;
+  color: var(--ink);
+}
+
+.pixel-overlay__row span:first-child {
+  color: var(--ink-dim);
+}
+
+.pixel-overlay__row.is-penalty span {
+  color: var(--danger);
+}
+
+.pixel-overlay__card .pixel-btn {
+  margin-top: 4px;
 }
