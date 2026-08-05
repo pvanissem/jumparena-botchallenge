@@ -3,7 +3,6 @@ import { currentBotSource } from "../bot/currentBotSource";
 import { AudioControls } from "../components/AudioControls";
 import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
-import { useAudioUnlockHint } from "../game/audio/useAudioUnlockHint";
 import { useArenaControls } from "../game/control/useArenaControls";
 import type { RacerRuntimeState } from "../game/rules/racerState";
 
@@ -11,6 +10,16 @@ type BotDiagnosis = Pick<
   ArenaViewStatus,
   "pausedReasonKind" | "pausedReason" | "lastRuntimeError" | "consecutiveFailureCount"
 >;
+
+// /dev dient dem Ausprobieren/Debuggen, nicht der Turnier-Wertung (siehe
+// docs/05) - ein begrenztes Leben-Budget würde einen Testlauf nur
+// unnötig vorzeitig beenden (didNotFinish, siehe raceRules.ts), sobald der
+// Bot ein paar Mal stirbt. Deshalb hier unendlich viele Leben.
+const UNLIMITED_LIVES = Number.POSITIVE_INFINITY;
+
+function formatLives(livesRemaining: number): string {
+  return Number.isFinite(livesRemaining) ? String(livesRemaining) : "∞";
+}
 
 function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
   switch (diagnosis.pausedReasonKind) {
@@ -33,7 +42,6 @@ export function DevPage() {
   const { mode, setMode } = useArenaControls();
   const [racer, setRacer] = useState<RacerRuntimeState | null>(null);
   const [diagnosis, setDiagnosis] = useState<BotDiagnosis | null>(null);
-  const audioLocked = useAudioUnlockHint();
   // Erhöht sich bei Klick auf "Neu starten" und wird als React-`key` an
   // `ArenaView` gegeben, damit die Komponente komplett neu gemountet wird
   // (zerstört das alte Phaser-Game sauber und startet die Szene mit frischem
@@ -41,64 +49,77 @@ export function DevPage() {
   const [runId, setRunId] = useState(0);
 
   return (
-    <main>
-      <h1>Bot-Entwicklung</h1>
-      <p>
-        Die eigentliche Bot-Entwicklung (devkcode) ist nicht Teil dieses Features. Hier kann das
-        Level selbst getestet werden – entweder manuell oder mit dem aktuellen Bot (
-        <code>client/src/bot/current-bot.js</code>). Änderungen an dieser Datei lösen automatisch
-        einen Reload dieser Seite aus.
-      </p>
-      <AudioControls />
-      {audioLocked && (
-        <p>🔈 Ton startet mit der ersten Interaktion (Klick/Taste) – Vorgabe des Browsers.</p>
-      )}
+    <main className="pixel-page">
+      <div className="pixel-shell">
+        <div className="pixel-bar">
+          <div className="pixel-toggle">
+            <label
+              className={`pixel-toggle__option${
+                mode === "keyboard" ? " pixel-toggle__option--active" : ""
+              }`}
+            >
+              <input
+                type="radio"
+                checked={mode === "keyboard"}
+                onChange={() => setMode("keyboard")}
+              />
+              🎮 Selbst
+            </label>
+            <label
+              className={`pixel-toggle__option${
+                mode === "bot" ? " pixel-toggle__option--active" : ""
+              }`}
+            >
+              <input type="radio" checked={mode === "bot"} onChange={() => setMode("bot")} />
+              🤖 Bot
+            </label>
+          </div>
 
-      <section>
-        <h2>Level testen</h2>
-        <label>
-          <input type="radio" checked={mode === "keyboard"} onChange={() => setMode("keyboard")} />
-          Selbst spielen
-        </label>
-        <label>
-          <input type="radio" checked={mode === "bot"} onChange={() => setMode("bot")} />
-          Bot laufen lassen
-        </label>
+          <button
+            type="button"
+            className="pixel-btn pixel-btn--accent"
+            onClick={() => {
+              setRacer(null);
+              setDiagnosis(null);
+              setRunId((id) => id + 1);
+            }}
+          >
+            ↻ Neu
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setRacer(null);
-            setDiagnosis(null);
-            setRunId((id) => id + 1);
-          }}
-        >
-          Neu starten
-        </button>
+          <AudioControls />
 
-        {mode === "bot" && diagnosis && <p>{renderBotDiagnosis(diagnosis)}</p>}
-        {racer && (
-          <p>
-            Coins: {racer.coinsCollected} · Leben: {racer.livesRemaining} · Zeit:{" "}
-            {Math.round(racer.timeElapsedMs / 1000)}s
-          </p>
-        )}
+          {racer && (
+            <div className="pixel-hud">
+              <span>🪙 {racer.coinsCollected}</span>
+              <span>❤️ {formatLives(racer.livesRemaining)}</span>
+              <span>⏱ {Math.round(racer.timeElapsedMs / 1000)}s</span>
+            </div>
+          )}
 
-        <ArenaView
-          key={runId}
-          controlMode={mode}
-          botSourceCode={mode === "bot" ? currentBotSource : undefined}
-          onStatusChange={(s) => {
-            setRacer(s.racer);
-            setDiagnosis({
-              pausedReasonKind: s.pausedReasonKind,
-              pausedReason: s.pausedReason,
-              lastRuntimeError: s.lastRuntimeError,
-              consecutiveFailureCount: s.consecutiveFailureCount,
-            });
-          }}
-        />
-      </section>
+          {mode === "bot" && diagnosis && (
+            <span className="pixel-status">{renderBotDiagnosis(diagnosis)}</span>
+          )}
+        </div>
+
+        <div className="pixel-arena">
+          <ArenaView
+            key={runId}
+            controlMode={mode}
+            botSourceCode={mode === "bot" ? currentBotSource : undefined}
+            startingLives={UNLIMITED_LIVES}
+            onStatusChange={(s) => {
+              setRacer(s.racer);
+              setDiagnosis({
+                pausedReasonKind: s.pausedReasonKind,
+                pausedReason: s.pausedReason,
+                lastRuntimeError: s.lastRuntimeError,
+                consecutiveFailureCount: s.consecutiveFailureCount,
+              });
+            }}
+          />
+        </div>
+      </div>
     </main>
   );
 }

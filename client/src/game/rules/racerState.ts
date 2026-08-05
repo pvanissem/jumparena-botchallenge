@@ -30,7 +30,10 @@ export interface RacerRuntimeState {
   resolvedBlockIds: ReadonlySet<string>;
 }
 
-export function createInitialRacerState(level: LevelDef): RacerRuntimeState {
+export function createInitialRacerState(
+  level: LevelDef,
+  startingLives: number = LIVES_PER_RUN
+): RacerRuntimeState {
   return {
     x: level.spawn.x,
     y: level.spawn.y,
@@ -41,7 +44,7 @@ export function createInitialRacerState(level: LevelDef): RacerRuntimeState {
     didNotFinish: false,
     coinsCollected: 0,
     fruitScore: 0,
-    livesRemaining: LIVES_PER_RUN,
+    livesRemaining: startingLives,
     deaths: 0,
     timeElapsedMs: 0,
     lastCheckpoint: { x: level.spawn.x, y: level.spawn.y },

@@ -61,6 +61,11 @@ const RUN_ANIM_THRESHOLD = 1;
 export interface RaceSceneInitData {
   controllerMode: "keyboard" | "bot";
   botSourceCode?: string;
+  /** Start-Leben für diesen Lauf (Default: `LIVES_PER_RUN`, siehe
+   *  `racerState.ts`). `/dev` übergibt hier `Infinity`, damit ein Testlauf
+   *  beim Ausprobieren nicht durch "keine Leben mehr"/DNF vorzeitig stoppt -
+   *  im späteren Turniermodus bleibt der reguläre Wert relevant. */
+  startingLives?: number;
   onStatusChange?: (status: {
     racer: RacerRuntimeState;
     pausedReason: string | null;
@@ -131,7 +136,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.racer = createInitialRacerState(this.level);
+    this.racer = createInitialRacerState(this.level, this.initData.startingLives);
     this.elapsedMs = 0;
     this.sinceLastBotTick = 0;
     this.tickCounter = 0;

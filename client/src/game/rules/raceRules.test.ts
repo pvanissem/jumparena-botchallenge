@@ -105,6 +105,14 @@ describe("applyPitFall", () => {
     expect(next.x).toBe(state.lastCheckpoint.x);
     expect(next.y).toBe(state.lastCheckpoint.y - 32);
   });
+
+  it("never runs out of lives / never sets didNotFinish with Infinity starting lives (/dev)", () => {
+    const state = createInitialRacerState(LEVEL, Number.POSITIVE_INFINITY);
+    const next = applyPitFall(applyPitFall(applyPitFall(state)));
+    expect(next.livesRemaining).toBe(Number.POSITIVE_INFINITY);
+    expect(next.didNotFinish).toBe(false);
+    expect(next.isAlive).toBe(true);
+  });
 });
 
 describe("applyCheckpointReached", () => {

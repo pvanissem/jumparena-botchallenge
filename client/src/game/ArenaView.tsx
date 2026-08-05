@@ -19,10 +19,20 @@ export interface ArenaViewStatus {
 export interface ArenaViewProps {
   controlMode: "keyboard" | "bot";
   botSourceCode?: string;
+  /** Start-Leben für diesen Lauf (siehe `RaceSceneInitData.startingLives`).
+   *  Nur beim (Neu-)Start eines Laufs relevant, kein Live-Umschalten
+   *  während des Betriebs nötig - daher bewusst nicht Teil des reaktiven
+   *  zweiten Effects unten (analog zu `controlMode` beim Mount). */
+  startingLives?: number;
   onStatusChange?: (status: ArenaViewStatus) => void;
 }
 
-export function ArenaView({ controlMode, botSourceCode, onStatusChange }: ArenaViewProps) {
+export function ArenaView({
+  controlMode,
+  botSourceCode,
+  startingLives,
+  onStatusChange,
+}: ArenaViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   // Ref-Escape-Hatch: `onStatusChange` ist bei DevPage-Aufrufern typischerweise
@@ -64,6 +74,7 @@ export function ArenaView({ controlMode, botSourceCode, onStatusChange }: ArenaV
     game.scene.start("RaceScene", {
       controllerMode: controlMode,
       botSourceCode,
+      startingLives,
       onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) =>
         onStatusChangeRef.current?.(status),
       onReady: () => {

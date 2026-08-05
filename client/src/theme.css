@@ -1,0 +1,334 @@
+/*
+ * Pixel-/Retro-Arcade-Theme für Coin Quest Arena.
+ * Dunkler Hintergrund, "Press Start 2P"-Font, harte Pixel-Kanten.
+ * Layout-Grundsatz: Inhalt nimmt maximal die halbe Bildschirmbreite ein
+ * (--content-max-width), zentriert.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+:root {
+  --content-max-width: 50vw;
+
+  /* Farbpalette (dunkel, neon-arcade) */
+  --bg-0: #0a0a14;
+  --bg-1: #12122a;
+  --panel: #1a1a3a;
+  --panel-hi: #26264f;
+  --ink: #e8e8ff;
+  --ink-dim: #9a9ac8;
+  --neon-cyan: #38e8ff;
+  --neon-pink: #ff4fa3;
+  --neon-yellow: #ffd23f;
+  --neon-green: #57ff8f;
+  --danger: #ff5a5a;
+  --border-dark: #050510;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Press Start 2P", "Courier New", monospace;
+  color: var(--ink);
+  background-color: var(--bg-0);
+  /* Sternenfeld / Pixel-Grid-Look über CSS-Gradients */
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(56, 232, 255, 0.06) 0, transparent 42%),
+    radial-gradient(circle at 80% 70%, rgba(255, 79, 163, 0.06) 0, transparent 42%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.015) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.015) 3px 4px),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: none;
+  image-rendering: pixelated;
+  line-height: 1.7;
+  letter-spacing: 0.5px;
+}
+
+/* Canvas / Sprites hart pixeln lassen */
+canvas {
+  image-rendering: pixelated;
+}
+
+/* ---------- Layout ---------- */
+
+.pixel-page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.pixel-shell {
+  width: 100%;
+  max-width: var(--content-max-width);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Kompakte Steuerleiste: alles in einer Zeile, sparsam vertikal. */
+.pixel-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Auf schmalen Screens ist "halbe Breite" unpraktisch -> mehr Platz geben. */
+@media (max-width: 1100px) {
+  :root {
+    --content-max-width: 90vw;
+  }
+}
+
+/* ---------- Typografie ---------- */
+
+.pixel-title {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--neon-yellow);
+  text-shadow:
+    3px 3px 0 var(--border-dark),
+    0 0 12px rgba(255, 210, 63, 0.35);
+}
+
+.pixel-subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: var(--neon-cyan);
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+.pixel-text {
+  margin: 0;
+  font-size: 9px;
+  line-height: 2;
+  color: var(--ink-dim);
+}
+
+.pixel-text code {
+  color: var(--neon-green);
+  background: rgba(87, 255, 143, 0.08);
+  padding: 1px 4px;
+}
+
+/* ---------- Panels (Pixel-Border, keine runden Ecken) ---------- */
+
+.pixel-panel {
+  position: relative;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 20px;
+  /* Harte "8-bit"-Umrandung via mehrfachem box-shadow statt border-radius */
+  box-shadow:
+    0 0 0 4px var(--border-dark),
+    0 0 0 8px var(--panel-hi),
+    0 0 0 12px var(--border-dark),
+    8px 12px 0 12px rgba(0, 0, 0, 0.45);
+  image-rendering: pixelated;
+}
+
+.pixel-panel + .pixel-panel {
+  margin-top: 8px;
+}
+
+.pixel-panel__heading {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--neon-pink);
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+/* ---------- Buttons ---------- */
+
+.pixel-btn {
+  font-family: inherit;
+  font-size: 9px;
+  color: var(--bg-0);
+  background: var(--neon-cyan);
+  border: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    3px 3px 0 3px rgba(0, 0, 0, 0.5);
+  transition: transform 0.04s steps(1);
+  image-rendering: pixelated;
+}
+
+.pixel-btn:hover {
+  background: #6cf0ff;
+}
+
+.pixel-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    1px 1px 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.pixel-btn--accent {
+  background: var(--neon-yellow);
+}
+.pixel-btn--accent:hover {
+  background: #ffe27a;
+}
+
+/* ---------- Segmented Toggle (Selbst / Bot) ---------- */
+
+.pixel-toggle {
+  display: inline-flex;
+  gap: 0;
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    3px 3px 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.pixel-toggle__option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--ink-dim);
+  background: var(--panel-hi);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pixel-toggle__option + .pixel-toggle__option {
+  border-left: 3px solid var(--border-dark);
+}
+
+.pixel-toggle__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pixel-toggle__option:hover {
+  color: var(--ink);
+}
+
+.pixel-toggle__option--active {
+  color: var(--bg-0);
+  background: var(--neon-green);
+  text-shadow: none;
+}
+
+.pixel-toggle__icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ---------- Audio-Controls ---------- */
+
+.pixel-audio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pixel-audio__label {
+  font-size: 9px;
+  color: var(--neon-cyan);
+}
+
+/* Retro-Range-Slider */
+.pixel-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 120px;
+  height: 12px;
+  background: var(--bg-0);
+  box-shadow: 0 0 0 3px var(--border-dark);
+  cursor: pointer;
+}
+
+.pixel-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 18px;
+  background: var(--neon-pink);
+  box-shadow: 0 0 0 3px var(--border-dark);
+  border: none;
+}
+
+.pixel-range::-moz-range-thumb {
+  width: 12px;
+  height: 18px;
+  background: var(--neon-pink);
+  box-shadow: 0 0 0 3px var(--border-dark);
+  border: none;
+  border-radius: 0;
+}
+
+.pixel-range::-moz-range-track {
+  height: 12px;
+  background: var(--bg-0);
+}
+
+/* ---------- Status-Zeile / HUD ---------- */
+
+.pixel-hud {
+  display: inline-flex;
+  gap: 12px;
+  font-size: 9px;
+  padding: 8px 12px;
+  background: var(--bg-0);
+  color: var(--neon-yellow);
+  box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+.pixel-status {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.4;
+  padding: 8px 12px;
+  background: var(--bg-0);
+  box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+/* ---------- Arena-Rahmen ---------- */
+
+.pixel-arena {
+  padding: 6px;
+  background: var(--bg-0);
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    0 0 0 6px var(--neon-cyan),
+    0 0 0 9px var(--border-dark);
+  line-height: 0;
+  overflow: hidden;
+}
+
+.pixel-arena canvas {
+  max-width: 100%;
+  max-height: calc(100vh - 90px);
+  height: auto;
+  width: auto;
+}

@@ -33,6 +33,11 @@ describe("createInitialRacerState", () => {
     expect(state.didNotFinish).toBe(false);
   });
 
+  it("accepts a custom starting lives count (e.g. Infinity for /dev testing)", () => {
+    const state = createInitialRacerState(LEVEL, Number.POSITIVE_INFINITY);
+    expect(state.livesRemaining).toBe(Number.POSITIVE_INFINITY);
+  });
+
   it("starts with empty coin/block sets and zero score", () => {
     const state = createInitialRacerState(LEVEL);
     expect(state.collectedCoinIds.size).toBe(0);
