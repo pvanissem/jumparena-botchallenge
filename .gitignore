@@ -163,3 +163,8 @@ dist/
 npm-debug.log*
 
 .DS_Store
+
+### Coin Quest Arena: aktive Bot-Arbeitsdatei (Dev-Station) ###
+# devkcode bearbeitet diese Datei live pro Besuchersession - siehe
+# .features/dev-station-mode/. Nur das Template ist versioniert.
+client/src/bot/current-bot.js

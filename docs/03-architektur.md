@@ -112,6 +112,24 @@ Vorteile für den Messestand:
 - Nachteil: Kein zentrales Leaderboard über mehrere Rechner/Stationen hinweg – siehe
   nächster Abschnitt für die Auflösung dieses Punkts.
 
+## Startbefehle: `/dev` vs. Präsentationsrechner
+
+> Entschieden in `.features/dev-station-mode/`.
+
+Root-`package.json` unterscheidet zwei, nie gleichzeitig auf demselben Rechner
+laufende Betriebsarten explizit über den Skriptnamen:
+
+- **`npm run dev`** – startet **ausschließlich** den Vite-Dev-Server für
+  `@arena/client` (reiner Client-Prozess, kein Node-Hub-Server, kein
+  WebSocket-Gateway). Dafür ist jede `/dev`-Station gedacht.
+- **`npm run present`** – startet den Hub-Server (`@arena/server`, siehe
+  unten "Zentraler Server für Multi-Stationen-Betrieb") mit
+  WebSocket-Gateway + Vite-Middleware. Dafür ist ausschließlich der
+  Präsentations-/Admin-Rechner gedacht (`/admin` + `/present`).
+- **`npm run reset-bot`** – setzt die aktive Bot-Arbeitsdatei einer
+  `/dev`-Station (`client/src/bot/current-bot.js`) auf die Standardvorlage
+  zurück (manuell auszuführen, kein automatischer Reset).
+
 ## Zentraler Server für Multi-Stationen-Betrieb (/present, /admin, Broadcast an /dev)
 
 > Entschieden in `.features/arena-hub-server/` (siehe dort `requirements.md` und
@@ -135,13 +153,14 @@ beschrieben.
 - Persistenz: nur In-Memory für die Laufzeit des Serverprozesses, keine
   Datenbank/Dateispeicherung.
 
-**Wichtige Klarstellung zu `/dev`:** Ein `/dev`-Prozess ist und bleibt ein rein
-lokaler, isolierter Node-Prozess pro Stationsrechner. Er hat und bekommt
-**keine** WebSocket-Verbindung, über die er Bot-Code an den Hub-Server sendet –
-`/dev` dient ausschließlich dazu, dass am Stand (mit Hilfe von `devkcode`) eine
-`.js`-Datei mit einer `decide(state)`-Funktion entsteht, die der Besucher lokal
-herunterlädt/exportiert. `/dev` "weiß" nichts von `/admin`, `/present` oder
-anderen Stationen.
+**Wichtige Klarstellung zu `/dev`:** Eine `/dev`-Station ist und bleibt ein
+rein lokaler, isolierter Vite-Client-Prozess (`npm run dev`, siehe oben) ohne
+jede WebSocket-/Server-Anbindung. `/dev` dient ausschließlich dazu, dass am
+Stand (mit Hilfe von `devkcode`) direkt in der Quelldatei
+`client/src/bot/current-bot.js` eine `decide(state)`-Funktion entsteht, die
+danach lokal (z.B. per USB-Stick) vom Rechner kopiert wird – siehe
+`.features/dev-station-mode/` und `docs/09-bot-artefakt-und-turnier.md`.
+`/dev` "weiß" nichts von `/admin`, `/present` oder anderen Stationen.
 
 ### Bot-Sammelstelle (Konzept, Umsetzung als eigenes Feature)
 

@@ -18,7 +18,15 @@ async function handleInit(code: string): Promise<void> {
   try {
     const mod: { default: unknown } = await import(/* @vite-ignore */ blobUrl);
     const validation = validateBotModule(mod.default);
-    decide = validation.valid ? (validation.module as BotModule).decide : null;
+    if (!validation.valid) {
+      decide = null;
+      self.postMessage({ type: "module-invalid", reason: validation.reason });
+      return;
+    }
+    decide = (validation.module as BotModule).decide;
+  } catch (err) {
+    decide = null;
+    self.postMessage({ type: "module-invalid", reason: String(err) });
   } finally {
     URL.revokeObjectURL(blobUrl);
   }

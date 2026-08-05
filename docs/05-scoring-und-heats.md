@@ -1,5 +1,15 @@
 # 05 – Scoring & Heat-System
 
+> **Hinweis (aktualisiert):** Das hier beschriebene Heat-System (Gruppen à 16
+> Bots) ist durch den **Turniermodus** (Single-Elimination, max. 4 Bots
+> gleichzeitig pro Match) abgelöst worden – siehe
+> `docs/09-bot-artefakt-und-turnier.md`, Abschnitt "Turniermodus", und
+> `docs/07-offene-punkte.md`. Die **Scoring-Formel** und die Abschnitte
+> "Leben/Fehlversuche" sowie "Zielerreichung/Zeitlimit" gelten inhaltlich
+> weiterhin (angewendet pro Match statt pro Heat) – nur der Abschnitt
+> "Heat-System" selbst (Gruppengröße 16, mehrere Heats mit Leaderboard über
+> Heats hinweg) ist überholt.
+
 ## Heat-System
 
 - Bei erwarteten 50–100 Teilnehmer-Bots werden diese in **Heats à 16 Bots** aufgeteilt

@@ -22,8 +22,13 @@ export type HostToWorkerMessage =
 
 /**
  * Bewusst OHNE "ready"-Message (YAGNI): Kein Akzeptanzkriterium verlangt,
- * dass der Host auf den Abschluss von `init` wartet.
+ * dass der Host auf den Abschluss von `init` wartet. `module-invalid` ist
+ * die eine Ausnahme, in der der Host explizit informiert werden muss (siehe
+ * `.features/dev-station-mode/design.md`, US-4): ein ungültiges Bot-Modul
+ * (fehlendes `decide`, falsche `apiVersion`, Parse-Fehler) würde sonst still
+ * bei jedem Tick nur `idle` liefern, ohne dass das je sichtbar wird.
  */
 export type WorkerToHostMessage =
   | { type: "action"; tick: number; action: Action }
-  | { type: "error"; tick: number; message: string };
+  | { type: "error"; tick: number; message: string }
+  | { type: "module-invalid"; reason: string };

@@ -13,7 +13,8 @@
       "!**/node_modules",
       "!**/*.tsbuildinfo",
       "!**/client/public",
-      "!**/examples"
+      "!**/examples",
+      "!**/client/src/bot/current-bot*.js"
     ]
   },
   "formatter": {

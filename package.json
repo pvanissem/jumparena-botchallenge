@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "build": "npm run build -w @arena/shared && npm run build -w @arena/bot-contract && npm run build -w @arena/client && npm run build -w @arena/server",
-    "dev": "npm run dev -w @arena/server",
+    "dev": "npm run dev -w @arena/client",
+    "present": "npm run dev -w @arena/server",
+    "reset-bot": "node scripts/reset-bot.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome lint .",

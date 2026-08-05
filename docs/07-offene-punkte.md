@@ -9,13 +9,31 @@ dem eigentlichen Umsetzungsstart geklärt/entschieden werden sollten.
 - [ ] **Bot-Interaktion:** Bleibt es endgültig bei "keine Infos über andere Bots", oder wird
       später doch ein Wettbewerbs-Element zwischen Bots gewünscht?
 - [ ] **Mehrere Schwierigkeitsgrade** des Bot-State (Einsteiger- vs. Fortgeschrittenen-API)?
-- [ ] **Stand-Setup:** Läuft devkcode pro Station lokal, oder zentral mit mehreren Terminals?
+- [x] **Stand-Setup:** entschieden (`.features/dev-station-mode/`): devkcode
+      läuft pro Station lokal, `/dev` ist ein reiner, isolierter
+      Vite-Client-Prozess (`npm run dev`) ohne Server/WebSocket – siehe
+      `docs/03-architektur.md`, Abschnitt "Startbefehle: /dev vs.
+      Präsentationsrechner".
 - [ ] **Vorgefertigte Bot-"Persönlichkeiten"** als Einstiegshilfe (z.B. "Der Draufgänger")?
-- [ ] **Validierung des generierten Codes** vor dem finalen Export (Testlauf in Sandbox)?
+- [x] **Validierung des generierten Codes** vor dem finalen Export –
+      teilweise entschieden (`.features/dev-station-mode/`): `/dev` zeigt
+      während der Session eine Live-Diagnose (ungültiges Modul,
+      Laufzeitfehler, Timeout/harter Kill), damit Probleme sichtbar werden,
+      bevor die Datei den Stationsrechner verlässt.
 - [ ] **Ein Level für alle Heats** oder mehrere Level-Varianten über den Tag verteilt?
 - [ ] **Level-Erstellung:** Tiled-Editor-Export vs. handgeschriebene Tilemap für den MVP?
 - [ ] **Finale/Show-Runde:** Sollen die Top-Bots am Ende nochmal gegeneinander antreten?
 - [ ] **Tie-Breaker-Regel** bei Score-Gleichstand im Leaderboard.
+- [x] **16-Bot-Heat-Modus vs. Turniermodus** – entschieden
+      (`.features/dev-station-mode/`): Der ursprüngliche Heat-Modus
+      (`docs/01`, `docs/05`) gilt als durch den Turniermodus
+      (Single-Elimination, max. 4 Bots/Match, `docs/09`) abgelöst.
+- [x] **Bot-Artefakt-Datei-Ansatz in `/dev`** – entschieden
+      (`.features/dev-station-mode/`): Statt beliebiger Datei-Auswahl/-Import
+      bearbeitet devkcode eine feste Quelldatei
+      (`client/src/bot/current-bot.js`), die per Vite-HMR bei jeder Änderung
+      einen vollständigen Reload von `/dev` auslöst; Reset zwischen
+      Besuchern über `npm run reset-bot`.
 - [x] **Zentrales Leaderboard über mehrere Stationen/Rechner hinweg** – entschieden:
       Ein zentraler Node.js-WebSocket-Router-Server verbindet `/present` und
       `/admin` (mit Broadcast-Kanal auch zu `/dev`). Siehe

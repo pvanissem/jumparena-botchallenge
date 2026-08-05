@@ -23,31 +23,37 @@ export default {
 - Nur `decide` ist Pflicht; alles andere hat Fallbacks.
 - `apiVersion` schützt über einen mehrstündigen Event vor echten Breaking
   Changes: Bots aus Runde 1 laufen auch in Runde 20.
-- Referenzformat + Beispiele: `examples/bots/` (auch unter `public/example-bots/`).
+- Referenzformat + dokumentierte API als Kommentar: siehe
+  `client/src/bot/current-bot.template.js` (siehe "Import" unten – das ist
+  seit `.features/dev-station-mode/` die lebende Referenz direkt in der
+  Datei, die devkcode bearbeitet, statt separater Beispiel-Bot-Dateien).
 
-## Import (kein Server, alles lokal im Browser)
+## Import in `/dev` (kein Server, keine Dateiauswahl, deterministische Datei)
 
-Der Import läuft rein client-seitig – **kein Backend, kein Upload, kein
-Netzwerk**:
+> **Aktualisiert durch `.features/dev-station-mode/`:** Der ursprünglich hier
+> beschriebene Import beliebiger `.js`-Dateien per File System Access
+> API/Datei-Picker wurde **verworfen** zugunsten einer einzigen, festen
+> Bot-Arbeitsdatei. Grund: devkcode bearbeitet die Bot-Logik direkt als
+> Quelldatei im `/dev`-Projekt – ein zusätzlicher Import-Schritt danach wäre
+> überflüssige Reibung.
 
-- **File System Access API** (Chrome/Edge): `showOpenFilePicker` /
-  `showDirectoryPicker` – Nutzer wählt Datei(en) oder einen ganzen Ordner
-  direkt vom Rechner (z.B. den devkcode-Export-Ordner).
-- **Fallback** `<input type="file">` für andere Browser.
-- **Beispiel-Bots** werden per `fetch` aus `public/example-bots/` geladen.
+- Die Bot-Logik lebt in `client/src/bot/current-bot.js` (git-ignoriert,
+  Vorlage in `current-bot.template.js`, eingecheckt). devkcode bearbeitet
+  diese Datei **direkt**, kein Upload, kein Picker, kein Ordner-Scan.
+- `/dev` lädt den Quelltext dieser Datei per Vite-`?raw`-Import und führt ihn
+  unverändert über die bestehende Sandbox aus (siehe "Sandbox" unten).
+- Jede Änderung an `current-bot.js` löst über Vites HMR automatisch einen
+  vollständigen Reload von `/dev` aus – Level, Racer-Status und
+  BotRunner/Worker starten dadurch garantiert frisch mit dem neuen Code, ohne
+  manuellen Klick.
+- Zwischen zwei Besuchern setzt `npm run reset-bot` (Repo-Root) die Datei auf
+  die Standardvorlage zurück; die fertige Datei wird davor manuell (z.B. per
+  USB-Stick) vom Stationsrechner kopiert – siehe unten "Weiterhin offen/t.b.d."
+- Damit ist die ursprüngliche „kein Server"-Entscheidung aus `docs/03`
+  weiterhin gültig –   `/dev` läuft als reiner Vite-Client-Prozess
+  (`npm run dev`, siehe `docs/03-architektur.md`) ohne jede WebSocket-/
+  Server-Anbindung.
 
-Die Metadaten (`name`/`color`/…) kommen **ausschließlich aus dem dynamisch
-geladenen Modul** – kein Parsing, keine Server-Extraktion. Ungültige Bots
-(Syntaxfehler, fehlender `decide`, unbekannte API-Version) werden **nicht
-verworfen**, sondern in der Bot-Liste sichtbar als „ungültig" markiert.
-
-> Hinweis: Damit ist die ursprüngliche „kein Server"-Entscheidung aus
-> `docs/03` weiterhin gültig – nur mit modernem Browser-Datei-Zugriff statt
-> eines klassischen Upload-Endpoints. Dieser lokale Import ist **ausschließlich
-> für den Testmodus innerhalb einer `/dev`-Station** relevant (siehe
-> "Testmodus" unten) – `/dev` bleibt dabei ein komplett isolierter, lokaler
-> Prozess ohne Verbindung zu `/admin` oder `/present` (siehe `docs/03`).
->
 > **Ergänzung (siehe `.features/arena-hub-server/`):** Für den Betrieb von
 > `/present` und `/admin` bei mehreren `/dev`-Stationen gibt es inzwischen einen
 > zentralen WebSocket-Router-Server (siehe `docs/03-architektur.md`, Abschnitt
@@ -58,8 +64,8 @@ verworfen**, sondern in der Bot-Liste sichtbar als „ungültig" markiert.
 > siehe `docs/03-architektur.md`, Abschnitt "Bot-Sammelstelle"), die beide
 > Ansichten mit demselben Stand versorgt. Eingespeist wird diese Sammelstelle
 > vorerst über einen **manuellen Datei-Upload in `/admin`** (Zwischenlösung).
-> **Weiterhin offen/t.b.d.:** Wie das fertige Bot-Artefakt (`decide.js`) von
-> einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
+> **Weiterhin offen/t.b.d.:** Wie das fertige Bot-Artefakt (`current-bot.js`)
+> von einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
 > manuelles Kopieren) – das ist bewusst nicht Teil der bisherigen Infrastruktur
 > und Gegenstand eines künftigen, separaten Feature-Specs.
 
@@ -102,8 +108,10 @@ Der harte Kill ist der Grund, warum echter Fremd-Code zwingend im Worker läuft
 - `services/tournamentRunner.ts` – verbindet Bracket ↔ RaceScene
 - `game/scenes/RaceScene.ts` – Multi-Racer-Simulation + Kamera-Grid
 
-## Testmodus
+## Testmodus (`/dev`)
 
-Unabhängig vom Turnier gibt es „Manuell testen": ein einzelner, per Tastatur
-(← → / Leertaste) gesteuerter Racer im selben Level – nützlich zum Ausprobieren
-des Levels und zum Debuggen.
+`/dev` bietet zwei Testmodi (siehe `.features/dev-station-mode/`):
+„Selbst spielen" (Tastatur, ← → / Leertaste) und „Bot laufen lassen"
+(deterministisch immer `client/src/bot/current-bot.js`, siehe "Import" oben).
+Beide laufen im selben Level, nützlich zum Ausprobieren und Debuggen –
+unabhängig vom späteren Turniermodus in `/present`.

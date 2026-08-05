@@ -35,6 +35,7 @@ describe("BotRunner.init", () => {
 
     expect(runner.status).toBe("paused");
     expect(runner.pausedReason).toBeTruthy();
+    expect(runner.pausedReasonKind).toBe("guard-rejected");
     expect(worker.postMessage).not.toHaveBeenCalled();
   });
 
@@ -64,6 +65,32 @@ const SAMPLE_STATE: BotState = {
   livesRemaining: 3,
   timeElapsedMs: 0,
 };
+
+describe("BotRunner module-invalid handling", () => {
+  it("pauses with pausedReasonKind 'invalid-module' when the worker reports an invalid module", () => {
+    const worker = new FakeWorker();
+    const runner = new BotRunner(worker);
+    runner.init(VALID_CODE);
+
+    worker.emit({ type: "module-invalid", reason: "decide ist keine Funktion" });
+
+    expect(runner.status).toBe("paused");
+    expect(runner.pausedReasonKind).toBe("invalid-module");
+    expect(runner.pausedReason).toContain("decide ist keine Funktion");
+  });
+
+  it("handles module-invalid even without a pending tick", () => {
+    const worker = new FakeWorker();
+    const runner = new BotRunner(worker);
+    runner.init(VALID_CODE);
+
+    // Bewusst KEIN tick() zuvor aufgerufen - es existiert kein pendingTick.
+    worker.emit({ type: "module-invalid", reason: "apiVersion 2 nicht unterstützt" });
+
+    expect(runner.status).toBe("paused");
+    expect(runner.pausedReasonKind).toBe("invalid-module");
+  });
+});
 
 describe("BotRunner.tick", () => {
   let worker: FakeWorker;
@@ -98,6 +125,44 @@ describe("BotRunner.tick", () => {
     worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
 
     await expect(promise).resolves.toBe("idle");
+  });
+
+  it("exposes the last runtime error reported by the worker", async () => {
+    const promise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
+    await promise;
+
+    expect(runner.lastRuntimeError).toBe("boom");
+    expect(runner.status).toBe("running");
+  });
+
+  it("clears lastRuntimeError after a subsequent successful tick", async () => {
+    const failedPromise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
+    await failedPromise;
+
+    const successPromise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "action", tick: lastSentTick(worker), action: "left" });
+    await successPromise;
+
+    expect(runner.lastRuntimeError).toBeNull();
+  });
+
+  it("tracks consecutiveFailureCount and resets it on success", async () => {
+    const first = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
+    await first;
+    const second = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom again" });
+    await second;
+
+    expect(runner.consecutiveFailureCount).toBe(2);
+
+    const successPromise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "action", tick: lastSentTick(worker), action: "left" });
+    await successPromise;
+
+    expect(runner.consecutiveFailureCount).toBe(0);
   });
 
   it("resolves with idle when the worker returns an action outside ACTIONS", async () => {
@@ -148,6 +213,7 @@ describe("BotRunner.tick", () => {
       expect(worker.terminate).toHaveBeenCalledTimes(1);
       expect(runner.status).toBe("paused");
       expect(runner.pausedReason).toBeTruthy();
+      expect(runner.pausedReasonKind).toBe("too-many-failures");
     } finally {
       vi.useRealTimers();
     }
@@ -206,5 +272,6 @@ describe("BotRunner.dispose", () => {
     expect(worker.terminate).toHaveBeenCalledTimes(1);
     expect(runner.status).toBe("paused");
     expect(runner.pausedReason).toBe("disposed");
+    expect(runner.pausedReasonKind).toBe("disposed");
   });
 });

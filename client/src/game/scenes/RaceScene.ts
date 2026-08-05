@@ -8,7 +8,7 @@
  */
 import type { Action, UtilityKind } from "@arena/bot-contract";
 import Phaser from "phaser";
-import { BotRunner } from "../../sandbox/BotRunner";
+import { BotRunner, type BotRunnerPauseReasonKind } from "../../sandbox/BotRunner";
 import { createBrowserWorker } from "../../sandbox/createBrowserWorker";
 import { createAnimations } from "../assets/animations";
 import { AUDIO_KEYS, AUDIO_SPECS, type AudioKey } from "../assets/audio";
@@ -61,7 +61,18 @@ const RUN_ANIM_THRESHOLD = 1;
 export interface RaceSceneInitData {
   controllerMode: "keyboard" | "bot";
   botSourceCode?: string;
-  onStatusChange?: (status: { racer: RacerRuntimeState; pausedReason: string | null }) => void;
+  onStatusChange?: (status: {
+    racer: RacerRuntimeState;
+    pausedReason: string | null;
+    pausedReasonKind: BotRunnerPauseReasonKind | null;
+    lastRuntimeError: string | null;
+    consecutiveFailureCount: number;
+  }) => void;
+  /** Wird einmalig am Ende von `create()` aufgerufen - erlaubt Aufrufern
+   *  (z.B. `ArenaView`), erst danach sicher `setControllerMode(...)`
+   *  aufzurufen (siehe dort: Vermeidung einer Race Condition mit dem noch
+   *  laufenden `preload()`/`create()`-Lifecycle). */
+  onReady?: () => void;
 }
 
 export class RaceScene extends Phaser.Scene {
@@ -154,6 +165,11 @@ export class RaceScene extends Phaser.Scene {
     );
 
     this.controller = this.createController();
+    // Sofortige Diagnose-Sichtbarkeit (Bezug: US-4 "bevor ein Testlauf
+    // gestartet wird"): eine Guard-Ablehnung/ungültiges Modul pausiert den
+    // BotRunner bereits synchron in init() - ohne diesen Aufruf würde das
+    // erst mit dem ersten Bot-Tick (150ms später) sichtbar.
+    this.notifyStatus();
 
     this.music = this.sound.add(AUDIO_KEYS.THEME, { loop: true });
     this.applyAudioVolume();
@@ -162,6 +178,8 @@ export class RaceScene extends Phaser.Scene {
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, this.level.worldWidth, this.level.worldHeight);
+
+    this.initData.onReady?.();
   }
 
   /** Wendet die aktuelle Master-Lautstärke (0 wenn stummgeschaltet) auf die
@@ -188,6 +206,28 @@ export class RaceScene extends Phaser.Scene {
     const keys = this.input.keyboard?.createCursorKeys();
     this.keyboardController = new KeyboardController(keys as unknown as never);
     return this.keyboardController;
+  }
+
+  /**
+   * Wechselt die Steuerungsquelle zur Laufzeit, OHNE Level/Racer-Fortschritt
+   * (Position, Coins, Leben, Zeit) zurückzusetzen - nur "wer steuert das
+   * Sprite" ändert sich. Nur nach `onReady` sicher aufrufbar (siehe
+   * `RaceSceneInitData.onReady`), da vor Abschluss von `create()` weder
+   * `this.input.keyboard` noch die übrige Szene verlässlich existieren.
+   */
+  setControllerMode(mode: "keyboard" | "bot", botSourceCode?: string): void {
+    const unchanged =
+      mode === this.initData.controllerMode &&
+      (mode === "keyboard" || botSourceCode === this.initData.botSourceCode);
+    if (unchanged) return;
+
+    this.controller?.dispose();
+    this.keyboardController = null;
+    this.botRunner = null;
+    this.initData = { ...this.initData, controllerMode: mode, botSourceCode };
+    this.controller = this.createController();
+    this.lastBotAction = "idle";
+    this.notifyStatus();
   }
 
   update(_time: number, delta: number): void {
@@ -450,6 +490,9 @@ export class RaceScene extends Phaser.Scene {
     this.initData.onStatusChange?.({
       racer: this.racer,
       pausedReason: this.botRunner?.pausedReason ?? null,
+      pausedReasonKind: this.botRunner?.pausedReasonKind ?? null,
+      lastRuntimeError: this.botRunner?.lastRuntimeError ?? null,
+      consecutiveFailureCount: this.botRunner?.consecutiveFailureCount ?? 0,
     });
   }
 

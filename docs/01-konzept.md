@@ -1,5 +1,13 @@
 # 01 – Konzept
 
+> **Hinweis (aktualisiert):** Der in diesem Dokument beschriebene 16-Bot-
+> Heat-Modus (Schritt 4 "Rennen (Heat)" sowie die entsprechende Zeile in den
+> "Kernentscheidungen") ist durch den **Turniermodus** (Single-Elimination,
+> max. 4 Bots gleichzeitig pro Match) abgelöst worden – siehe
+> `docs/09-bot-artefakt-und-turnier.md`, Abschnitt "Turniermodus", und
+> `docs/07-offene-punkte.md`. Die übrigen Abschnitte dieses Dokuments (Idee,
+> Ablauf am Stand, Zielgruppe) bleiben unverändert gültig.
+
 ## Idee
 
 Beim Messestand auf der DEVK-internen Konferenz bauen Besucher – ganz ohne eigene

@@ -4,13 +4,22 @@
  */
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
+import type { BotRunnerPauseReasonKind } from "../sandbox/BotRunner";
 import type { RacerRuntimeState } from "./rules/racerState";
-import { RaceScene } from "./scenes/RaceScene";
+import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
+
+export interface ArenaViewStatus {
+  racer: RacerRuntimeState;
+  pausedReason: string | null;
+  pausedReasonKind: BotRunnerPauseReasonKind | null;
+  lastRuntimeError: string | null;
+  consecutiveFailureCount: number;
+}
 
 export interface ArenaViewProps {
   controlMode: "keyboard" | "bot";
   botSourceCode?: string;
-  onStatusChange?: (status: { racer: RacerRuntimeState; pausedReason: string | null }) => void;
+  onStatusChange?: (status: ArenaViewStatus) => void;
 }
 
 export function ArenaView({ controlMode, botSourceCode, onStatusChange }: ArenaViewProps) {
@@ -23,6 +32,22 @@ export function ArenaView({ controlMode, botSourceCode, onStatusChange }: ArenaV
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
 
+  // Referenz auf die laufende Szene, sobald `create()` durchgelaufen ist
+  // (siehe `RaceSceneInitData.onReady`). Vor Bereitschaft eingehende
+  // Moduswechsel werden gepuffert und einmalig nachgeholt, sobald die Szene
+  // bereit ist (vermeidet eine Race Condition mit dem asynchronen
+  // preload()/create()-Lifecycle von Phaser).
+  const sceneRef = useRef<RaceScene | null>(null);
+  const pendingModeRef = useRef<{ mode: "keyboard" | "bot"; botSourceCode?: string } | null>(null);
+
+  // Mount-Effect: Das Phaser.Game wird bewusst nur EINMAL erzeugt (leeres
+  // Dependency-Array) - ein Moduswechsel (Tastatur <-> Bot) soll die Arena
+  // NICHT zurücksetzen (siehe `.features/dev-station-mode/`, Rückfrage im
+  // Chat). Ein echter Neustart (neues Level/frischer Racer-State) läuft
+  // weiterhin über den `key`-Remount-Mechanismus in `DevPage` ("Neu starten").
+  // Änderungen an controlMode/botSourceCode werden vom zweiten Effect (unten)
+  // behandelt.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bewusst nur beim Mount ausführen, siehe Kommentar oben
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -41,12 +66,35 @@ export function ArenaView({ controlMode, botSourceCode, onStatusChange }: ArenaV
       botSourceCode,
       onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) =>
         onStatusChangeRef.current?.(status),
-    });
+      onReady: () => {
+        sceneRef.current = game.scene.getScene("RaceScene") as RaceScene;
+        if (pendingModeRef.current) {
+          sceneRef.current.setControllerMode(
+            pendingModeRef.current.mode,
+            pendingModeRef.current.botSourceCode
+          );
+          pendingModeRef.current = null;
+        }
+      },
+    } satisfies RaceSceneInitData);
 
     return () => {
+      sceneRef.current = null;
       game.destroy(true);
       gameRef.current = null;
     };
+  }, []);
+
+  // Reaktions-Effect: leitet Moduswechsel an die bereits laufende Szene
+  // weiter, statt das Spiel neu zu erzeugen. Läuft absichtlich auch beim
+  // allerersten Mount mit (identisch zu den initialen Werten oben) - das ist
+  // unschädlich, da `setControllerMode` bei unverändertem Modus ein No-op ist.
+  useEffect(() => {
+    if (sceneRef.current) {
+      sceneRef.current.setControllerMode(controlMode, botSourceCode);
+    } else {
+      pendingModeRef.current = { mode: controlMode, botSourceCode };
+    }
   }, [controlMode, botSourceCode]);
 
   return <div ref={containerRef} />;
