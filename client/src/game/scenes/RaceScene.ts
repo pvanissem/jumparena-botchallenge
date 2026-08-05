@@ -51,6 +51,10 @@ import type { WorldSnapshot } from "../state/worldSnapshot";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
 
 const BOT_TICK_INTERVAL_MS = 150;
+
+// Wie oft die Live-HUD-Anzeige (Zeit/Coins) aktualisiert wird. ~10x/s reicht
+// für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
+const STATUS_EMIT_INTERVAL_MS = 100;
 const MOVE_SPEED = 200;
 const JUMP_VELOCITY = -560;
 const STOMP_BOUNCE_VELOCITY = -280;
@@ -93,6 +97,9 @@ export class RaceScene extends Phaser.Scene {
   private botRunner: BotRunner | null = null;
   private elapsedMs = 0;
   private sinceLastBotTick = 0;
+  // Drosselt die Live-HUD-Aktualisierung (Zeit/Coins), damit `onStatusChange`
+  // nicht jeden Frame (~60x/s) einen React-Re-Render auslöst.
+  private sinceLastStatusEmit = 0;
   private tickCounter = 0;
   /** Zuletzt vom Bot gelieferte Action – wird jeden Frame erneut angewendet,
    *  bis der nächste Bot-Tick eine neue liefert (nicht-blockierend). */
@@ -276,6 +283,13 @@ export class RaceScene extends Phaser.Scene {
 
     this.updatePlayerAnimation();
     this.syncRacerPositionFromPhysics();
+
+    // Live-HUD (Zeit/Coins) gedrosselt aktualisieren.
+    this.sinceLastStatusEmit += delta;
+    if (this.sinceLastStatusEmit >= STATUS_EMIT_INTERVAL_MS) {
+      this.sinceLastStatusEmit = 0;
+      this.notifyStatus();
+    }
   }
 
   /**
