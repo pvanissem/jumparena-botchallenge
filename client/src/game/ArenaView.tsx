@@ -5,6 +5,7 @@
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
 import type { BotRunnerPauseReasonKind } from "../sandbox/BotRunner";
+import { installKeyboardCaptureGuard } from "./input/keyboardCaptureGuard";
 import type { RacerRuntimeState } from "./rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
 
@@ -55,6 +56,9 @@ export function ArenaView({
   // preload()/create()-Lifecycle von Phaser).
   const sceneRef = useRef<RaceScene | null>(null);
   const pendingModeRef = useRef<{ mode: "keyboard" | "bot"; botSourceCode?: string } | null>(null);
+  // Cleanup-Funktion des Keyboard-Guards, der erst in `onReady` installiert
+  // wird (Reihenfolge gegenüber Phasers KeyboardManager, siehe dort).
+  const uninstallKeyboardGuardRef = useRef<(() => void) | null>(null);
 
   // Mount-Effect: Das Phaser.Game wird bewusst nur EINMAL erzeugt (leeres
   // Dependency-Array) - ein Moduswechsel (Tastatur <-> Bot) soll die Arena
@@ -73,6 +77,21 @@ export function ArenaView({
       height: 540,
       parent: containerRef.current,
       physics: { default: "arcade", arcade: { gravity: { x: 0, y: 900 }, debug: true } },
+      // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
+      // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest
+      // übernimmt der Guard oben.
+      input: {
+        keyboard: {
+          capture: [
+            Phaser.Input.Keyboard.KeyCodes.LEFT,
+            Phaser.Input.Keyboard.KeyCodes.RIGHT,
+            Phaser.Input.Keyboard.KeyCodes.UP,
+            Phaser.Input.Keyboard.KeyCodes.DOWN,
+            Phaser.Input.Keyboard.KeyCodes.SPACE,
+            Phaser.Input.Keyboard.KeyCodes.SHIFT,
+          ],
+        },
+      },
       scene: [RaceScene],
     });
     gameRef.current = game;
@@ -86,6 +105,16 @@ export function ArenaView({
         onStatusChangeRef.current?.(status),
       onReady: () => {
         sceneRef.current = game.scene.getScene("RaceScene") as RaceScene;
+
+        // Schluckt die Spieltasten auf DOM-Ebene (siehe
+        // `.features/keyboard-input-capture/bugfix.md`). Phasers eigenes
+        // Capture greift bei Modifier-Kombis wie Sprint (Shift + Pfeil) nicht.
+        // Bewusst ERST hier: Der Guard muss nach Phasers KeyboardManager
+        // registriert werden, sonst sieht Phaser die Events als bereits
+        // `defaultPrevented` und ignoriert sie komplett.
+        uninstallKeyboardGuardRef.current?.();
+        uninstallKeyboardGuardRef.current = installKeyboardCaptureGuard();
+
         if (pendingModeRef.current) {
           sceneRef.current.setControllerMode(
             pendingModeRef.current.mode,
@@ -97,6 +126,8 @@ export function ArenaView({
     } satisfies RaceSceneInitData);
 
     return () => {
+      uninstallKeyboardGuardRef.current?.();
+      uninstallKeyboardGuardRef.current = null;
       sceneRef.current = null;
       game.destroy(true);
       gameRef.current = null;
