@@ -9,7 +9,7 @@ import type { ControllerInput, RacerController } from "./RacerController";
 export class BotController implements RacerController {
   constructor(private readonly runner: BotRunner) {}
 
-  getNextAction(input: ControllerInput): Promise<Action> {
+  getNextActions(input: ControllerInput): Promise<Action[]> {
     return this.runner.tick(input.botState);
   }
 

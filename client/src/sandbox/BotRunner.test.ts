@@ -56,11 +56,20 @@ const SAMPLE_STATE: BotState = {
   facing: "right",
   onGround: true,
   isAlive: true,
+  velocity: { vx: 0, vy: 0 },
+  isSprinting: false,
   nearbyTiles: [],
   nearestCoin: null,
   nearestHazard: null,
   nearestUtility: null,
+  coins: [],
+  hazards: [],
+  utilities: [],
   goalDirection: { dx: 1, dy: 0 },
+  gapAhead: { present: false, distance: null },
+  worldBounds: { width: 400, height: 200 },
+  justRespawned: false,
+  tookDamage: false,
   coinsCollected: 0,
   livesRemaining: 3,
   timeElapsedMs: 0,
@@ -102,29 +111,51 @@ describe("BotRunner.tick", () => {
     runner.init(VALID_CODE);
   });
 
-  it("resolves with the action from a timely, valid worker response", async () => {
+  it("resolves with the actions from a timely, valid worker response", async () => {
     const promise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), action: "jump" });
+    worker.emit({
+      type: "action",
+      tick: lastSentTick(worker),
+      actions: ["jump", "sprint-right"],
+    });
 
-    await expect(promise).resolves.toBe("jump");
+    await expect(promise).resolves.toEqual(["jump", "sprint-right"]);
   });
 
-  it("resolves with idle when the worker never responds (timeout)", async () => {
+  it("filters out invalid actions and keeps the valid ones", async () => {
+    const promise = runner.tick(SAMPLE_STATE);
+    worker.emit({
+      type: "action",
+      tick: lastSentTick(worker),
+      actions: ["jump", "fly", "right"] as never,
+    });
+
+    await expect(promise).resolves.toEqual(["jump", "right"]);
+  });
+
+  it("resolves with an empty list when the worker returns a non-array", async () => {
+    const promise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: "right" as never });
+
+    await expect(promise).resolves.toEqual([]);
+  });
+
+  it("resolves with an empty list when the worker never responds (timeout)", async () => {
     vi.useFakeTimers();
     try {
       const promise = runner.tick(SAMPLE_STATE);
       await vi.advanceTimersByTimeAsync(10);
-      await expect(promise).resolves.toBe("idle");
+      await expect(promise).resolves.toEqual([]);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("resolves with idle when the worker reports an error", async () => {
+  it("resolves with an empty list when the worker reports an error", async () => {
     const promise = runner.tick(SAMPLE_STATE);
     worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
 
-    await expect(promise).resolves.toBe("idle");
+    await expect(promise).resolves.toEqual([]);
   });
 
   it("exposes the last runtime error reported by the worker", async () => {
@@ -142,7 +173,7 @@ describe("BotRunner.tick", () => {
     await failedPromise;
 
     const successPromise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), action: "left" });
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
     await successPromise;
 
     expect(runner.lastRuntimeError).toBeNull();
@@ -159,17 +190,18 @@ describe("BotRunner.tick", () => {
     expect(runner.consecutiveFailureCount).toBe(2);
 
     const successPromise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), action: "left" });
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
     await successPromise;
 
     expect(runner.consecutiveFailureCount).toBe(0);
   });
 
-  it("resolves with idle when the worker returns an action outside ACTIONS", async () => {
+  it("resolves with an empty list (no failure) when all returned actions are invalid", async () => {
     const promise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), action: "fly" as never });
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["fly"] as never });
 
-    await expect(promise).resolves.toBe("idle");
+    await expect(promise).resolves.toEqual([]);
+    expect(runner.consecutiveFailureCount).toBe(0);
   });
 
   it("resets the failure counter after a success between failures", async () => {
@@ -184,7 +216,7 @@ describe("BotRunner.tick", () => {
 
       // Ein Erfolg dazwischen.
       const successPromise = runner.tick(SAMPLE_STATE);
-      worker.emit({ type: "action", tick: lastSentTick(worker), action: "left" });
+      worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
       await successPromise;
 
       // Erneut mehrere Fehlversuche unterhalb der Schwelle - kein Kill.
@@ -232,9 +264,9 @@ describe("BotRunner.tick", () => {
     }
 
     worker.postMessage.mockClear();
-    const action = await runner.tick(SAMPLE_STATE);
+    const actions = await runner.tick(SAMPLE_STATE);
 
-    expect(action).toBe("idle");
+    expect(actions).toEqual([]);
     expect(worker.postMessage).not.toHaveBeenCalled();
   });
 
@@ -244,17 +276,17 @@ describe("BotRunner.tick", () => {
       const firstPromise = runner.tick(SAMPLE_STATE);
       const firstSentTick = lastSentTick(worker);
       await vi.advanceTimersByTimeAsync(10);
-      await expect(firstPromise).resolves.toBe("idle");
+      await expect(firstPromise).resolves.toEqual([]);
 
       const secondPromise = runner.tick(SAMPLE_STATE);
       const secondSentTick = lastSentTick(worker);
 
       // Verspätete Antwort auf den ERSTEN (bereits abgeschlossenen) Tick.
-      worker.emit({ type: "action", tick: firstSentTick, action: "left" });
+      worker.emit({ type: "action", tick: firstSentTick, actions: ["left"] });
       // Der zweite, noch offene Tick darf davon nicht beeinflusst werden.
-      worker.emit({ type: "action", tick: secondSentTick, action: "right" });
+      worker.emit({ type: "action", tick: secondSentTick, actions: ["right"] });
 
-      await expect(secondPromise).resolves.toBe("right");
+      await expect(secondPromise).resolves.toEqual(["right"]);
     } finally {
       vi.useRealTimers();
     }

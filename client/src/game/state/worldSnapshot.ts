@@ -11,6 +11,14 @@ export interface WorldSnapshot {
   level: LevelDef;
   dynamic: DynamicTileState;
   visibleCoins: ReadonlyArray<{ id: string; x: number; y: number; value: number }>;
-  hazards: ReadonlyArray<{ id: string; kind: HazardKind; x: number; y: number; active: boolean }>;
+  hazards: ReadonlyArray<{
+    id: string;
+    kind: HazardKind;
+    x: number;
+    y: number;
+    active: boolean;
+    /** Ob sich die Gefahr gerade ankündigt (Spikehead-Vorwarnphase). */
+    warning: boolean;
+  }>;
   utilities: ReadonlyArray<{ id: string; kind: UtilityKind; x: number; y: number }>;
 }

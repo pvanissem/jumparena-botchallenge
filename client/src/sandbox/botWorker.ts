@@ -8,10 +8,15 @@
  * Bewusst nicht unit-getestet (jsdom bietet keine echte Worker-Isolation) –
  * siehe design.md, Abschnitt "Test-Strategie".
  */
-import { type Action, type BotModule, type BotState, validateBotModule } from "@arena/bot-contract";
+import {
+  type BotModule,
+  type BotState,
+  type DecideResult,
+  validateBotModule,
+} from "@arena/bot-contract";
 import type { HostToWorkerMessage } from "./workerLike";
 
-let decide: ((state: BotState) => Action) | null = null;
+let decide: ((state: BotState) => DecideResult) | null = null;
 
 async function handleInit(code: string): Promise<void> {
   const blobUrl = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
@@ -34,11 +39,12 @@ async function handleInit(code: string): Promise<void> {
 
 function handleTick(tick: number, state: BotState): void {
   try {
-    // decide() kann irgendetwas zurückgeben (auch Unsinn) – die Prüfung
-    // "ist das eine gültige Action?" liegt bewusst NICHT hier, sondern
-    // ausschließlich im BotRunner (Single Source of Truth).
-    const action = decide ? decide(state) : "idle";
-    self.postMessage({ type: "action", tick, action });
+    // decide() kann irgendetwas zurückgeben (auch Unsinn) – die
+    // Normalisierung/Validierung ("ist das eine gültige Action-Liste?") liegt
+    // bewusst NICHT hier, sondern ausschließlich im BotRunner (Single Source of
+    // Truth). Hier wird das Ergebnis nur unverändert durchgereicht.
+    const actions = decide ? decide(state) : [];
+    self.postMessage({ type: "action", tick, actions });
   } catch (err) {
     self.postMessage({ type: "error", tick, message: String(err) });
   }

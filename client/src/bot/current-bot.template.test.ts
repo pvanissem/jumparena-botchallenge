@@ -6,10 +6,11 @@
  * "import" erwähnt, würde den eigenen Default-Bot sonst sofort blockieren
  * (siehe `.features/dev-station-mode/` - real aufgetretener Bug).
  */
-import { checkStaticGuard } from "@arena/bot-contract";
+
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkStaticGuard } from "@arena/bot-contract";
 import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));

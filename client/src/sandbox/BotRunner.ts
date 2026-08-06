@@ -34,6 +34,17 @@ function isValidAction(value: unknown): value is Action {
   return typeof value === "string" && (ACTIONS as readonly string[]).includes(value);
 }
 
+/**
+ * Normalisiert einen beliebigen `decide`-Rückgabewert zu einer gültigen
+ * Action-Liste (Single Source of Truth für Gültigkeit): kein Array → `[]`,
+ * ungültige Elemente werden herausgefiltert. Ein leeres Ergebnis bedeutet
+ * "nichts tun" und ist KEIN Fehlversuch (der Bot hat gültig geantwortet).
+ */
+function normalizeActions(value: unknown): Action[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isValidAction);
+}
+
 export class BotRunner {
   private readonly timeoutMs: number;
   private readonly maxConsecutiveFailures: number;
@@ -47,7 +58,7 @@ export class BotRunner {
   private nextTick = 0;
   private pendingTick: {
     tick: number;
-    resolve: (action: Action) => void;
+    resolve: (actions: Action[]) => void;
     timer: ReturnType<typeof setTimeout>;
   } | null = null;
 
@@ -95,16 +106,16 @@ export class BotRunner {
     this.worker.postMessage({ type: "init", code: sourceCode });
   }
 
-  tick(state: BotState): Promise<Action> {
+  tick(state: BotState): Promise<Action[]> {
     if (this.runnerStatus === "paused") {
-      return Promise.resolve("idle");
+      return Promise.resolve([]);
     }
 
     const tick = this.nextTick++;
 
-    return new Promise<Action>((resolve) => {
+    return new Promise<Action[]>((resolve) => {
       const timer = setTimeout(() => {
-        this.resolvePendingTick(tick, "idle");
+        this.resolvePendingTick(tick, []);
         this.registerFailure(null);
       }, this.timeoutMs);
 
@@ -132,23 +143,25 @@ export class BotRunner {
       return;
     }
 
-    if (message.type === "action" && isValidAction(message.action)) {
-      this.resolvePendingTick(message.tick, message.action);
+    if (message.type === "action") {
+      // Erfolgreiche Antwort (auch ein leeres Ergebnis nach Filterung ist ein
+      // gültiges "nichts tun" – kein Fehlversuch).
+      this.resolvePendingTick(message.tick, normalizeActions(message.actions));
       this.registerSuccess();
       return;
     }
 
-    // "error"-Message ODER Action außerhalb von ACTIONS.
-    this.resolvePendingTick(message.tick, "idle");
+    // "error"-Message → Fehlversuch.
+    this.resolvePendingTick(message.tick, []);
     this.registerFailure(message.type === "error" ? message.message : null);
   }
 
-  private resolvePendingTick(tick: number, action: Action): void {
+  private resolvePendingTick(tick: number, actions: Action[]): void {
     if (!this.pendingTick || this.pendingTick.tick !== tick) {
       return;
     }
     clearTimeout(this.pendingTick.timer);
-    this.pendingTick.resolve(action);
+    this.pendingTick.resolve(actions);
     this.pendingTick = null;
   }
 

@@ -86,14 +86,20 @@ src/game/hazards/
 
 ## Sichtbarkeit in der Bot-API (`BotState`)
 
-Ein Bot bekommt pro Tick u.a. diese Felder (siehe `src/game/types.ts`):
+Ein Bot bekommt pro Tick u.a. diese Felder (siehe
+`packages/bot-contract/src/state.ts`). Alle sichtbaren Objekte stehen zusätzlich
+als distanz-sortierte Listen `coins`/`hazards`/`utilities` zur Verfügung;
+`nearest*` ist jeweils das erste Listenelement bzw. `null`. Distanzen sind in
+**Pixeln** relativ zum Bot (– = links/oben).
 
 ```ts
 nearestHazard: {
-  dx: number;          // Tile-Distanz horizontal (– = links, + = rechts)
-  dy: number;          // Tile-Distanz vertikal (– = oben, + = unten)
+  dx: number;          // Pixel-Distanz horizontal (– = links, + = rechts)
+  dy: number;          // Pixel-Distanz vertikal (– = oben, + = unten)
   kind: HazardKind;    // "schnetzler" | "stachlinger" | "loderix" | "kugelblitz" | "spikehead"
-  active: boolean;     // ob gerade gefährlich (bei Loderix togglt es)
+  active: boolean;     // ob gerade gefährlich (Loderix/Spikehead togglen)
+  warning: boolean;    // kündigt sich an (Spikehead-Vorwarnphase), sonst false
+  stompable: boolean;  // vorberechnet: nur "schnetzler" ist true
 } | null;
 
 nearestUtility: {
@@ -110,13 +116,17 @@ nearestCoin: {
 ```
 
 Zusätzlich taucht jeder aktuell gefährliche Hazard im Sichtfeld `nearbyTiles`
-als `"hazard"` auf (getaktete nur, solange sie „an" sind).
+als `"hazard"` auf (getaktete/getriggerte nur, solange sie „an" sind). Die
+Spikehead-Vorwarnung erscheint **nicht** in `nearbyTiles`, sondern
+ausschließlich über `hazards[i].warning`.
 
-### Was ein Bot daraus machen *könnte* (illustrativ, nicht implementiert)
-- `kind === "schnetzler"` → könnte über den Gegner **springen** (Stomp) statt
-  auszuweichen.
+### Was ein Bot daraus machen *könnte* (illustrativ)
+- `stompable === true` (schnetzler) → könnte über den Gegner **springen** (Stomp)
+  statt auszuweichen.
 - `kind === "loderix" && !active` → gefahrlos **durchlaufen**, spart Zeit.
-- `kind === "stachlinger"` / `"kugelblitz"` → **ausweichen/timen**, nie stompen.
+- `kind === "spikehead" && warning` → kurz vor dem Fall **wegrennen**.
+- `stompable === false` (stachlinger/kugelblitz/spikehead) → **ausweichen/timen**,
+  nie stompen.
 - `nearestUtility.kind === "boingo"` → Trampolin ansteuern, um an hohe Früchte
   mit hohem `value` zu gelangen.
 

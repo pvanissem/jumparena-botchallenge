@@ -2,7 +2,7 @@
  * Modul-Contract eines Bot-Artefakts – siehe
  * `docs/09-bot-artefakt-und-turnier.md`.
  */
-import type { Action, BotState } from "./state";
+import type { BotState, DecideResult } from "./state";
 
 export const SUPPORTED_API_VERSION = 1 as const;
 
@@ -11,7 +11,9 @@ export interface BotModule {
   name?: string;
   author?: string;
   color?: string;
-  decide: (state: BotState) => Action;
+  /** Wird pro Tick (~33ms) aufgerufen und gibt eine Liste gleichzeitig
+   *  anzuwendender Actions zurück (siehe `DecideResult`). */
+  decide: (state: BotState) => DecideResult;
 }
 
 export type BotModuleValidation =

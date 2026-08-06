@@ -33,19 +33,22 @@ export class KeyboardController implements RacerController {
   constructor(private readonly keys: CursorKeysLike) {}
 
   /**
-   * Einzelne `Action` pro Aufruf – Bot-Parität (z.B. für Tests/Vergleiche).
-   * Für die tatsächliche Steuerung in `RaceScene` wird `getInput()`
-   * verwendet, das gleichzeitige Bewegung + Sprung + Sprint erlaubt.
+   * Mehrere gleichzeitige Actions für diesen Frame – Bot-Parität: dieselbe
+   * Multi-Action-Liste, die auch ein Bot zurückgeben würde (Bewegung/Sprint +
+   * Sprung kombinierbar). Aus dem mehrachsigen `getInput()` abgeleitet (DRY).
    */
-  getNextAction(): Action {
-    const dir = this.keys.left.isDown ? -1 : this.keys.right.isDown ? 1 : 0;
-    if (dir !== 0 && this.keys.shift.isDown) {
-      return dir < 0 ? "sprint-left" : "sprint-right";
+  getNextActions(): Action[] {
+    const { dir, jump, sprint } = this.getInput();
+    const actions: Action[] = [];
+    if (dir !== 0) {
+      if (sprint) {
+        actions.push(dir < 0 ? "sprint-left" : "sprint-right");
+      } else {
+        actions.push(dir < 0 ? "left" : "right");
+      }
     }
-    if (dir < 0) return "left";
-    if (dir > 0) return "right";
-    if (this.keys.space.isDown) return "jump";
-    return "idle";
+    if (jump) actions.push("jump");
+    return actions;
   }
 
   /** Mehrachsiges Rohsignal für den aktuellen Frame (siehe `KeyboardInput`). */

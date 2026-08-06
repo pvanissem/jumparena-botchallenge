@@ -12,50 +12,55 @@ function keys(
   };
 }
 
-describe("KeyboardController", () => {
-  it("returns 'left' when only the left key is down", () => {
+describe("KeyboardController.getNextActions", () => {
+  it("returns ['left'] when only the left key is down", () => {
     const controller = new KeyboardController(keys({ left: true }));
-    expect(controller.getNextAction()).toBe("left");
+    expect(controller.getNextActions()).toEqual(["left"]);
   });
 
-  it("returns 'right' when only the right key is down", () => {
+  it("returns ['right'] when only the right key is down", () => {
     const controller = new KeyboardController(keys({ right: true }));
-    expect(controller.getNextAction()).toBe("right");
+    expect(controller.getNextActions()).toEqual(["right"]);
   });
 
-  it("returns 'jump' when the space key is down", () => {
+  it("returns ['jump'] when only the space key is down", () => {
     const controller = new KeyboardController(keys({ space: true }));
-    expect(controller.getNextAction()).toBe("jump");
+    expect(controller.getNextActions()).toEqual(["jump"]);
   });
 
-  it("returns 'idle' when no key is down", () => {
+  it("returns [] when no key is down", () => {
     const controller = new KeyboardController(keys());
-    expect(controller.getNextAction()).toBe("idle");
+    expect(controller.getNextActions()).toEqual([]);
   });
 
   it("prioritizes left over right when both are pressed simultaneously", () => {
     const controller = new KeyboardController(keys({ left: true, right: true }));
-    expect(controller.getNextAction()).toBe("left");
+    expect(controller.getNextActions()).toEqual(["left"]);
   });
 
-  it("returns 'sprint-left' when left+shift are held", () => {
+  it("returns ['sprint-left'] when left+shift are held", () => {
     const controller = new KeyboardController(keys({ left: true, shift: true }));
-    expect(controller.getNextAction()).toBe("sprint-left");
+    expect(controller.getNextActions()).toEqual(["sprint-left"]);
   });
 
-  it("returns 'sprint-right' when right+shift are held", () => {
+  it("returns ['sprint-right'] when right+shift are held", () => {
     const controller = new KeyboardController(keys({ right: true, shift: true }));
-    expect(controller.getNextAction()).toBe("sprint-right");
+    expect(controller.getNextActions()).toEqual(["sprint-right"]);
   });
 
   it("does not sprint on shift alone (no direction held)", () => {
     const controller = new KeyboardController(keys({ shift: true }));
-    expect(controller.getNextAction()).toBe("idle");
+    expect(controller.getNextActions()).toEqual([]);
   });
 
-  it("prefers sprint over jump when a direction+shift+space are all held", () => {
+  it("combines horizontal movement and jump in the same tick (multi-action)", () => {
+    const controller = new KeyboardController(keys({ right: true, space: true }));
+    expect(controller.getNextActions()).toEqual(["right", "jump"]);
+  });
+
+  it("combines sprint and jump in the same tick (multi-action)", () => {
     const controller = new KeyboardController(keys({ right: true, shift: true, space: true }));
-    expect(controller.getNextAction()).toBe("sprint-right");
+    expect(controller.getNextActions()).toEqual(["sprint-right", "jump"]);
   });
 });
 

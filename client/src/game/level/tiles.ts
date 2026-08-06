@@ -73,6 +73,20 @@ function tileSizeToRow(y: number): number {
   return Math.floor(y / TILE_SIZE);
 }
 
+/** Ob an (col,row) ein solides Plattform-Tile liegt. Pure Geometrie-Abfrage,
+ *  wiederverwendet von `tileTypeAt` und `computeGapAhead` (DRY). */
+export function isSolidAt(level: LevelDef, col: number, row: number): boolean {
+  for (const platform of level.platforms) {
+    const startCol = tileSizeToCol(platform.x);
+    const endCol = startCol + platform.tilesWide - 1;
+    const platformRow = tileSizeToRow(platform.y);
+    if (col >= startCol && col <= endCol && row === platformRow) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Fail-Fast-Kette (analog `validateBotModule`): aktiver Hazard? -> "hazard";
  * unresolved Block? -> "coinBlock"; Ziel? -> "goal"; innerhalb einer
@@ -109,13 +123,8 @@ export function tileTypeAt(
     return "goal";
   }
 
-  for (const platform of level.platforms) {
-    const startCol = tileSizeToCol(platform.x);
-    const endCol = startCol + platform.tilesWide - 1;
-    const platformRow = tileSizeToRow(platform.y);
-    if (col >= startCol && col <= endCol && row === platformRow) {
-      return "solid";
-    }
+  if (isSolidAt(level, col, row)) {
+    return "solid";
   }
 
   return "empty";

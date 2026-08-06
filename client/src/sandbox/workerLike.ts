@@ -29,6 +29,6 @@ export type HostToWorkerMessage =
  * bei jedem Tick nur `idle` liefern, ohne dass das je sichtbar wird.
  */
 export type WorkerToHostMessage =
-  | { type: "action"; tick: number; action: Action }
+  | { type: "action"; tick: number; actions: Action[] }
   | { type: "error"; tick: number; message: string }
   | { type: "module-invalid"; reason: string };

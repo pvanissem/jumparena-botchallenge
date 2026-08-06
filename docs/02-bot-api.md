@@ -10,33 +10,50 @@ Jeder Bot besteht aus **genau einer Funktion**:
 ```js
 function decide(state) {
   // ... vom Nutzer/der KI generierte Logik ...
-  return action; // z.B. "right"
+  return actions; // z.B. ["jump", "right"]
 }
 ```
 
-- Wird **einmal pro Simulations-Tick** (~150ms) aufgerufen.
+- Wird **~30x pro Sekunde** (alle ~33ms, 30Hz) aufgerufen.
 - Bekommt einen **read-only State-Snapshot** übergeben.
-- Muss **synchron** einen gültigen Action-String zurückgeben.
+- Muss **synchron eine Liste von Actions** (`Action[]`) zurückgeben, die im selben
+  Tick gleichzeitig angewendet werden (Multi-Action). `[]` = nichts tun.
 - Läuft in einem Web Worker – kein Zugriff auf `window`, `fetch`, `localStorage`, DOM, andere
   Bots oder globale Variablen außerhalb des Funktionsscopes.
 
-## State-Objekt (Vorschlag, muss final abgestimmt werden)
+## State-Objekt (tatsächlicher Contract, siehe `packages/bot-contract/src/state.ts`)
+
+> Positionen/Distanzen sind in **Pixeln** (nicht Tiles), relativ zum Bot: `dx < 0`
+> = links, `dy < 0` = oben. Die Objekt-Listen (`coins`/`hazards`/`utilities`) sind
+> auf den Sichtbereich des Bots begrenzt und nach Distanz sortiert; `nearest*` ist
+> jeweils das erste Element bzw. `null`.
 
 ```ts
 interface BotState {
-  tick: number;                // aktueller Simulationsschritt
-  position: { x: number; y: number };   // Tile-Koordinaten des Bots
+  tick: number;
+  position: { x: number; y: number };   // Pixel
   facing: "left" | "right";
   onGround: boolean;
   isAlive: boolean;
+  velocity: { vx: number; vy: number };  // px/s
+  isSprinting: boolean;
 
-  // Sichtfeld: begrenzter Ausschnitt der Tilemap um den Bot herum (z.B. 7x5 Tiles)
-  nearbyTiles: TileType[][];   // z.B. "empty" | "solid" | "hazard" | "coinBlock" | "goal"
+  nearbyTiles: TileType[][];             // 7x5, Bot in der Mitte
 
-  // Vereinfachte Sensordaten (praktischer für KI-generierten Code als rohes Tile-Parsing)
-  nearestCoin: { dx: number; dy: number } | null;
-  nearestHazard: { dx: number; dy: number } | null;
+  coins: { dx: number; dy: number; value: number }[];
+  hazards: { dx: number; dy: number; kind: HazardKind; active: boolean;
+             warning: boolean; stompable: boolean }[];
+  utilities: { dx: number; dy: number; kind: UtilityKind }[];
+
+  nearestCoin: (typeof coins)[number] | null;      // = coins[0] ?? null
+  nearestHazard: (typeof hazards)[number] | null;  // = hazards[0] ?? null
+  nearestUtility: (typeof utilities)[number] | null;
+
   goalDirection: { dx: number; dy: number };
+  gapAhead: { present: boolean; distance: number | null };
+  worldBounds: { width: number; height: number };
+  justRespawned: boolean;
+  tookDamage: boolean;
 
   coinsCollected: number;
   livesRemaining: number;
@@ -46,6 +63,9 @@ interface BotState {
 type TileType = "empty" | "solid" | "hazard" | "coinBlock" | "goal" | "unknown";
 
 type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right";
+
+// Rückgabe von decide: mehrere gleichzeitige Actions pro Tick.
+type DecideResult = Action[];
 ```
 
 ## Sprint & variable Sprunghöhe
@@ -72,8 +92,11 @@ type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right
    sollte der KI aber explizit sagen, dass sie sich darauf nicht verlassen soll.
 3. **Kein Zustand über Ticks hinweg garantiert**, außer via Closure-Variablen innerhalb der
    Bot-Datei selbst (das ist erlaubt und sogar erwünscht, z.B. für einfache State-Machines).
-4. **Rückgabewert muss exakt einem der 6 Action-Strings entsprechen.** Ungültige oder fehlende
-   Rückgaben → Bot macht in diesem Tick nichts (`idle`), keine Disqualifikation (Fehlertoleranz
+4. **Rückgabewert ist eine Liste gültiger Action-Strings (`Action[]`).** Mehrere Actions
+   pro Tick sind erlaubt und werden gleichzeitig angewendet (z.B. `["jump", "sprint-right"]`);
+   bei mehreren horizontalen Bewegungen gewinnt die zuletzt genannte. Ungültige Einträge werden
+   ignoriert; ein nicht-Array/fehlender Rückgabewert → Bot macht in diesem Tick nichts (`[]`),
+   keine Disqualifikation (Fehlertoleranz
    für's Publikum wichtiger als Strenge).
 5. **Performance-Limit:** `decide()` muss innerhalb von z.B. 5ms zurückkehren. Bots, die das
    Zeitlimit überschreiten, werden für den jeweiligen Tick übersprungen (Ergebnis: `idle`).

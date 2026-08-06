@@ -6,21 +6,21 @@ const SAMPLE_STATE = {} as BotState;
 
 function fakeRunner() {
   return {
-    tick: vi.fn().mockResolvedValue("jump"),
+    tick: vi.fn().mockResolvedValue(["jump", "right"]),
     dispose: vi.fn(),
   };
 }
 
 describe("BotController", () => {
-  it("delegates getNextAction to runner.tick with the given botState", async () => {
+  it("delegates getNextActions to runner.tick with the given botState", async () => {
     const runner = fakeRunner();
     const controller = new BotController(runner as never);
 
-    const action = await controller.getNextAction({ botState: SAMPLE_STATE });
+    const actions = await controller.getNextActions({ botState: SAMPLE_STATE });
 
     expect(runner.tick).toHaveBeenCalledTimes(1);
     expect(runner.tick).toHaveBeenCalledWith(SAMPLE_STATE);
-    expect(action).toBe("jump");
+    expect(actions).toEqual(["jump", "right"]);
   });
 
   it("delegates dispose to runner.dispose", () => {

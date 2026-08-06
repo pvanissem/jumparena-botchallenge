@@ -11,6 +11,6 @@ export interface ControllerInput {
 }
 
 export interface RacerController {
-  getNextAction(input: ControllerInput): Action | Promise<Action>;
+  getNextActions(input: ControllerInput): Action[] | Promise<Action[]>;
   dispose(): void;
 }

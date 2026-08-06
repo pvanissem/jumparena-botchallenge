@@ -30,7 +30,7 @@ import { updateHazard } from "../hazards/factory";
 import { UTILITY_REGISTRY } from "../hazards/registry";
 import { DEFAULT_LEVEL_ID, getLevelById } from "../level/levelRegistry";
 import { buildDynamicTileState } from "../level/tiles";
-import type { FruitKind, LevelDef } from "../level/types";
+import type { FruitKind, HazardInstanceDef, LevelDef } from "../level/types";
 import { FRUIT_VALUES } from "../level/types";
 import {
   jumpVelocityForSpeed,
@@ -58,7 +58,7 @@ import { buildBotState } from "../state/botStateBuilder";
 import type { WorldSnapshot } from "../state/worldSnapshot";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
 
-const BOT_TICK_INTERVAL_MS = 150;
+const BOT_TICK_INTERVAL_MS = 33;
 
 // Wie oft die Live-HUD-Anzeige (Zeit/Coins) aktualisiert wird. ~10x/s reicht
 // für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
@@ -112,9 +112,9 @@ export class RaceScene extends Phaser.Scene {
   // nicht jeden Frame (~60x/s) einen React-Re-Render auslöst.
   private sinceLastStatusEmit = 0;
   private tickCounter = 0;
-  /** Zuletzt vom Bot gelieferte Action – wird jeden Frame erneut angewendet,
-   *  bis der nächste Bot-Tick eine neue liefert (nicht-blockierend). */
-  private lastBotAction: Action = "idle";
+  /** Zuletzt vom Bot gelieferte Actions – werden jeden Frame erneut angewendet,
+   *  bis der nächste Bot-Tick neue liefert (nicht-blockierend). */
+  private lastBotActions: Action[] = [];
   /** Wie lange ununterbrochen in dieselbe Richtung gesprintet wurde (siehe
    *  `movement/movement.ts#rampedSprintSpeed`) – 0, solange nicht gesprintet
    *  wird. */
@@ -126,6 +126,11 @@ export class RaceScene extends Phaser.Scene {
    *  da `applyKeyboardInput`/`applyBotAction`/`applyMovement` es für die
    *  Sprint-Rampe brauchen, aber (historisch) kein `delta`-Argument haben. */
   private currentDelta = 0;
+  /** Ereignis-Flags für den State des nächsten Bot-Ticks: gesetzt, wenn seit dem
+   *  letzten Bot-Tick ein Leben verloren / respawnt wurde. Nach dem Bau des
+   *  BotState im jeweiligen Tick zurückgesetzt (siehe `fireBotTick`). */
+  private pendingTookDamage = false;
+  private pendingJustRespawned = false;
   private initData: RaceSceneInitData = { controllerMode: "keyboard" };
   /** Rein visuelle Buchführung (nicht Teil des Racer-/Rules-State): welche
    *  Checkpoints haben ihre Hiss-Animation bereits gezeigt. */
@@ -170,7 +175,9 @@ export class RaceScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.sinceLastBotTick = 0;
     this.tickCounter = 0;
-    this.lastBotAction = "idle";
+    this.lastBotActions = [];
+    this.pendingTookDamage = false;
+    this.pendingJustRespawned = false;
     this.sprintHoldMs = 0;
     this.jumpStartMs = null;
     this.activatedCheckpointIds = new Set<string>();
@@ -263,7 +270,7 @@ export class RaceScene extends Phaser.Scene {
     this.botRunner = null;
     this.initData = { ...this.initData, controllerMode: mode, botSourceCode };
     this.controller = this.createController();
-    this.lastBotAction = "idle";
+    this.lastBotActions = [];
     this.notifyStatus();
   }
 
@@ -286,6 +293,7 @@ export class RaceScene extends Phaser.Scene {
 
     if (this.player.y > this.level.worldHeight + 100) {
       this.racer = applyPitFall(this.racer);
+      this.markDamageAndRespawn();
       this.player.setPosition(this.racer.x, this.racer.y);
       this.playSfx(AUDIO_KEYS.FALL);
       this.notifyStatus();
@@ -297,14 +305,14 @@ export class RaceScene extends Phaser.Scene {
       this.applyKeyboardInput(this.keyboardController);
     } else {
       // Bot: eigenes, langsameres Tick-Raster, nicht-blockierend (siehe
-      // `fireBotTick`) – die zuletzt aufgelöste Action wird bis zum nächsten
+      // `fireBotTick`) – die zuletzt aufgelösten Actions werden bis zum nächsten
       // Tick jeden Frame erneut angewendet.
       this.sinceLastBotTick += delta;
       if (this.sinceLastBotTick >= BOT_TICK_INTERVAL_MS) {
         this.sinceLastBotTick = 0;
         this.fireBotTick();
       }
-      this.applyBotAction(this.lastBotAction);
+      this.applyBotActions(this.lastBotActions);
     }
 
     this.updatePlayerAnimation();
@@ -321,19 +329,37 @@ export class RaceScene extends Phaser.Scene {
 
   /**
    * Feuert einen Bot-Tick, OHNE den `update()`-Loop zu blockieren: Die
-   * Promise wird nicht awaited, sondern füllt `lastBotAction` asynchron,
+   * Promise wird nicht awaited, sondern füllt `lastBotActions` asynchron,
    * sobald der `BotRunner` antwortet (siehe bugfix.md, Fix-Ansatz A).
    */
   private fireBotTick(): void {
     const snapshot = this.buildSnapshot();
-    const botState = buildBotState(snapshot, this.racer, this.tickCounter++);
-    // `getNextAction` ist laut `RacerController`-Interface `Action |
-    // Promise<Action>` (der Bot-Pfad liefert immer ein Promise, siehe
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const botState = buildBotState(snapshot, this.racer, this.tickCounter++, {
+      velocity: { vx: body.velocity.x, vy: body.velocity.y },
+      isSprinting: this.sprintHoldMs > 0,
+      justRespawned: this.pendingJustRespawned,
+      tookDamage: this.pendingTookDamage,
+    });
+    // Ereignis-Flags gelten nur für den EINEN Tick unmittelbar nach dem
+    // Ereignis – nach dem Konsum zurücksetzen.
+    this.pendingJustRespawned = false;
+    this.pendingTookDamage = false;
+
+    // `getNextActions` ist laut `RacerController`-Interface `Action[] |
+    // Promise<Action[]>` (der Bot-Pfad liefert immer ein Promise, siehe
     // `BotController`) – `Promise.resolve` normalisiert beide Fälle einheitlich.
-    void Promise.resolve(this.controller.getNextAction({ botState })).then((action) => {
-      this.lastBotAction = action;
+    void Promise.resolve(this.controller.getNextActions({ botState })).then((actions) => {
+      this.lastBotActions = actions;
       this.notifyStatus();
     });
+  }
+
+  /** Merkt Schadens-/Respawn-Ereignis für den nächsten Bot-Tick-State (US-7).
+   *  Jeder Lebensverlust im aktuellen Spiel ist zugleich ein Respawn. */
+  private markDamageAndRespawn(): void {
+    this.pendingTookDamage = true;
+    this.pendingJustRespawned = true;
   }
 
   private buildSnapshot(): WorldSnapshot {
@@ -350,9 +376,20 @@ export class RaceScene extends Phaser.Scene {
         x: h.kind === "kugelblitz" ? h.pivotX : h.x,
         y: h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y,
         active: dynamic.activeHazardIds.has(h.id),
+        warning: this.isHazardWarning(h),
       })),
       utilities: this.level.utilities.map((u) => ({ id: u.id, kind: u.kind, x: u.x, y: u.y })),
     };
+  }
+
+  /** Ob sich eine Gefahr gerade ankündigt (nur Spikehead in der Vorwarnphase –
+   *  `active: false`, aber gleich gefährlich). Delegiert an die pure
+   *  `spikeheadState`-Funktion; alle anderen Hazards nie in "warning". */
+  private isHazardWarning(hazard: HazardInstanceDef): boolean {
+    if (hazard.kind !== "spikehead") return false;
+    const triggeredAt = this.racer.hazardTriggeredAtMs.get(hazard.id);
+    const msSinceTrigger = triggeredAt === undefined ? null : this.elapsedMs - triggeredAt;
+    return spikeheadState(hazard, msSinceTrigger).phase === "warning";
   }
 
   /**
@@ -384,31 +421,28 @@ export class RaceScene extends Phaser.Scene {
     this.applyMovement(dir, sprint, jump);
   }
 
-  /** Einzelne Action (Bot-Contract) – links/rechts/sprint-links/sprint-rechts/springen/idle. */
-  private applyBotAction(action: Action): void {
-    if (action === "jump") {
-      // Horizontale Bewegung/Sprint-Rampe bewusst UNVERÄNDERT lassen (siehe
-      // .features/movement-sprint-and-variable-jump/requirements.md, US-3,
-      // letztes Akzeptanzkriterium) - sonst wäre der Sprung-Boost für Bots
-      // wirkungslos, da die Geschwindigkeit sonst in diesem Tick auf 0 fiele.
-      this.applyJumpOnly(true);
-      return;
+  /**
+   * Wendet mehrere gleichzeitige Bot-Actions eines Ticks an (Multi-Action).
+   * Interpretiert die Liste zu demselben mehrachsigen Signal wie der
+   * Tastatur-Pfad (`dir`/`sprint`/`jump`) und nutzt dieselbe
+   * `applyMovement`-Pipeline (DRY). Konfliktregel: die ZULETZT genannte
+   * horizontale Bewegungs-Action gewinnt; `jump` ist frei kombinierbar; `idle`
+   * bzw. eine leere Liste bedeutet "keine horizontale Bewegung".
+   */
+  private applyBotActions(actions: readonly Action[]): void {
+    let dir: -1 | 0 | 1 = 0;
+    let sprint = false;
+    for (const action of actions) {
+      if (action === "left" || action === "sprint-left") {
+        dir = -1;
+        sprint = action === "sprint-left";
+      } else if (action === "right" || action === "sprint-right") {
+        dir = 1;
+        sprint = action === "sprint-right";
+      }
     }
-    if (action === "idle") {
-      this.sprintHoldMs = 0;
-      (this.player.body as Phaser.Physics.Arcade.Body).setVelocityX(0);
-      this.applyJumpOnly(false);
-      return;
-    }
-
-    const dir: -1 | 0 | 1 =
-      action === "left" || action === "sprint-left"
-        ? -1
-        : action === "right" || action === "sprint-right"
-          ? 1
-          : 0;
-    const sprint = action === "sprint-left" || action === "sprint-right";
-    this.applyMovement(dir, sprint, false);
+    const jump = actions.includes("jump");
+    this.applyMovement(dir, sprint, jump);
   }
 
   /**
@@ -601,6 +635,7 @@ export class RaceScene extends Phaser.Scene {
     }
 
     this.racer = applyHazardContact(this.racer, contact);
+    this.markDamageAndRespawn();
     this.player.setPosition(this.racer.x, this.racer.y);
     this.player.play("player-hit", true);
     this.playSfx(AUDIO_KEYS.PLAYER_DAMAGED);
