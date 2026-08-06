@@ -142,4 +142,8 @@ export interface LevelDef {
    *  `world/backgroundRegistry.ts`). Optional - Default `"default"`
    *  (bisheriges einfarbiges Blue-Background). */
   backgroundKey?: string;
+  /** Welcher Terrain-Style für Boden-/Plattform-Tiles verwendet wird (siehe
+   *  `world/terrainStyleRegistry.ts`). Optional - Default `"default"`
+   *  (bisheriges helles Terrain, keine Einfärbung). */
+  terrainStyleKey?: string;
 }

@@ -5,6 +5,7 @@
  * referenzieren Level ausschließlich über ihre stabile `id`.
  */
 import { LEVEL_ONE } from "./levelOne";
+import { LEVEL_THREE } from "./levelThree";
 import { LEVEL_TWO } from "./levelTwo";
 import type { LevelDef } from "./types";
 
@@ -17,6 +18,7 @@ export interface LevelRegistryEntry {
 export const LEVEL_REGISTRY: readonly LevelRegistryEntry[] = [
   { id: "level-one", label: "Level 1", level: LEVEL_ONE },
   { id: "level-two", label: "Level 2 – Kaizo", level: LEVEL_TWO },
+  { id: "level-three", label: "Level 3 – Night", level: LEVEL_THREE },
 ];
 
 export const DEFAULT_LEVEL_ID = "level-one";

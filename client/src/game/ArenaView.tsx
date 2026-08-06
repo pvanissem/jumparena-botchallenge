@@ -5,6 +5,7 @@
 import Phaser from "phaser";
 import { useEffect, useRef } from "react";
 import type { BotRunnerPauseReasonKind } from "../sandbox/BotRunner";
+import { getSharedAudioContext } from "./audio/sharedAudioContext";
 import { installKeyboardCaptureGuard } from "./input/keyboardCaptureGuard";
 import type { RacerRuntimeState } from "./rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
@@ -76,6 +77,11 @@ export function ArenaView({
       width: 800,
       height: 540,
       parent: containerRef.current,
+      // Geteilter AudioContext über alle Neu-Mounts hinweg (siehe
+      // `sharedAudioContext.ts`) - verhindert, dass jeder Level-Wechsel/
+      // Neustart einen frischen, erneut zu entsperrenden AudioContext
+      // erzeugt.
+      audio: { context: getSharedAudioContext() },
       physics: { default: "arcade", arcade: { gravity: { x: 0, y: 900 }, debug: true } },
       // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
       // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest

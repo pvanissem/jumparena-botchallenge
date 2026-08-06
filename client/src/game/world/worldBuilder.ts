@@ -21,6 +21,7 @@ import {
 import { TILE_SIZE } from "../level/tiles";
 import type { LevelDef, PlatformDef } from "../level/types";
 import { BACKGROUND_REGISTRY, DEFAULT_BACKGROUND_KEY } from "./backgroundRegistry";
+import { DEFAULT_TERRAIN_STYLE_KEY, TERRAIN_STYLE_REGISTRY } from "./terrainStyleRegistry";
 
 export const WORLD_DEPTH = {
   bg: -10,
@@ -139,6 +140,7 @@ function buildPlatforms(scene: Phaser.Scene, level: LevelDef): Phaser.Physics.Ar
 function paintTerrainSegment(scene: Phaser.Scene, level: LevelDef, platform: PlatformDef): void {
   const rows =
     platform.kind === "float" ? 2 : Math.ceil((level.worldHeight - platform.y) / TILE_SIZE);
+  const style = TERRAIN_STYLE_REGISTRY[level.terrainStyleKey ?? DEFAULT_TERRAIN_STYLE_KEY];
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < platform.tilesWide; col++) {
@@ -158,7 +160,7 @@ function paintTerrainSegment(scene: Phaser.Scene, level: LevelDef, platform: Pla
             ? TERRAIN_TILES.midRight
             : TERRAIN_TILES.midMid;
 
-      scene.add
+      const image = scene.add
         .image(
           platform.x + col * TILE_SIZE + TILE_SIZE / 2,
           platform.y + row * TILE_SIZE + TILE_SIZE / 2,
@@ -166,6 +168,10 @@ function paintTerrainSegment(scene: Phaser.Scene, level: LevelDef, platform: Pla
           frame
         )
         .setDepth(WORLD_DEPTH.terrain);
+
+      if (style.tint !== undefined) {
+        image.setTint(style.tint);
+      }
     }
   }
 }

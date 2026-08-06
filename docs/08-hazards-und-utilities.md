@@ -81,6 +81,17 @@ src/game/hazards/
 - Rein zeit-/positionsbasiert, kein Zufall – siehe
   `client/src/game/hazards/behaviors.ts#spikeheadState`.
 
+### Wiederverwendung in Level 3 ("Night")
+
+Level 3 (siehe `.features/level-three-underground/`) führt **keine neuen Hazard-Typen**
+ein, sondern nutzt die oben beschriebenen Kinds (Schnetzler, Stachlinger, Loderix,
+Spikehead) in entschärfter Form: einzelne statt geclusterte Schnetzler mit niedrigerer
+Patrol-Geschwindigkeit, ein Loderix mit längerer "aus"-Phase, ein Spikehead mit mehr
+Vorwarnzeit und kürzerer Liegedauer. Kugelblitz wird bewusst ausgelassen. Die dunkle,
+höhlenartige Optik von Level 3 kommt ausschließlich über Hintergrund/Terrain
+(`world/backgroundRegistry.ts`, `world/terrainStyleRegistry.ts`), nicht über die
+Hazard-Sprites selbst.
+
 ## Utilities
 
 | Name | Asset | Mechanik |

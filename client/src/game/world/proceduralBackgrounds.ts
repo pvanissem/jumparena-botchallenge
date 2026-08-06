@@ -157,3 +157,88 @@ function drawBushes(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
   drawBush(g, 250, baseY, 0.85);
   drawBush(g, 380, baseY, 1.05);
 }
+
+// --- Level 3: dunkler, "Night"-artiger Hintergrund -----------------------
+
+const NIGHT_TEXTURE_KEY_PREFIX = "bg-night";
+const CAVE_BASE_COLOR = 0x0d0d1a; // fast schwarzer, leicht bläulicher Grundton
+const CAVE_ROCK_FAR_COLOR = 0x1c1c2e; // entfernte Fels-Silhouette
+const CAVE_ROCK_MID_COLOR = 0x2a2a40; // mittlere Fels-Ebene
+const CAVE_ROCK_NEAR_COLOR = 0x38384f; // nahe Fels-Ebene (hellstes, weiterhin dunkel)
+const CRYSTAL_GLOW_COLOR = 0x66e0ff; // helle Akzent-Kristalle/Glüh-Punkte
+
+/**
+ * Liefert den Textur-Key eines dunklen, "Night"-artigen Hintergrunds für die
+ * angegebene Welt-Höhe (Level 3 "Night"), erzeugt ihn bei Bedarf
+ * einmalig (idempotent pro Höhe), analog zu `buildSmb1StyleBackgroundTexture`.
+ */
+export function buildNightStyleBackgroundTexture(
+  scene: Phaser.Scene,
+  worldHeight: number
+): string {
+  const textureKey = `${NIGHT_TEXTURE_KEY_PREFIX}-${worldHeight}`;
+  if (scene.textures.exists(textureKey)) {
+    return textureKey;
+  }
+
+  const g = scene.add.graphics();
+  g.fillStyle(CAVE_BASE_COLOR, 1);
+  g.fillRect(0, 0, TILE_W, worldHeight);
+
+  drawRockLayer(g, worldHeight, CAVE_ROCK_FAR_COLOR, 0.55, 1);
+  drawRockLayer(g, worldHeight, CAVE_ROCK_MID_COLOR, 0.75, 2);
+  drawRockLayer(g, worldHeight, CAVE_ROCK_NEAR_COLOR, 0.92, 3);
+  drawCrystals(g, worldHeight);
+
+  g.generateTexture(textureKey, TILE_W, worldHeight);
+  g.destroy();
+
+  return textureKey;
+}
+
+/**
+ * Fels-Silhouette-Ebene aus überlappenden, spitzeren Dreiecken (statt der
+ * runden Hügel-Ellipsen) am unteren Rand - wirkt kantiger/felsiger.
+ * `seed` verschiebt die x-Positionen deterministisch zwischen den drei
+ * Ebenen (keine Laufzeit-Zufälligkeit, identische Optik bei jedem Load).
+ */
+function drawRockLayer(
+  g: Phaser.GameObjects.Graphics,
+  worldHeight: number,
+  color: number,
+  heightFactor: number,
+  seed: number
+): void {
+  const baseY = worldHeight;
+  const layerHeight = worldHeight * heightFactor * 0.3;
+  const offset = seed * 37;
+  const peakXs = [20, 110, 200, 290, 380, 470].map((x) => (x + offset) % (TILE_W + 80) - 40);
+
+  g.fillStyle(color, 1);
+  for (const peakX of peakXs) {
+    const peakHeight = layerHeight * (0.7 + ((peakX + seed * 13) % 5) / 10);
+    g.fillTriangle(
+      peakX - 70,
+      baseY,
+      peakX + 70,
+      baseY,
+      peakX,
+      baseY - peakHeight
+    );
+  }
+}
+
+/** Wenige, dezente Kristall-Glühpunkte als rein dekorative Akzente. */
+function drawCrystals(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const spots = [
+    { x: 60, y: worldHeight * 0.55 },
+    { x: 170, y: worldHeight * 0.4 },
+    { x: 260, y: worldHeight * 0.6 },
+    { x: 340, y: worldHeight * 0.35 },
+    { x: 440, y: worldHeight * 0.5 },
+  ];
+  g.fillStyle(CRYSTAL_GLOW_COLOR, 0.6);
+  for (const spot of spots) {
+    g.fillCircle(spot.x, spot.y, 4);
+  }
+}
