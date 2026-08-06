@@ -9,8 +9,10 @@ export interface PlatformDef {
   x: number;
   y: number;
   tilesWide: number;
-  /** "ground" = solides Bodensegment, "float" = schmale Schwebeplattform. Default "ground". */
-  kind?: "ground" | "float";
+  /** "ground" = solides Bodensegment (füllt nach unten bis worldHeight), "float" = schmale
+   *  Schwebeplattform, "ceiling" = solides Deckensegment (füllt nach oben bis y=0). Default
+   *  "ground". */
+  kind?: "ground" | "float" | "ceiling";
 }
 
 export type FruitKind =

@@ -101,6 +101,16 @@ describe("tileTypeAt", () => {
   });
 });
 
+describe("tileTypeAt (ceiling platforms)", () => {
+  it("returns 'solid' for a tile inside a ceiling segment", () => {
+    const level = makeLevel({
+      platforms: [{ x: 0, y: 32, tilesWide: 4, kind: "ceiling" }],
+    });
+    // ceiling segment spans col 0..3 at row 32/16=2
+    expect(tileTypeAt(level, 1, 2, NO_DYNAMIC)).toBe("solid");
+  });
+});
+
 describe("buildNearbyTiles", () => {
   it("returns a grid of the requested dimensions centered on the racer", () => {
     const level = makeLevel({ platforms: [{ x: 0, y: 160, tilesWide: 20 }] });

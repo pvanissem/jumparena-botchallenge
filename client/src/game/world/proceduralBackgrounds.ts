@@ -172,10 +172,7 @@ const CRYSTAL_GLOW_COLOR = 0x66e0ff; // helle Akzent-Kristalle/Glüh-Punkte
  * angegebene Welt-Höhe (Level 3 "Night"), erzeugt ihn bei Bedarf
  * einmalig (idempotent pro Höhe), analog zu `buildSmb1StyleBackgroundTexture`.
  */
-export function buildNightStyleBackgroundTexture(
-  scene: Phaser.Scene,
-  worldHeight: number
-): string {
+export function buildNightStyleBackgroundTexture(scene: Phaser.Scene, worldHeight: number): string {
   const textureKey = `${NIGHT_TEXTURE_KEY_PREFIX}-${worldHeight}`;
   if (scene.textures.exists(textureKey)) {
     return textureKey;
@@ -212,19 +209,12 @@ function drawRockLayer(
   const baseY = worldHeight;
   const layerHeight = worldHeight * heightFactor * 0.3;
   const offset = seed * 37;
-  const peakXs = [20, 110, 200, 290, 380, 470].map((x) => (x + offset) % (TILE_W + 80) - 40);
+  const peakXs = [20, 110, 200, 290, 380, 470].map((x) => ((x + offset) % (TILE_W + 80)) - 40);
 
   g.fillStyle(color, 1);
   for (const peakX of peakXs) {
     const peakHeight = layerHeight * (0.7 + ((peakX + seed * 13) % 5) / 10);
-    g.fillTriangle(
-      peakX - 70,
-      baseY,
-      peakX + 70,
-      baseY,
-      peakX,
-      baseY - peakHeight
-    );
+    g.fillTriangle(peakX - 70, baseY, peakX + 70, baseY, peakX, baseY - peakHeight);
   }
 }
 
@@ -240,5 +230,77 @@ function drawCrystals(g: Phaser.GameObjects.Graphics, worldHeight: number): void
   g.fillStyle(CRYSTAL_GLOW_COLOR, 0.6);
   for (const spot of spots) {
     g.fillCircle(spot.x, spot.y, 4);
+  }
+}
+
+// --- Level 4: SMB-1-2-artiger "Underground"-Hintergrund -------------------
+
+const UNDERGROUND_TEXTURE_KEY_PREFIX = "bg-underground";
+const UNDERGROUND_BASE_COLOR = 0x000000; // klassisches SMB-Untergrund-Schwarz
+const UNDERGROUND_BRICK_COLOR = 0x2a7a3a; // grünliche NES-Backstein-Fläche
+const UNDERGROUND_MORTAR_COLOR = 0x0a2a12; // dunkle Fugenlinien
+
+const BRICK_W = 32;
+const BRICK_H = 32;
+const MORTAR_THICKNESS = 3;
+
+/**
+ * Liefert den Textur-Key eines SMB-1-2-artigen "Underground"-Hintergrunds für die angegebene
+ * Welt-Höhe (Level 4), erzeugt ihn bei Bedarf einmalig (idempotent pro Höhe), analog zu
+ * `buildSmb1StyleBackgroundTexture`/`buildNightStyleBackgroundTexture`. Anders als bei diesen
+ * beiden (Himmel/Höhle mit Tiefen-Ebenen) ist das SMB-1-2-Vorbild ein flaches, sich
+ * wiederholendes 2D-Backstein-Raster ohne Perspektive.
+ */
+export function buildUndergroundStyleBackgroundTexture(
+  scene: Phaser.Scene,
+  worldHeight: number
+): string {
+  const textureKey = `${UNDERGROUND_TEXTURE_KEY_PREFIX}-${worldHeight}`;
+  if (scene.textures.exists(textureKey)) {
+    return textureKey;
+  }
+
+  const g = scene.add.graphics();
+  g.fillStyle(UNDERGROUND_BASE_COLOR, 1);
+  g.fillRect(0, 0, TILE_W, worldHeight);
+
+  drawBrickGrid(g, worldHeight);
+
+  g.generateTexture(textureKey, TILE_W, worldHeight);
+  g.destroy();
+
+  return textureKey;
+}
+
+/**
+ * Regelmäßiges Backstein-Raster: jede zweite Reihe ist um eine halbe Steinbreite versetzt
+ * (klassischer Läufer-Verband), analog zum Mauerwerk aus SMB-1-2. Rein statisches Muster, kein
+ * Zufall (identische Optik bei jedem Load).
+ */
+function drawBrickGrid(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const rows = Math.ceil(worldHeight / BRICK_H) + 1;
+  const cols = Math.ceil(TILE_W / BRICK_W) + 1;
+
+  g.fillStyle(UNDERGROUND_BRICK_COLOR, 1);
+  for (let row = 0; row < rows; row++) {
+    const rowOffset = row % 2 === 0 ? 0 : -BRICK_W / 2;
+    for (let col = -1; col < cols; col++) {
+      const x = col * BRICK_W + rowOffset;
+      const y = row * BRICK_H;
+      g.fillRect(
+        x + MORTAR_THICKNESS / 2,
+        y + MORTAR_THICKNESS / 2,
+        BRICK_W - MORTAR_THICKNESS,
+        BRICK_H - MORTAR_THICKNESS
+      );
+    }
+  }
+
+  // Fugenlinien werden implizit durch den schwarzen/dunklen Grundton zwischen den
+  // Backstein-Rechtecken sichtbar; zusätzliche dunkle Trennlinien für mehr Kontrast:
+  g.lineStyle(MORTAR_THICKNESS, UNDERGROUND_MORTAR_COLOR, 0.5);
+  for (let row = 0; row <= rows; row++) {
+    const y = row * BRICK_H;
+    g.lineBetween(0, y, TILE_W, y);
   }
 }

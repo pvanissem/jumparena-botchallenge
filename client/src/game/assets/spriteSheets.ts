@@ -231,6 +231,23 @@ export const TERRAIN_TILES = {
   midRight: tileIndex(8, 1),
 } as const;
 
+/**
+ * Grauer "Castle"-Steinblock (Level 4 "Underground", siehe
+ * `.features/level-four-underground/design.md`, Abschnitt "Tileset-Sichtung"): Spalten 0-2,
+ * Reihe 0 sind die einzigen durchgehend deckenden (nicht-transparenten) grauen Tiles des
+ * Sheets - Reihe 1 desselben Sets ist als Rahmen mit transparenter Mitte gebaut und daher als
+ * Füllfläche ungeeignet. Reihe 0 wird deshalb sowohl für die Rand- als auch die Füll-Frames
+ * verwendet (ergibt eine gleichmäßige Steinwand statt eines hohlen Rahmens).
+ */
+export const STONE_TERRAIN_TILES = {
+  topLeft: tileIndex(0, 0),
+  topMid: tileIndex(1, 0),
+  topRight: tileIndex(2, 0),
+  midLeft: tileIndex(0, 0),
+  midMid: tileIndex(1, 0),
+  midRight: tileIndex(2, 0),
+} as const;
+
 export const BACKGROUND = { key: "background", path: `${BASE}/Background/Blue.png` } as const;
 
 // --- Einzelbilder (echte Einzelbilder ohne mehrere Frames, per load.image geladen) ---

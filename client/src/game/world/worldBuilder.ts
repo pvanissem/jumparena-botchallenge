@@ -8,8 +8,8 @@ import {
   fruitAnimKey,
   fruitTextureKey,
   SheetKeys,
-  spriteScale,
   STATIC_IMAGE_KEYS,
+  spriteScale,
   TERRAIN_TILES,
 } from "../assets/spriteSheets";
 import {
@@ -138,36 +138,52 @@ function buildPlatforms(scene: Phaser.Scene, level: LevelDef): Phaser.Physics.Ar
  * füllen bis zum Weltboden, "float"-Plattformen sind nur wenige Reihen dick.
  */
 function paintTerrainSegment(scene: Phaser.Scene, level: LevelDef, platform: PlatformDef): void {
+  const isCeiling = platform.kind === "ceiling";
   const rows =
-    platform.kind === "float" ? 2 : Math.ceil((level.worldHeight - platform.y) / TILE_SIZE);
+    platform.kind === "float"
+      ? 2
+      : isCeiling
+        ? Math.ceil(platform.y / TILE_SIZE) + 1
+        : Math.ceil((level.worldHeight - platform.y) / TILE_SIZE);
   const style = TERRAIN_STYLE_REGISTRY[level.terrainStyleKey ?? DEFAULT_TERRAIN_STYLE_KEY];
+  const frames = style.frames ?? TERRAIN_TILES;
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < platform.tilesWide; col++) {
-      const isTop = row === 0;
+      // "edge"-Reihe = die dem Spielfeld zugewandte Reihe (row 0): bei "ground" die
+      // Oberkante, bei "ceiling" die Unterkante (näher am Boden). Alle weiteren Reihen
+      // sind reine Füll-Tiles ("mid"), die von der Kante weg (bei "ceiling": aufwärts)
+      // fortgesetzt werden.
+      const isEdge = row === 0;
       const isLeft = col === 0;
       const isRight = col === platform.tilesWide - 1;
 
-      const frame = isTop
+      const frame = isEdge
         ? isLeft
-          ? TERRAIN_TILES.topLeft
+          ? frames.topLeft
           : isRight
-            ? TERRAIN_TILES.topRight
-            : TERRAIN_TILES.topMid
+            ? frames.topRight
+            : frames.topMid
         : isLeft
-          ? TERRAIN_TILES.midLeft
+          ? frames.midLeft
           : isRight
-            ? TERRAIN_TILES.midRight
-            : TERRAIN_TILES.midMid;
+            ? frames.midRight
+            : frames.midMid;
+
+      const y = isCeiling
+        ? platform.y - row * TILE_SIZE + TILE_SIZE / 2
+        : platform.y + row * TILE_SIZE + TILE_SIZE / 2;
 
       const image = scene.add
-        .image(
-          platform.x + col * TILE_SIZE + TILE_SIZE / 2,
-          platform.y + row * TILE_SIZE + TILE_SIZE / 2,
-          SheetKeys.TERRAIN,
-          frame
-        )
+        .image(platform.x + col * TILE_SIZE + TILE_SIZE / 2, y, SheetKeys.TERRAIN, frame)
         .setDepth(WORLD_DEPTH.terrain);
+
+      // Bei "ceiling" wird die Kanten-Reihe vertikal gespiegelt, damit die charakteristische
+      // "Oberkante"-Optik der Tiles nach unten (Richtung Spielfläche) zeigt, statt wie ein
+      // simpler, invertierter Boden zu wirken.
+      if (isCeiling && isEdge) {
+        image.setFlipY(true);
+      }
 
       if (style.tint !== undefined) {
         image.setTint(style.tint);

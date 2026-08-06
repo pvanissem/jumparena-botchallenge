@@ -9,7 +9,11 @@
  * nötig (siehe design.md, Test-Strategie).
  */
 import type Phaser from "phaser";
-import { buildSmb1StyleBackgroundTexture, buildNightStyleBackgroundTexture } from "./proceduralBackgrounds";
+import {
+  buildNightStyleBackgroundTexture,
+  buildSmb1StyleBackgroundTexture,
+  buildUndergroundStyleBackgroundTexture,
+} from "./proceduralBackgrounds";
 
 export type BackgroundSpec =
   | { kind: "image"; textureKey: string }
@@ -19,6 +23,7 @@ export const BACKGROUND_REGISTRY: Record<string, BackgroundSpec> = {
   default: { kind: "image", textureKey: "background" }, // bestehendes Blue.png
   "smb1-1": { kind: "procedural", buildTexture: buildSmb1StyleBackgroundTexture },
   night: { kind: "procedural", buildTexture: buildNightStyleBackgroundTexture },
+  underground: { kind: "procedural", buildTexture: buildUndergroundStyleBackgroundTexture },
 };
 
 export const DEFAULT_BACKGROUND_KEY = "default";
