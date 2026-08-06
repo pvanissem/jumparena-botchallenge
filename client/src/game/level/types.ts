@@ -68,7 +68,9 @@ export interface GoalDef {
 // und damit zu einem Compile-Fehler führen (Drift-Schutz).
 export type HazardInstanceDef =
   | {
-      kind: Extract<HazardKind, "schnetzler">;
+      /** Beide patrouillieren identisch zwischen minX/maxX – Unterschied ist
+       *  nur `stompable` (siehe `hazards/registry.ts`). */
+      kind: Extract<HazardKind, "schnetzler" | "ninjafrog">;
       id: string;
       x: number;
       y: number;

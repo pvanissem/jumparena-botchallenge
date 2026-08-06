@@ -12,7 +12,7 @@ import type { LevelDef } from "./types";
  *   deutlich enger als Level 1.
  * - Ein Gegner-Gauntlet (P2) reiht 3 Schnetzler mit eng aneinander
  *   anschließenden Patrol-Bereichen auf einer einzigen, schmalen Plattform
- *   auf - mehrfaches Timen/Stompen nötig, kein Durchlaufen ohne Reaktion.
+ *   auf - präzises Timen nötig, kein Durchlaufen ohne Reaktion.
  * - Neu: Spikehead (P3) - fällt nach kurzer Vorwarnzeit auf die Passage
  *   herab, sobald die Trigger-Zone betreten wird.
  * - 3 Checkpoints, jeweils direkt vor der nächsten schwierigen Sektion
@@ -84,8 +84,9 @@ export const LEVEL_TWO: LevelDef = {
   // --- Hazards (alle 5 Kinds, inkl. neuem Spikehead) --------------------
   hazards: [
     // Schnetzler-Gauntlet: 3 Sägen mit eng aneinander anschließenden
-    // Patrol-Bereichen, alle innerhalb P2 (464-688) - mehrfaches
-    // Timen/Stompen nötig, kein Durchlaufen ohne Reaktion.
+    // Patrol-Bereichen, alle innerhalb P2 (464-688) - präzises Timen nötig,
+    // kein Durchlaufen ohne Reaktion. Sägen sind NICHT stompbar (siehe
+    // hazards/registry.ts), hier hilft nur Ausweichen/Überspringen.
     {
       kind: "schnetzler",
       id: "schnetzler-1",
@@ -124,7 +125,7 @@ export const LEVEL_TWO: LevelDef = {
       speed: 80,
     },
     // Stachlinger auf P3 (864-1088) und P6 (2096-2320).
-    { kind: "stachlinger", id: "stachlinger-1", x: 900, y: GROUND_Y - 8 },
+    { kind: "stachlinger", id: "stachlinger-1", x: 950, y: GROUND_Y - 8 },
     { kind: "stachlinger", id: "stachlinger-2", x: 2280, y: GROUND_Y - 8 },
     // Loderix-Gauntlet auf P5 (1632-1920), phasenversetzt.
     { kind: "loderix", id: "loderix-1", x: 1700, y: GROUND_Y - 16, phaseMs: 0 },

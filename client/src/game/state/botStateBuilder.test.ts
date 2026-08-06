@@ -136,27 +136,37 @@ describe("buildBotState coin/hazard/utility lists", () => {
     expect(state.coins[0].dx).toBe(300);
   });
 
-  it("marks only schnetzler as stompable and passes through active/warning", () => {
+  it("marks only ninjafrog as stompable and passes through active/warning", () => {
     const r = racer({ x: 0, y: 0 });
     const snap = snapshot({
       hazards: [
-        { id: "saw", kind: "schnetzler", x: 10, y: 0, active: true, warning: false },
-        { id: "spike", kind: "spikehead", x: 20, y: 0, active: false, warning: true },
+        { id: "frog", kind: "ninjafrog", x: 10, y: 0, active: true, warning: false },
+        { id: "saw", kind: "schnetzler", x: 20, y: 0, active: true, warning: false },
+        { id: "spike", kind: "spikehead", x: 30, y: 0, active: false, warning: true },
       ],
     });
     const state = build(snap, r);
+    const frog = state.hazards.find((h) => h.kind === "ninjafrog");
     const saw = state.hazards.find((h) => h.kind === "schnetzler");
     const spike = state.hazards.find((h) => h.kind === "spikehead");
-    expect(saw).toEqual({
+    expect(frog).toEqual({
       dx: 10,
       dy: 0,
-      kind: "schnetzler",
+      kind: "ninjafrog",
       active: true,
       warning: false,
       stompable: true,
     });
-    expect(spike).toEqual({
+    expect(saw).toEqual({
       dx: 20,
+      dy: 0,
+      kind: "schnetzler",
+      active: true,
+      warning: false,
+      stompable: false,
+    });
+    expect(spike).toEqual({
+      dx: 30,
       dy: 0,
       kind: "spikehead",
       active: false,

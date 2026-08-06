@@ -72,7 +72,7 @@ export function ArenaView({
       width: 800,
       height: 540,
       parent: containerRef.current,
-      physics: { default: "arcade", arcade: { gravity: { x: 0, y: 900 }, debug: false } },
+      physics: { default: "arcade", arcade: { gravity: { x: 0, y: 900 }, debug: true } },
       scene: [RaceScene],
     });
     gameRef.current = game;

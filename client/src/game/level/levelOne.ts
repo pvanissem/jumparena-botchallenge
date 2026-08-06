@@ -15,7 +15,7 @@ import type { LevelDef } from "./types";
  * - Jeder Hazard/jede Münze/jeder Block sitzt NACHWEISLICH innerhalb der
  *   x-Spanne einer echten Plattform (keine Objekte über Lücken, außer dem
  *   Kugelblitz, der ABSICHTLICH über einer Lücke pendelt).
- * - Steigender Schwierigkeitsgrad in klaren Abschnitten: Einstieg (Schnetzler
+ * - Steigender Schwierigkeitsgrad in klaren Abschnitten: Einstieg (Ninja-Frog
  *   zum Stompen üben) -> erste Fallen (Stachlinger) -> Kugelblitz-Lücke ->
  *   Boingo-Bonusbereich -> Loderix-Gauntlet -> Zielgerade.
  * - Boingo ist der einzige Weg zu den beiden höchsten Bonus-Plattformen
@@ -40,7 +40,7 @@ export const LEVEL_ONE: LevelDef = {
   platforms: [
     { x: 0, y: GROUND_Y, tilesWide: 20 }, // P1: Start, Übungsbereich
     { x: 432, y: GROUND_Y, tilesWide: 14 }, // P2: erste Stachlinger-Falle
-    { x: 784, y: GROUND_Y, tilesWide: 16 }, // P3: zweiter Schnetzler + Bonus
+    { x: 784, y: GROUND_Y, tilesWide: 16 }, // P3: zweiter Ninja-Frog + Bonus
     { x: 1168, y: GROUND_Y, tilesWide: 10 }, // P4: kurz vor der Kugelblitz-Lücke
     { x: 1456, y: GROUND_Y, tilesWide: 18 }, // P5: Boingo-Bereich 1
     { x: 1872, y: GROUND_Y, tilesWide: 14 }, // P6: Loderix-Gauntlet
@@ -97,20 +97,22 @@ export const LEVEL_ONE: LevelDef = {
 
   // --- Hazards (alle 4 Kinds, jeweils klar innerhalb einer Plattform) --
   hazards: [
-    // Schnetzler 1: patrouilliert komplett innerhalb P1 (0-320) - Einstieg zum Stompen üben.
+    // Ninja-Frog 1: patrouilliert komplett innerhalb P1 (0-320) - Einstieg zum Stompen üben.
+    // (Vorher ein Schnetzler; der ist inzwischen NICHT mehr stompbar, siehe
+    // hazards/registry.ts - der stompbare Gegner ist der Ninja-Frog.)
     {
-      kind: "schnetzler",
-      id: "schnetzler-1",
+      kind: "ninjafrog",
+      id: "ninjafrog-1",
       x: 250,
       y: GROUND_Y - 16,
       minX: 250,
       maxX: 270,
       speed: 60,
     },
-    // Schnetzler 2: patrouilliert komplett innerhalb P3 (784-1040).
+    // Ninja-Frog 2: patrouilliert komplett innerhalb P3 (784-1040).
     {
-      kind: "schnetzler",
-      id: "schnetzler-2",
+      kind: "ninjafrog",
+      id: "ninjafrog-2",
       x: 850,
       y: GROUND_Y - 16,
       minX: 850,

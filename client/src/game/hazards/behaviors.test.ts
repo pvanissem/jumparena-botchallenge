@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTimedActive, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
+import { isTimedActive, patrolFacing, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
 
 describe("patrolX", () => {
   const def = { minX: 100, maxX: 200, speed: 100 } as const; // period = 2*100/100*1000ms = 2000ms one-way
@@ -19,6 +19,28 @@ describe("patrolX", () => {
       expect(x).toBeGreaterThanOrEqual(def.minX - 0.001);
       expect(x).toBeLessThanOrEqual(def.maxX + 0.001);
     }
+  });
+});
+
+describe("patrolFacing", () => {
+  const def = { minX: 100, maxX: 200, speed: 100 } as const; // one-way = 1000ms
+
+  it("faces right (+1) on the way from minX to maxX", () => {
+    expect(patrolFacing(def, 0)).toBe(1);
+    expect(patrolFacing(def, 500)).toBe(1);
+  });
+
+  it("faces left (-1) on the way back from maxX to minX", () => {
+    expect(patrolFacing(def, 1200)).toBe(-1);
+    expect(patrolFacing(def, 1900)).toBe(-1);
+  });
+
+  it("faces right again after a full cycle", () => {
+    expect(patrolFacing(def, 2100)).toBe(1);
+  });
+
+  it("faces right for a degenerate (non-moving) patrol range", () => {
+    expect(patrolFacing({ minX: 100, maxX: 100, speed: 0 }, 500)).toBe(1);
   });
 });
 

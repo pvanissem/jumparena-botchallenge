@@ -49,14 +49,17 @@ describe("applyBlockHit", () => {
 
 describe("resolveHazardContact", () => {
   it("returns 'stomped' for a stompable hazard hit from above while active", () => {
-    expect(resolveHazardContact("schnetzler", true, true)).toBe("stomped");
+    expect(resolveHazardContact("ninjafrog", true, true)).toBe("stomped");
   });
 
   it("returns 'hit' for a stompable hazard hit from the side while active", () => {
-    expect(resolveHazardContact("schnetzler", true, false)).toBe("hit");
+    expect(resolveHazardContact("ninjafrog", true, false)).toBe("hit");
   });
 
   it("returns 'hit' for non-stompable hazards regardless of contact direction", () => {
+    // Der Schnetzler (rotierende Säge) ist bewusst NICHT stompbar - auf eine
+    // laufende Säge zu springen darf nicht belohnt werden (siehe docs/08).
+    expect(resolveHazardContact("schnetzler", true, true)).toBe("hit");
     expect(resolveHazardContact("stachlinger", true, true)).toBe("hit");
     expect(resolveHazardContact("loderix", true, false)).toBe("hit");
     expect(resolveHazardContact("kugelblitz", true, true)).toBe("hit");
@@ -64,7 +67,7 @@ describe("resolveHazardContact", () => {
 
   it("returns 'none' when the hazard is not currently active", () => {
     expect(resolveHazardContact("loderix", false, false)).toBe("none");
-    expect(resolveHazardContact("schnetzler", false, true)).toBe("none");
+    expect(resolveHazardContact("ninjafrog", false, true)).toBe("none");
   });
 });
 

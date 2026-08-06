@@ -27,6 +27,20 @@ export function patrolX(def: PatrolLike, elapsedMs: number): number {
   return def.maxX - (back / oneWayMs) * range;
 }
 
+/**
+ * Blickrichtung eines patrouillierenden Hazards: `1` = nach rechts (minX ->
+ * maxX), `-1` = nach links (maxX -> minX). Nur für Sprites relevant, die eine
+ * Richtung haben (Ninja-Frog); eine rotierende Säge ignoriert das.
+ */
+export function patrolFacing(def: PatrolLike, elapsedMs: number): 1 | -1 {
+  const range = def.maxX - def.minX;
+  if (range <= 0 || def.speed <= 0) return 1;
+
+  const oneWayMs = (range / def.speed) * 1000;
+  const t = elapsedMs % (oneWayMs * 2);
+  return t <= oneWayMs ? 1 : -1;
+}
+
 export interface TimedLike {
   onMs?: number;
   offMs?: number;

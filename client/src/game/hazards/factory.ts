@@ -9,7 +9,7 @@
  */
 import type Phaser from "phaser";
 import type { HazardInstanceDef, UtilityInstanceDef } from "../level/types";
-import { isTimedActive, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
+import { isTimedActive, patrolFacing, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
 import { HAZARD_REGISTRY, type HitboxSpec, UTILITY_REGISTRY } from "./registry";
 
 export interface HazardInstance {
@@ -75,8 +75,11 @@ export function updateHazard(
   hazardTriggeredAtMs: ReadonlyMap<string, number>
 ): void {
   const { sprite, def } = instance;
-  if (def.kind === "schnetzler") {
+  if (def.kind === "schnetzler" || def.kind === "ninjafrog") {
     sprite.x = patrolX(def, elapsedMs);
+    // Nur der Ninja-Frog hat eine Blickrichtung; das Sprite läuft im Asset
+    // nach rechts, beim Rückweg wird es gespiegelt.
+    if (def.kind === "ninjafrog") sprite.setFlipX(patrolFacing(def, elapsedMs) === -1);
     return;
   }
   if (def.kind === "loderix") {

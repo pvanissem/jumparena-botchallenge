@@ -2,6 +2,7 @@ import { useState } from "react";
 import { currentBotSource } from "../bot/currentBotSource";
 import { AudioControls } from "../components/AudioControls";
 import { FinishOverlay } from "../components/FinishOverlay";
+import { HazardLegend } from "../components/HazardLegend";
 import { ScoreHud } from "../components/ScoreHud";
 import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
@@ -132,6 +133,8 @@ export function DevPage() {
           />
           {runEnded && racer && <FinishOverlay racer={racer} onRestart={restart} />}
         </div>
+
+        <HazardLegend />
       </div>
     </main>
   );

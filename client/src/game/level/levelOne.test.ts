@@ -19,8 +19,13 @@ describe("LEVEL_ONE structure", () => {
   it("contains all four hazard kinds (docs/08)", () => {
     const kinds = LEVEL_ONE.hazards.map((h) => h.kind);
     expect(kinds).toEqual(
-      expect.arrayContaining(["schnetzler", "stachlinger", "loderix", "kugelblitz"])
+      expect.arrayContaining(["ninjafrog", "stachlinger", "loderix", "kugelblitz"])
     );
+  });
+
+  it("uses the stompable ninjafrog (not the saw) as the level's patrolling NPC", () => {
+    const kinds = LEVEL_ONE.hazards.map((h) => h.kind);
+    expect(kinds).not.toContain("schnetzler");
   });
 
   it("has at least one boingo utility", () => {
@@ -71,9 +76,9 @@ describe("LEVEL_ONE physical plausibility", () => {
     }
   });
 
-  it("places every patrolling schnetzler's full range on a single platform (never into a gap)", () => {
+  it("places every patrolling hazard's full range on a single platform (never into a gap)", () => {
     for (const hazard of LEVEL_ONE.hazards) {
-      if (hazard.kind !== "schnetzler") continue;
+      if (hazard.kind !== "schnetzler" && hazard.kind !== "ninjafrog") continue;
       const onSomePlatform = LEVEL_ONE.platforms.some(
         (p) => platformContains(p, hazard.minX) && platformContains(p, hazard.maxX)
       );

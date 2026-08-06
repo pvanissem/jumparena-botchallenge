@@ -141,14 +141,15 @@ einem konkreten Level gibt oder wo sie stehen.
 
 | Typ (`kind`) | Verhalten | Stompbar? | Immer gefährlich? |
 |---|---|---|---|
-| `schnetzler` | Säge, patrouilliert horizontal hin und her | **Ja** (einziger) | ja |
+| `ninjafrog` | Ninja-Frog, patrouillierender Gegner | **Ja** (einziger) | ja |
+| `schnetzler` | Säge, patrouilliert horizontal hin und her | nein | ja |
 | `stachlinger` | Stacheln, statisch am Boden | nein | ja |
 | `loderix` | Feuer, getaktet ~1,5 s AN / ~1,5 s AUS | nein | **nein** – nur im „AN"-Zustand |
 | `kugelblitz` | Stachelkugel, schwingt als Pendel | nein | ja |
 | `spikehead` | Stachelkopf, hängt oben; fällt herab, wenn der Bot darunter läuft, und steigt langsam wieder auf | nein | **nein** – nur während Fallen/Liegen/Aufsteigen |
 
 - **Stomp** = von **oben draufspringen**. Bedingung: Der Bot muss sich **im Fallen**
-  befinden **und oberhalb** des Hazards sein. Nur der `schnetzler` lässt sich so
+  befinden **und oberhalb** des Hazards sein. Nur der `ninjafrog` lässt sich so
   neutralisieren (er wird dabei zerstört, der Bot prallt leicht ab, **kein**
   Leben-Verlust). Bei allen anderen Typen führt Kontakt **immer** zum
   Leben-Verlust – die muss der Bot **umgehen/umspringen/abwarten**.
@@ -370,7 +371,7 @@ Actions:
   ungefährlich (bei `loderix` abwarten). Bei `spikehead` warnt `warning === true`
   kurz vor dem Fall.
 - **`stompable` nutzen:** Nur auf Hazards mit `stompable === true` draufspringen
-  (nur `schnetzler`); auf alle anderen niemals.
+  (nur `ninjafrog`); auf alle anderen – auch die Säge `schnetzler` – niemals.
 - **Weite Sprünge:** vorher `sprint-*` geben (Momentum), sonst reicht die Weite
   evtl. nicht über eine Lücke (`gapAhead`).
 - **5-ms-Budget respektieren:** Keine großen Schleifen/Berechnungen in `decide`.

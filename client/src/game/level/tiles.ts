@@ -61,7 +61,7 @@ function isHazardActive(
     const msSinceTrigger = triggeredAt === undefined ? null : elapsedMs - triggeredAt;
     return spikeheadState(hazard, msSinceTrigger).active;
   }
-  // schnetzler/stachlinger/kugelblitz sind laut docs/08 dauerhaft gefährlich.
+  // schnetzler/ninjafrog/stachlinger/kugelblitz sind laut docs/08 dauerhaft gefährlich.
   return true;
 }
 

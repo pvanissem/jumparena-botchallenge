@@ -41,6 +41,9 @@ export function createAnimations(scene: Phaser.Scene): void {
   // --- Schnetzler (Säge) ---
   define("saw-spin", SheetKeys.SAW, 7, 24);
 
+  // --- Ninja-Frog (patrouillierender, stompbarer NPC): 12 Lauf-Frames ---
+  define("ninjafrog-run", SheetKeys.NINJAFROG_RUN, 11, 20);
+
   // --- Loderix (Feuer): nur "an"-Zustand animiert, "aus" ist ein Einzelbild ---
   define("loderix-on", SheetKeys.FIRE_ON, 2, 14);
 
@@ -60,6 +63,9 @@ export function createAnimations(scene: Phaser.Scene): void {
 
   // --- Pickup-Popeffekt ---
   define("fruit-collected", SheetKeys.FRUIT_COLLECTED, 5, 24, 0);
+
+  // --- "Puff", wenn ein gestompter Gegner verschwindet (einmalig, 7 Frames) ---
+  define("disappearing", SheetKeys.DISAPPEARING, 6, 20, 0);
 
   // --- Frucht-Idle-Rotationen ---
   for (const fruit of ALL_FRUITS) {

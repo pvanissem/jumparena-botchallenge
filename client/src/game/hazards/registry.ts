@@ -40,17 +40,28 @@ export interface HazardSpec {
 
 export const HAZARD_REGISTRY: Record<HazardKind, HazardSpec> = {
   schnetzler: {
+    // NICHT stompbar: Auf eine rotierende Säge zu springen soll bestraft und
+    // nicht belohnt werden. Der stompbare Gegner ist der Ninja-Frog (unten).
     texture: "saw",
     anim: "saw-spin",
-    stompable: true,
+    stompable: false,
     behavior: "patrol",
     hitbox: { width: 28, height: 28, offsetX: 5, offsetY: 5 },
+  },
+  ninjafrog: {
+    // Patrouillierender NPC-Gegner (Pixel-Adventure "Ninja Frog"): der einzige
+    // Hazard, den man durch Draufspringen von oben ausschalten kann.
+    texture: "ninjafrog-run",
+    anim: "ninjafrog-run",
+    stompable: true,
+    behavior: "patrol",
+    hitbox: { width: 18, height: 22, offsetX: 7, offsetY: 9 },
   },
   stachlinger: {
     texture: "spikes",
     stompable: false,
     behavior: "static",
-    hitbox: { width: 10, height: 10, offsetX: 3, offsetY: 6 },
+    hitbox: { width: 2, height: 10, offsetX: 5, offsetY: 10 },
   },
   loderix: {
     texture: "fire-on",

@@ -22,6 +22,8 @@ export const SheetKeys = {
   SAW: "saw",
   FIRE_ON: "fire-on",
   TRAMPOLINE_JUMP: "trampoline-jump",
+  /** Laufender NPC-Gegner "Ninja-Frog" (stompbar). */
+  NINJAFROG_RUN: "ninjafrog-run",
 
   GOAL_IDLE: "goal-idle",
   GOAL_PRESSED: "goal-pressed",
@@ -32,6 +34,9 @@ export const SheetKeys = {
   BLOCK_HIT: "block-hit",
 
   FRUIT_COLLECTED: "fruit-collected",
+
+  /** Einmaliger "Puff"-Effekt, wenn ein Gegner ausgeschaltet wird. */
+  DISAPPEARING: "disappearing",
 } as const;
 
 export interface SheetSpec {
@@ -92,6 +97,12 @@ export const SHEET_SPECS: readonly SheetSpec[] = [
     path: `${BASE}/Traps/Trampoline/Jump (28x28).png`,
     frameWidth: 28,
     frameHeight: 28,
+  },
+  {
+    key: SheetKeys.NINJAFROG_RUN,
+    path: `${BASE}/Dudes/Ninja Frog/Run (32x32).png`,
+    frameWidth: 32,
+    frameHeight: 32,
   },
 
   {
@@ -155,6 +166,18 @@ export const SHEET_SPECS: readonly SheetSpec[] = [
     path: `${BASE}/Items/Fruits/Collected.png`,
     frameWidth: 32,
     frameHeight: 32,
+  },
+
+  /**
+   * "Verschwinden"-Puff (7 Frames à 96x96) aus dem Pixel-Adventure-Set – wird
+   * beim Stomp eines Gegners an dessen Position abgespielt. Dateiname im Set
+   * ist tatsächlich "Desappearing" (Tippfehler des Asset-Autors).
+   */
+  {
+    key: SheetKeys.DISAPPEARING,
+    path: `${BASE}/Animations/Desappearing (96x96).png`,
+    frameWidth: 96,
+    frameHeight: 96,
   },
 ];
 

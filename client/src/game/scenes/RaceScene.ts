@@ -189,6 +189,7 @@ export class RaceScene extends Phaser.Scene {
     this.player.setDepth(10);
     this.player.setCollideWorldBounds(false);
     this.player.play("player-idle");
+    this.player.body.setSize(24, 32);
 
     this.physics.add.collider(this.player, this.world.solids);
     this.physics.add.overlap(this.player, this.world.coins, (_player, coin) =>
@@ -629,6 +630,7 @@ export class RaceScene extends Phaser.Scene {
     if (contact === "none") return;
     if (contact === "stomped") {
       body.setVelocityY(STOMP_BOUNCE_VELOCITY);
+      this.playVanishEffect(hazard.x, hazard.y);
       hazard.destroy();
       this.playSfx(AUDIO_KEYS.DAMAGED);
       return;
@@ -640,6 +642,20 @@ export class RaceScene extends Phaser.Scene {
     this.player.play("player-hit", true);
     this.playSfx(AUDIO_KEYS.PLAYER_DAMAGED);
     this.notifyStatus();
+  }
+
+  /**
+   * Einmaliger "Puff"-Effekt an der Stelle, an der ein gestompter Gegner
+   * verschwindet. Bewusst ein eigenes, physikloses Sprite (kein Umfärben des
+   * Hazards): Der Hazard selbst wird sofort zerstört, damit er in derselben
+   * Frame keine weitere Kollision mehr auslöst, während der Effekt noch läuft.
+   * Räumt sich nach der Animation selbst auf.
+   */
+  private playVanishEffect(x: number, y: number): void {
+    const puff = this.add.sprite(x, y, SheetKeys.DISAPPEARING);
+    puff.setDepth(WORLD_DEPTH.player + 1);
+    puff.play("disappearing");
+    puff.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => puff.destroy());
   }
 
   private notifyStatus(): void {

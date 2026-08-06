@@ -65,12 +65,14 @@ canvas {
 
 .pixel-page {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 12px;
-  overflow: hidden;
+  /* Die Legende unter der Arena darf gescrollt werden, statt abgeschnitten zu
+     werden (vorher `overflow: hidden` bei fixer 100vh-Höhe). */
+  overflow-y: auto;
 }
 
 .pixel-shell {
@@ -464,6 +466,80 @@ canvas {
   max-height: calc(100vh - 90px);
   height: auto;
   width: auto;
+}
+
+/* ---------- Legende (Hazards/Utilities) ---------- */
+
+.pixel-legend {
+  padding: 10px 12px;
+  background: var(--bg-0);
+  box-shadow: 0 0 0 3px var(--border-dark);
+  line-height: 1.5;
+}
+
+.pixel-legend__title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--neon-cyan);
+}
+
+.pixel-legend__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pixel-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Feste Box, in der das (ggf. hochskalierte) Sprite zentriert schwebt. */
+.pixel-legend__preview {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+.pixel-legend__preview > div {
+  image-rendering: pixelated;
+}
+
+.pixel-legend__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pixel-legend__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--neon-yellow);
+}
+
+.pixel-legend__badge {
+  font-size: 7px;
+  padding: 2px 4px;
+  color: var(--bg-0);
+  background: var(--neon-green);
+}
+
+.pixel-legend__desc {
+  font-size: 7px;
+  line-height: 1.7;
+  color: var(--ink-dim);
 }
 
 /* ---------- Finish-Overlay ---------- */

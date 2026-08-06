@@ -27,16 +27,24 @@ src/game/hazards/
 
 | Name | Asset | Mechanik | Stompbar? | Dauerhaft gefährlich? |
 |---|---|---|---|---|
-| **Schnetzler** | Saw | patrouilliert horizontal zwischen zwei Punkten | ✅ ja | ja |
+| **Ninja-Frog** | Ninja Frog (Dudes) | patrouilliert horizontal zwischen zwei Punkten | ✅ ja | ja |
+| **Schnetzler** | Saw | patrouilliert horizontal zwischen zwei Punkten | ❌ nein | ja |
 | **Stachlinger** | Spikes | statisch, sitzt auf dem Boden | ❌ nein | ja |
 | **Loderix** | Fire | getaktet an/aus (Feuerstoß) | ❌ nein | **nein** (nur "an") |
 | **Kugelblitz** | Spiked Ball | schwingt als Pendel um einen Aufhängepunkt | ❌ nein | ja |
 | **Spikehead** | Spiked Ball (rot eingefärbt) | fällt nach Betreten einer Trigger-Zone herab, steigt danach langsam wieder auf | ❌ nein | **nein** (nur während Fallen/Liegen/Aufsteigen) |
 
-### Schnetzler (Säge)
-- Bewegt sich zwischen `minX` und `maxX` mit `speed`.
+### Ninja-Frog (patrouillierender Gegner)
+- Bewegt sich zwischen `minX` und `maxX` mit `speed`, das Sprite schaut in
+  Laufrichtung.
 - **Einziger** Hazard, der per Draufspringen (Stomp) neutralisiert werden kann –
-  wie ein klassischer Platformer-Gegner. Seitlicher Kontakt kostet ein Leben.
+  wie ein klassischer Platformer-Gegner. Jeder andere Kontakt kostet ein Leben.
+
+### Schnetzler (Säge)
+- Bewegt sich zwischen `minX` und `maxX` mit `speed` (gleiche Patrouillen-Logik
+  wie der Ninja-Frog).
+- **Nicht stompbar**: Auf eine laufende Säge zu springen darf nicht belohnt
+  werden. Jede Berührung kostet ein Leben – nur Ausweichen/Überspringen hilft.
 
 ### Stachlinger (Stacheln)
 - Steht fest auf Boden/Plattformen, immer aktiv.
@@ -96,10 +104,10 @@ als distanz-sortierte Listen `coins`/`hazards`/`utilities` zur Verfügung;
 nearestHazard: {
   dx: number;          // Pixel-Distanz horizontal (– = links, + = rechts)
   dy: number;          // Pixel-Distanz vertikal (– = oben, + = unten)
-  kind: HazardKind;    // "schnetzler" | "stachlinger" | "loderix" | "kugelblitz" | "spikehead"
+  kind: HazardKind;    // "ninjafrog" | "schnetzler" | "stachlinger" | "loderix" | "kugelblitz" | "spikehead"
   active: boolean;     // ob gerade gefährlich (Loderix/Spikehead togglen)
   warning: boolean;    // kündigt sich an (Spikehead-Vorwarnphase), sonst false
-  stompable: boolean;  // vorberechnet: nur "schnetzler" ist true
+  stompable: boolean;  // vorberechnet: nur "ninjafrog" ist true
 } | null;
 
 nearestUtility: {
@@ -121,7 +129,7 @@ Spikehead-Vorwarnung erscheint **nicht** in `nearbyTiles`, sondern
 ausschließlich über `hazards[i].warning`.
 
 ### Was ein Bot daraus machen *könnte* (illustrativ)
-- `stompable === true` (schnetzler) → könnte über den Gegner **springen** (Stomp)
+- `stompable === true` (ninjafrog) → könnte über den Gegner **springen** (Stomp)
   statt auszuweichen.
 - `kind === "loderix" && !active` → gefahrlos **durchlaufen**, spart Zeit.
 - `kind === "spikehead" && warning` → kurz vor dem Fall **wegrennen**.
