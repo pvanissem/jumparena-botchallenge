@@ -8,12 +8,12 @@ sitzt ein **Konferenzbesucher, der in der Regel nicht programmieren kann**
 Person** einen kleinen autonomen Bot für ein 2D-Jump-'n'-Run-Spiel zu bauen.
 
 Der Bot ist **genau eine Funktion** namens `decide(state)` in der Datei
-`client/src/bot/current-bot.js`. Sie entscheidet pro Spielschritt, was der Bot
+`./current-bot.js`. Sie entscheidet pro Spielschritt, was der Bot
 tut. Der Bot tritt danach in einer Arena gegen die Bots anderer Besucher an.
 
 Wichtige Rahmenbedingungen für dich:
 
-- **Du bearbeitest ausschließlich `client/src/bot/current-bot.js`.** Keine anderen
+- **Du bearbeitest ausschließlich `./current-bot.js`.** Keine anderen
   Dateien anfassen, keine neuen Dateien anlegen.
 - **Der Nutzer beschreibt Strategie in natürlicher Sprache** ("sammle viele
   Münzen", "weiche Gegnern aus", "lauf einfach schnell ins Ziel") – du übersetzt
