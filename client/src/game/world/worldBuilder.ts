@@ -8,6 +8,7 @@ import {
   fruitAnimKey,
   fruitTextureKey,
   SheetKeys,
+  spriteScale,
   STATIC_IMAGE_KEYS,
   TERRAIN_TILES,
 } from "../assets/spriteSheets";
@@ -31,6 +32,26 @@ export const WORLD_DEPTH = {
   utility: 6,
   player: 10,
 };
+
+/**
+ * Resynchronisiert die Basis-Position eines `StaticBody` mit der AKTUELLEN
+ * (ggf. skalierten) Sprite-Bounding-Box.
+ *
+ * Hintergrund: `StaticBody.position` wird bei Erstellung anhand der
+ * damaligen Sprite-Größe (Scale 1) berechnet und danach von Phaser NICHT
+ * automatisch nachgeführt ("if you make any change to the parent's origin,
+ * position, or scale after creating the body, you'll need to update the
+ * Static Body manually" – Phaser-Doku). Ruft man nach `setScale(...)` direkt
+ * `body.setSize(...)`/`setOffset(...)` auf, rechnet Phaser zwar den neuen
+ * Offset korrekt anhand der aktuellen `displayWidth`/`displayHeight` aus,
+ * addiert ihn aber auf die alte, noch unskalierte Basis-Position drauf ->
+ * die Hitbox landet verschoben statt zentriert. `updateFromGameObject()`
+ * liest die Basis-Position frisch über `sprite.getTopLeft()` (mit aktuellem
+ * Scale) neu ein und behebt damit den Versatz.
+ */
+function resyncStaticBody(sprite: Phaser.Physics.Arcade.Sprite): void {
+  (sprite.body as Phaser.Physics.Arcade.StaticBody | undefined)?.updateFromGameObject();
+}
 
 export interface BuiltWorld {
   solids: Phaser.Physics.Arcade.StaticGroup;
@@ -154,10 +175,21 @@ function buildCoins(scene: Phaser.Scene, level: LevelDef): Phaser.Physics.Arcade
   for (const c of level.coins) {
     const sprite = coins.create(c.x, c.y, fruitTextureKey(c.fruit)) as Phaser.Physics.Arcade.Sprite;
     sprite.setDepth(WORLD_DEPTH.coin);
+    // Skalierungsfaktor kommt dynamisch aus `SPRITE_SCALES`/`spriteScale()`
+    // (siehe assets/spriteSheets.ts) statt eines hartkodierten Faktors, damit
+    // sich JEDES Sprite darüber tunen lässt.
+    const scale = spriteScale(fruitTextureKey(c.fruit));
+    sprite.setScale(scale);
+    resyncStaticBody(sprite);
     sprite.play(fruitAnimKey(c.fruit));
     sprite.setData("id", c.id);
     sprite.setData("fruit", c.fruit);
-    sprite.body?.setSize(20, 20);
+    // Hitbox (Basis 20x20 in nativen Frame-Koordinaten) wächst/schrumpft mit
+    // dem Skalierungsfaktor, damit die Fangzone optisch zur (skalierten)
+    // Frucht passt. Arcade StaticBody.setSize() skaliert NICHT automatisch
+    // mit dem Sprite-Scale, daher hier manuell multiplizieren; `center: true`
+    // (Default) zentriert den Body neu auf dem skalierten Sprite.
+    sprite.body?.setSize(20 * scale, 20 * scale);
   }
   return coins;
 }
@@ -177,7 +209,10 @@ function buildHiddenBlocks(
     // Idle-Textur ist exakt 28x24 – Body explizit darauf festlegen (statt sich
     // auf die Textur-Größe zu verlassen), damit die Kollisionsbox auch nach
     // einem Textur-/Frame-Wechsel (z.B. Hit-Animation) stabil bleibt.
-    sprite.body?.setSize(28, 24);
+    const scale = spriteScale(STATIC_IMAGE_KEYS.BLOCK_IDLE);
+    sprite.setScale(scale);
+    resyncStaticBody(sprite);
+    sprite.body?.setSize(28 * scale, 24 * scale);
     sprite.setData("id", b.id);
     sprite.setData("fruit", b.fruit);
   }
@@ -197,6 +232,13 @@ function buildCheckpoints(scene: Phaser.Scene, level: LevelDef): Phaser.Physics.
       STATIC_IMAGE_KEYS.CHECKPOINT_POLE
     ) as Phaser.Physics.Arcade.Sprite;
     sprite.setDepth(WORLD_DEPTH.checkpoint);
+    // Kein individueller Hitbox-Override -> Body-Größe generisch anhand der
+    // (ggf. skalierten) Sprite-Displaygröße nachziehen, statt an der nativen
+    // 64x64-Frame-Größe kleben zu bleiben.
+    const scale = spriteScale(STATIC_IMAGE_KEYS.CHECKPOINT_POLE);
+    sprite.setScale(scale);
+    resyncStaticBody(sprite);
+    sprite.body?.setSize(sprite.width * scale, sprite.height * scale);
     sprite.setData("id", c.id);
   }
   return checkpoints;
@@ -206,8 +248,11 @@ function buildGoal(scene: Phaser.Scene, level: LevelDef): Phaser.Physics.Arcade.
   const goal = scene.physics.add.staticSprite(level.goal.x, level.goal.y - 32, SheetKeys.GOAL_IDLE);
   goal.setDepth(WORLD_DEPTH.goal);
   goal.play("goal-idle");
-  goal.body?.setSize(40, 96);
-  goal.body?.setOffset(12, 8);
+  const scale = spriteScale(SheetKeys.GOAL_IDLE);
+  goal.setScale(scale);
+  resyncStaticBody(goal);
+  goal.body?.setSize(40 * scale, 96 * scale);
+  goal.body?.setOffset(12 * scale, 8 * scale);
   return goal;
 }
 

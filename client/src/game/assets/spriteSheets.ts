@@ -184,6 +184,14 @@ export const SHEET_SPECS: readonly SheetSpec[] = [
 /** 17 Frames à 32x32 je Frucht-Spritesheet (Idle-Rotation). */
 export const FRUIT_FRAME = { width: 32, height: 32, frameCount: 17 } as const;
 
+/**
+ * Skalierungsfaktor, mit dem Frucht-Sprites zusätzlich zu ihrer nativen
+ * Framegröße dargestellt werden (via `sprite.setScale(...)`). Zentral hier
+ * ablegen, damit man beim Herumprobieren nur diesen einen Wert anfassen muss.
+ * Aktuell testweise 50 % größer als die native 32x32-Framegröße.
+ */
+export const FRUIT_SCALE = 1.5 as const;
+
 const FRUIT_FILE_NAMES: Record<FruitKind, string> = {
   cherries: "Cherries",
   strawberry: "Strawberry",
@@ -249,3 +257,85 @@ export const STATIC_IMAGE_SPECS: ReadonlyArray<{ key: string; path: string }> = 
     path: `${BASE}/Items/Checkpoints/Checkpoint/Checkpoint (No Flag).png`,
   },
 ];
+
+/**
+ * Generischer Skalierungs-Registry: bildet einen Textur-/Sheet-Key (z.B.
+ * `SheetKeys.SAW`, `STATIC_IMAGE_KEYS.BLOCK_IDLE` oder einen dynamischen
+ * Frucht-Key aus `fruitTextureKey(...)`) auf einen Skalierungsfaktor ab.
+ * Fehlt ein Eintrag, gilt der Standard 1 (native Größe) – siehe
+ * `spriteScale()`.
+ *
+ * Damit lässt sich der Skalierungsfaktor für JEDES Sprite/Spritesheet
+ * dynamisch anpassen, ohne die Call-Sites in `worldBuilder.ts` /
+ * `hazards/factory.ts` / `RaceScene.ts` anfassen zu müssen: einfach hier
+ * einen Eintrag ergänzen bzw. ändern.
+ *
+ * Beispiel, um z.B. die Säge 20 % größer darzustellen:
+ * `[SheetKeys.SAW]: 1.2`
+ */
+export const SPRITE_SCALES: Partial<Record<string, number>> = {
+  // Früchte: ein Eintrag pro FruitKind, gespeist aus FRUIT_SCALE (ein
+  // einziger Dial für alle Früchte statt 8 einzelnen Einträgen).
+  ...Object.fromEntries(
+    (Object.keys(FRUIT_FILE_NAMES) as FruitKind[]).map((fruit) => [
+      fruitTextureKey(fruit),
+      FRUIT_SCALE,
+    ])
+  ),
+
+  // Spielfigur (alle Animationsphasen teilen sich ein Sprite -> ein Wert
+  // reicht, wird beim Erstellen in RaceScene EINMAL gesetzt).
+  [SheetKeys.PLAYER_IDLE]: 1.2,
+  [SheetKeys.PLAYER_RUN]: 1.2,
+  [SheetKeys.PLAYER_JUMP]: 1.2,
+  [SheetKeys.PLAYER_FALL]: 1.2,
+  [SheetKeys.PLAYER_HIT]: 1.2,
+
+  // Hazards (Texturen aus `hazards/registry.ts` -> `HAZARD_REGISTRY[*].texture`,
+  // dort tatsächlich per `spriteScale()` in `hazards/factory.ts` ausgelesen).
+  [SheetKeys.SAW]: 1.0,
+  [SheetKeys.NINJAFROG_RUN]: 1.2,
+  [SheetKeys.FIRE_ON]: 1.2,
+  [STATIC_IMAGE_KEYS.SPIKES]: 1.2,
+  [STATIC_IMAGE_KEYS.SPIKED_BALL]: 1.2,
+
+  // Utilities (Texturen aus `hazards/registry.ts` -> `UTILITY_REGISTRY[*].texture`).
+  [STATIC_IMAGE_KEYS.TRAMPOLINE_IDLE]: 1.2,
+
+  // Statische Welt-Objekte (Texturen aus `worldBuilder.ts`).
+  [STATIC_IMAGE_KEYS.BLOCK_IDLE]: 1.2,
+  [STATIC_IMAGE_KEYS.CHECKPOINT_POLE]: 1.2,
+  [SheetKeys.GOAL_IDLE]: 1.2,
+
+  // Einmalige, physiklose Effekt-Sprites (RaceScene.playPickupEffect /
+  // .playVanishEffect).
+  [SheetKeys.FRUIT_COLLECTED]: 1.2,
+  [SheetKeys.DISAPPEARING]: 1.2,
+
+  // Diese Keys werden NICHT separat per `spriteScale()` ausgelesen, sondern
+  // sind alternative Texturen/Animationen desselben, bereits skalierten
+  // Sprites (Scale wird einmal beim Erstellen gesetzt und bleibt beim
+  // Textur-/Animationswechsel erhalten). Trotzdem hier eingetragen, damit
+  // die Registry vollständig ist und ein künftiges eigenständiges Sprite mit
+  // dieser Textur sofort einen sinnvollen Default hätte:
+  [SheetKeys.GOAL_PRESSED]: 1.2,
+  [SheetKeys.CHECKPOINT_IDLE]: 1.2,
+  [SheetKeys.CHECKPOINT_ACTIVATE]: 1.2,
+  [SheetKeys.BLOCK_HIT]: 1.2,
+  [STATIC_IMAGE_KEYS.FIRE_OFF]: 1.2,
+  [SheetKeys.TRAMPOLINE_JUMP]: 1.2,
+
+  // SheetKeys.TERRAIN ist bewusst NICHT enthalten: Terrain ist kein
+  // einzelnes Sprite, sondern ein Raster aus vielen TILE_SIZE-großen
+  // Einzelbildern (siehe `worldBuilder.paintTerrainSegment`) + ein separater,
+  // per `setDisplaySize` gestreckter Kollisions-Body. Ein simples
+  // `setScale()` pro Tile würde Lücken/Überlappungen erzeugen und die
+  // Kollisionsgeometrie von der Optik entkoppeln – Terrain-Skalierung
+  // bräuchte eine eigene "Welt-Skalierung" (TILE_SIZE + alle
+  // Level-Koordinaten), kein reiner Sprite-Scale-Wert.
+};
+
+/** Liefert den konfigurierten Skalierungsfaktor für einen Textur-/Sheet-Key (Default 1). */
+export function spriteScale(key: string): number {
+  return SPRITE_SCALES[key] ?? 1;
+}

@@ -18,6 +18,7 @@ import {
   fruitSheetPath,
   SHEET_SPECS,
   SheetKeys,
+  spriteScale,
   STATIC_IMAGE_KEYS,
   STATIC_IMAGE_SPECS,
 } from "../assets/spriteSheets";
@@ -189,6 +190,13 @@ export class RaceScene extends Phaser.Scene {
     this.player.setDepth(10);
     this.player.setCollideWorldBounds(false);
     this.player.play("player-idle");
+    // Spieler-Body ist ein DYNAMISCHER Arcade-Body: Phaser synchronisiert
+    // Breite/Höhe/Position bei dynamischen Bodies jeden Frame automatisch mit
+    // `sprite.scaleX/scaleY` (siehe `Body.updateFromGameObject()`), daher hier
+    // die native (unskalierte) Hitbox-Größe übergeben – NICHT manuell mit dem
+    // Skalierungsfaktor multiplizieren (das würde doppelt skalieren und die
+    // Hitbox aus dem Zentrum schieben, siehe hazards/factory.ts).
+    this.player.setScale(spriteScale(SheetKeys.PLAYER_IDLE));
     this.player.body.setSize(24, 32);
 
     this.physics.add.collider(this.player, this.world.solids);
@@ -543,6 +551,7 @@ export class RaceScene extends Phaser.Scene {
 
   private playPickupEffect(x: number, y: number): void {
     const pop = this.add.sprite(x, y, SheetKeys.FRUIT_COLLECTED).setDepth(20);
+    pop.setScale(spriteScale(SheetKeys.FRUIT_COLLECTED));
     pop.play("fruit-collected");
     pop.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => pop.destroy());
   }
@@ -654,6 +663,7 @@ export class RaceScene extends Phaser.Scene {
   private playVanishEffect(x: number, y: number): void {
     const puff = this.add.sprite(x, y, SheetKeys.DISAPPEARING);
     puff.setDepth(WORLD_DEPTH.player + 1);
+    puff.setScale(spriteScale(SheetKeys.DISAPPEARING));
     puff.play("disappearing");
     puff.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => puff.destroy());
   }

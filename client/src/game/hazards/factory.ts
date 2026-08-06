@@ -8,6 +8,7 @@
  * die bereits getesteten `hazards/behaviors.ts`-Funktionen hinaus.
  */
 import type Phaser from "phaser";
+import { spriteScale } from "../assets/spriteSheets";
 import type { HazardInstanceDef, UtilityInstanceDef } from "../level/types";
 import { isTimedActive, patrolFacing, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
 import { HAZARD_REGISTRY, type HitboxSpec, UTILITY_REGISTRY } from "./registry";
@@ -22,9 +23,57 @@ export interface UtilityInstance {
   def: UtilityInstanceDef;
 }
 
-function applyHitbox(sprite: Phaser.Physics.Arcade.Sprite, hb: HitboxSpec): void {
+/**
+ * Setzt den Sprite-Scale (aus `SPRITE_SCALES`/`spriteScale()`, siehe
+ * assets/spriteSheets.ts) für Hazards (dynamische Arcade-Bodies, erzeugt via
+ * `scene.physics.add.group(...)` in `worldBuilder.buildHazards`).
+ *
+ * WICHTIG: Bei dynamischen Bodies synchronisiert Phaser Breite/Höhe/Position
+ * JEDEN Frame automatisch mit `sprite.scaleX`/`scaleY`
+ * (`Body.updateFromGameObject()` multipliziert `sourceWidth`/`sourceHeight`
+ * sowie `(offset - displayOrigin)` intern bereits mit dem aktuellen Scale).
+ * Die native (unskalierte) `HitboxSpec` aus der Registry daher UNVERÄNDERT an
+ * `setSize`/`setOffset` übergeben – ein zusätzliches manuelles Multiplizieren
+ * mit `scale` würde zu einer doppelten Skalierung UND einer aus dem Zentrum
+ * verschobenen Hitbox führen (das war der ursprüngliche Bug).
+ */
+function applyDynamicHitbox(
+  sprite: Phaser.Physics.Arcade.Sprite,
+  hb: HitboxSpec,
+  textureKey: string
+): void {
+  sprite.setScale(spriteScale(textureKey));
   sprite.body?.setSize(hb.width, hb.height);
   sprite.body?.setOffset(hb.offsetX ?? 0, hb.offsetY ?? 0);
+}
+
+/**
+ * Setzt den Sprite-Scale für Utilities (statische Arcade-Bodies, erzeugt via
+ * `scene.physics.add.staticGroup()` in `worldBuilder.buildUtilities`).
+ *
+ * Ein `StaticBody` synchronisiert sich laut Phaser-Doku NICHT automatisch mit
+ * Skalierung/Origin des Game Objects ("if you make any change to the
+ * parent's origin, position, or scale after creating or adding the body,
+ * you'll need to update the Static Body manually") – Breite/Höhe/Offset
+ * müssen hier daher explizit mit dem Skalierungsfaktor multipliziert werden,
+ * analog zu den statischen Bodies in `worldBuilder.ts` (Fruits, Blöcke,
+ * Checkpoints, Goal).
+ */
+function applyStaticHitbox(
+  sprite: Phaser.Physics.Arcade.Sprite,
+  hb: HitboxSpec,
+  textureKey: string
+): void {
+  const scale = spriteScale(textureKey);
+  sprite.setScale(scale);
+  // `StaticBody.position` bleibt sonst auf der (unskalierten) Position zur
+  // Erstellungszeit fixiert -> Basis-Position anhand der aktuellen,
+  // skalierten Sprite-Bounding-Box neu einlesen, BEVOR die eigene
+  // Hitbox-Größe/-Offset gesetzt wird (sonst landet die Hitbox verschoben
+  // statt zentriert, siehe worldBuilder.ts `resyncStaticBody`).
+  (sprite.body as Phaser.Physics.Arcade.StaticBody | undefined)?.updateFromGameObject();
+  sprite.body?.setSize(hb.width * scale, hb.height * scale);
+  sprite.body?.setOffset((hb.offsetX ?? 0) * scale, (hb.offsetY ?? 0) * scale);
 }
 
 function spawnPosition(def: HazardInstanceDef): { x: number; y: number } {
@@ -47,7 +96,7 @@ export function createHazard(
 
   const sprite = group.create(pos.x, pos.y, spec.texture) as Phaser.Physics.Arcade.Sprite;
   sprite.setDepth(depth);
-  applyHitbox(sprite, spec.hitbox);
+  applyDynamicHitbox(sprite, spec.hitbox, spec.texture);
   if (spec.anim) sprite.play(spec.anim, true);
   if (spec.tint !== undefined) sprite.setTint(spec.tint);
   sprite.setData("id", def.id);
@@ -160,7 +209,7 @@ export function createUtility(
   // registry.ts) – nur der Sprung-Auslöser wird als echte Animation gespielt.
   const sprite = group.create(def.x, def.y, spec.texture) as Phaser.Physics.Arcade.Sprite;
   sprite.setDepth(depth);
-  applyHitbox(sprite, spec.hitbox);
+  applyStaticHitbox(sprite, spec.hitbox, spec.texture);
   sprite.setData("id", def.id);
   sprite.setData("kind", def.kind);
 
