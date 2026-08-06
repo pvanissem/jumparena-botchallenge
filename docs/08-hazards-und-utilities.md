@@ -32,7 +32,7 @@ src/game/hazards/
 | **Stachlinger** | Spikes | statisch, sitzt auf dem Boden | ❌ nein | ja |
 | **Loderix** | Fire | getaktet an/aus (Feuerstoß) | ❌ nein | **nein** (nur "an") |
 | **Kugelblitz** | Spiked Ball | schwingt als Pendel um einen Aufhängepunkt | ❌ nein | ja |
-| **Spikehead** | Spiked Ball (rot eingefärbt) | fällt nach Betreten einer Trigger-Zone herab, steigt danach langsam wieder auf | ❌ nein | **nein** (nur während Fallen/Liegen/Aufsteigen) |
+| **Spikehead** | Rock Head | fällt nach Betreten einer Trigger-Zone herab, steigt danach langsam wieder auf | ❌ nein | **nein** (nur während Fallen/Liegen/Aufsteigen) |
 
 ### Ninja-Frog (patrouillierender Gegner)
 - Bewegt sich zwischen `minX` und `maxX` mit `speed`, das Sprite schaut in
@@ -64,8 +64,12 @@ src/game/hazards/
 - Dauerhaft gefährlich; muss zeitlich zwischen den Schwüngen passiert werden.
 
 ### Spikehead (fallender Stachelkopf)
-- Nutzt dasselbe Sprite wie Kugelblitz (Spiked Ball), aber rot eingefärbt
-  (kein eigenes Asset nötig).
+- Nutzt das eigenständige "Rock Head"-Asset (`Traps/Rock Head/Idle.png`,
+  siehe `hazards/registry.ts`). Zuvor wurde das rot eingefärbte
+  Kugelblitz-Sprite (Spiked Ball) wiederverwendet; das war ein
+  Übergangs-Workaround (siehe `.features/level-two-kaizo/design.md`
+  Amendment) und wurde inzwischen durch das dedizierte Rock-Head-Asset
+  ersetzt.
 - Hängt in Ruheposition (`originY`) über einer Passage. Betritt der Racer
   eine definierte horizontale Trigger-Zone (`triggerMinX`/`triggerMaxX`),
   löst dies nach einer kurzen, festen Vorwarnzeit (`warnMs`, Default 400ms)

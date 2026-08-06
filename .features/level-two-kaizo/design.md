@@ -17,6 +17,15 @@ Bezug: `.features/level-two-kaizo/requirements.md` (US-1 bis US-5)
 > beschreibt weiterhin die grundlegende Architektur (Trigger-Zone,
 > `hazardTriggeredAtMs`, Registry/Behavior-Aufteilung) unverändert korrekt;
 > nur die konkreten Phasen/Texturen unten sind entsprechend zu lesen.
+>
+> **Amendment 2 (später, trivial):** Spikehead nutzt nun das eigenständige
+> **"Rock Head"**-Asset (`Traps/Rock Head/Idle.png`, 42x42, Scale 0.8) statt
+> des wiederverwendeten, rot eingefärbten Kugelblitz-Sprites aus Amendment 1
+> – kein Tint mehr nötig. Betroffen: `assets/spriteSheets.ts`
+> (`STATIC_IMAGE_KEYS.ROCK_HEAD` + Scale), `hazards/registry.ts` (Textur,
+> Hitbox-Offset an neue Frame-Größe angepasst, `tint` entfernt). Reine
+> Asset-/Rendering-Änderung ohne Verhaltensauswirkung (siehe AGENTS.md
+> "trivialste Änderungen").
 
 ## Architektur-Überblick
 

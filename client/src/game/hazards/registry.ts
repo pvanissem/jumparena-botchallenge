@@ -78,15 +78,17 @@ export const HAZARD_REGISTRY: Record<HazardKind, HazardSpec> = {
     hitbox: { width: 24, height: 24, offsetX: 2, offsetY: 2 },
   },
   spikehead: {
-    // Nutzt bewusst dasselbe Asset wie Kugelblitz (Spiked Ball) statt
-    // Stachlinger - passt optisch besser zur fallenden/kletternden Bewegung
-    // als das flache Stachel-Sprite. Der Tint macht ihn trotzdem
-    // unterscheidbar (rot statt der neutralen Kugelblitz-Farbe).
-    texture: "spiked-ball",
+    // Rock Head (Traps/Rock Head/Idle.png) - eigenständiges, 42x42 großes
+    // Asset für den fallenden Stachelkopf. Kein Tint mehr nötig (anders als
+    // zuvor mit dem wiederverwendeten Kugelblitz-Sprite), da Rock Head
+    // bereits optisch eindeutig ist.
+    texture: "rock-head",
     stompable: false,
     behavior: "trigger",
-    hitbox: { width: 24, height: 24, offsetX: 2, offsetY: 2 },
-    tint: 0xff5555,
+    // Hitbox bleibt unverändert bei 24x24 (Spielregeln unangetastet), nur
+    // der Offset ist an die neue, größere 42x42-Frame-Größe angepasst
+    // (zentriert: (42-24)/2 = 9 statt vorher 2 bei der 28x28-Textur).
+    hitbox: { width: 24, height: 24, offsetX: 9, offsetY: 9 },
   },
 };
 

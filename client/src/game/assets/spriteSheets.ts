@@ -242,6 +242,8 @@ export const STATIC_IMAGE_KEYS = {
   FIRE_OFF: "fire-off",
   /** Fahnenstab ohne Fahne – Ruhezustand eines noch nicht erreichten Checkpoints. */
   CHECKPOINT_POLE: "checkpoint-pole",
+  /** Spikehead-Sprite (fallender Stachelkopf) – siehe `hazards/registry.ts`. */
+  ROCK_HEAD: "rock-head",
 } as const;
 
 export const STATIC_IMAGE_SPECS: ReadonlyArray<{ key: string; path: string }> = [
@@ -256,6 +258,7 @@ export const STATIC_IMAGE_SPECS: ReadonlyArray<{ key: string; path: string }> = 
     key: STATIC_IMAGE_KEYS.CHECKPOINT_POLE,
     path: `${BASE}/Items/Checkpoints/Checkpoint/Checkpoint (No Flag).png`,
   },
+  { key: STATIC_IMAGE_KEYS.ROCK_HEAD, path: `${BASE}/Traps/Rock Head/Idle.png` },
 ];
 
 /**
@@ -298,6 +301,9 @@ export const SPRITE_SCALES: Partial<Record<string, number>> = {
   [SheetKeys.FIRE_ON]: 1.2,
   [STATIC_IMAGE_KEYS.SPIKES]: 1.2,
   [STATIC_IMAGE_KEYS.SPIKED_BALL]: 1.2,
+  // Rock Head (Spikehead) ist 42x42 nativ (vs. 28x28 bei Spiked Ball) -
+  // 0.8 ergibt eine vergleichbare Bildschirmgröße (~34px) wie zuvor.
+  [STATIC_IMAGE_KEYS.ROCK_HEAD]: 1.2,
 
   // Utilities (Texturen aus `hazards/registry.ts` -> `UTILITY_REGISTRY[*].texture`).
   [STATIC_IMAGE_KEYS.TRAMPOLINE_IDLE]: 1.2,
