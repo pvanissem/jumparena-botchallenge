@@ -70,6 +70,26 @@ describe("tileTypeAt", () => {
     expect(tileTypeAt(level, 64 / TILE_SIZE, 16 / TILE_SIZE, NO_DYNAMIC)).toBe("goal");
   });
 
+  it("returns 'hazard' for an active spikehead, located at (x, fallToY)", () => {
+    const level = makeLevel({
+      hazards: [
+        {
+          kind: "spikehead",
+          id: "sh1",
+          x: 32,
+          originY: 0,
+          fallToY: 48,
+          triggerMinX: 0,
+          triggerMaxX: 100,
+        },
+      ],
+    });
+    const dynamic = { activeHazardIds: new Set(["sh1"]), resolvedBlockIds: new Set<string>() };
+    expect(tileTypeAt(level, 32 / TILE_SIZE, 48 / TILE_SIZE, dynamic)).toBe("hazard");
+    // originY ist NICHT die relevante Position, solange aktiv (fällt/liegt unten).
+    expect(tileTypeAt(level, 32 / TILE_SIZE, 0, dynamic)).toBe("empty");
+  });
+
   it("prioritizes an active hazard over a coinBlock/goal at the same position", () => {
     const level = makeLevel({
       goal: { x: 48, y: 16 },
@@ -127,5 +147,53 @@ describe("buildDynamicTileState", () => {
     const resolved = new Set(["block-x"]);
     const dynamic = buildDynamicTileState(level, { resolvedBlockIds: resolved } as never, 0);
     expect(dynamic.resolvedBlockIds).toEqual(resolved);
+  });
+});
+
+describe("buildDynamicTileState (spikehead)", () => {
+  const level = makeLevel({
+    hazards: [
+      {
+        kind: "spikehead",
+        id: "sh1",
+        x: 0,
+        originY: 0,
+        fallToY: 100,
+        triggerMinX: 0,
+        triggerMaxX: 50,
+        warnMs: 400,
+        fallMs: 200,
+        restMs: 600,
+        riseMs: 300,
+      },
+    ],
+  });
+
+  it("is inactive when never triggered (no entry in hazardTriggeredAtMs)", () => {
+    const dynamic = buildDynamicTileState(
+      level,
+      { resolvedBlockIds: new Set(), hazardTriggeredAtMs: new Map() },
+      0
+    );
+    expect(dynamic.activeHazardIds.has("sh1")).toBe(false);
+  });
+
+  it("is inactive during the warning phase, active during falling/resting", () => {
+    const racer = {
+      resolvedBlockIds: new Set<string>(),
+      hazardTriggeredAtMs: new Map([["sh1", 1000]]),
+    };
+    expect(buildDynamicTileState(level, racer, 1000 + 100).activeHazardIds.has("sh1")).toBe(false); // warning
+    expect(buildDynamicTileState(level, racer, 1000 + 500).activeHazardIds.has("sh1")).toBe(true); // falling
+    expect(buildDynamicTileState(level, racer, 1000 + 900).activeHazardIds.has("sh1")).toBe(true); // resting
+  });
+
+  it("stays active during the rising phase, inactive again once fully risen", () => {
+    const racer = {
+      resolvedBlockIds: new Set<string>(),
+      hazardTriggeredAtMs: new Map([["sh1", 1000]]),
+    };
+    expect(buildDynamicTileState(level, racer, 1000 + 1300).activeHazardIds.has("sh1")).toBe(true); // rising (400+200+600=1200 <= 1300 < 1200+300=1500)
+    expect(buildDynamicTileState(level, racer, 1000 + 1500).activeHazardIds.has("sh1")).toBe(false); // idle again
   });
 });

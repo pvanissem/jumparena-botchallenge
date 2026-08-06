@@ -28,6 +28,10 @@ export interface RacerRuntimeState {
   collectedCoinIds: ReadonlySet<string>;
   /** IDs bereits ausgelöster versteckter Blöcke. */
   resolvedBlockIds: ReadonlySet<string>;
+  /** Zeitpunkt (elapsedMs), zu dem ein Trigger-Hazard (z.B. Spikehead) zuletzt
+   *  ausgelöst wurde, je Hazard-ID. Fehlt ein Eintrag -> nie ausgelöst / der
+   *  vorige Zyklus ist bereits abgeklungen und der Hazard wieder scharf. */
+  hazardTriggeredAtMs: ReadonlyMap<string, number>;
 }
 
 export function createInitialRacerState(
@@ -50,5 +54,6 @@ export function createInitialRacerState(
     lastCheckpoint: { x: level.spawn.x, y: level.spawn.y },
     collectedCoinIds: new Set<string>(),
     resolvedBlockIds: new Set<string>(),
+    hazardTriggeredAtMs: new Map<string, number>(),
   };
 }

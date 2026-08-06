@@ -31,6 +31,20 @@ export function applyBlockHit(state: RacerRuntimeState, blockId: string): RacerR
   };
 }
 
+/** Merkt sich den Auslöse-Zeitpunkt eines Trigger-Hazards (z.B. Spikehead) –
+ *  siehe `hazards/behaviors.ts#spikeheadState`, das daraus deterministisch
+ *  die aktuelle Phase ableitet. */
+export function applyHazardTriggered(
+  state: RacerRuntimeState,
+  hazardId: string,
+  triggeredAtMs: number
+): RacerRuntimeState {
+  return {
+    ...state,
+    hazardTriggeredAtMs: new Map(state.hazardTriggeredAtMs).set(hazardId, triggeredAtMs),
+  };
+}
+
 export type HazardContactKind = "none" | "stomped" | "hit";
 
 export function resolveHazardContact(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTimedActive, patrolX, pendulumOffset } from "./behaviors";
+import { isTimedActive, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
 
 describe("patrolX", () => {
   const def = { minX: 100, maxX: 200, speed: 100 } as const; // period = 2*100/100*1000ms = 2000ms one-way
@@ -57,5 +57,79 @@ describe("pendulumOffset", () => {
     const offset = pendulumOffset(def, def.periodMs / 4);
     const expectedX = def.length * Math.sin((def.amplitudeDeg * Math.PI) / 180);
     expect(Math.abs(offset.x)).toBeCloseTo(Math.abs(expectedX), 1);
+  });
+});
+
+describe("spikeheadState", () => {
+  const def = {
+    originY: 100,
+    fallToY: 200,
+    warnMs: 400,
+    fallMs: 200,
+    restMs: 600,
+    riseMs: 500,
+  } as const;
+
+  it("is idle at originY when never triggered (msSinceTrigger = null)", () => {
+    const state = spikeheadState(def, null);
+    expect(state.phase).toBe("idle");
+    expect(state.y).toBeCloseTo(def.originY);
+    expect(state.active).toBe(false);
+  });
+
+  it("is in warning phase during [0, warnMs), still at originY, not active", () => {
+    expect(spikeheadState(def, 0).phase).toBe("warning");
+    expect(spikeheadState(def, 0).y).toBeCloseTo(def.originY);
+    expect(spikeheadState(def, 0).active).toBe(false);
+    expect(spikeheadState(def, 399).phase).toBe("warning");
+    expect(spikeheadState(def, 399).active).toBe(false);
+  });
+
+  it("is falling during [warnMs, warnMs+fallMs), interpolating y, active", () => {
+    const start = spikeheadState(def, 400);
+    expect(start.phase).toBe("falling");
+    expect(start.y).toBeCloseTo(def.originY);
+    expect(start.active).toBe(true);
+
+    const mid = spikeheadState(def, 500);
+    expect(mid.phase).toBe("falling");
+    expect(mid.y).toBeCloseTo((def.originY + def.fallToY) / 2, 0);
+    expect(mid.active).toBe(true);
+  });
+
+  it("is resting at fallToY during [warnMs+fallMs, warnMs+fallMs+restMs), active", () => {
+    const state = spikeheadState(def, 600);
+    expect(state.phase).toBe("resting");
+    expect(state.y).toBeCloseTo(def.fallToY);
+    expect(state.active).toBe(true);
+
+    const late = spikeheadState(def, 1199);
+    expect(late.phase).toBe("resting");
+    expect(late.active).toBe(true);
+  });
+
+  it("rises slowly back from fallToY to originY during [warnMs+fallMs+restMs, +riseMs), still active", () => {
+    const start = spikeheadState(def, 1200);
+    expect(start.phase).toBe("rising");
+    expect(start.y).toBeCloseTo(def.fallToY);
+    expect(start.active).toBe(true);
+
+    const mid = spikeheadState(def, 1200 + 250);
+    expect(mid.phase).toBe("rising");
+    expect(mid.y).toBeCloseTo((def.originY + def.fallToY) / 2, 0);
+    expect(mid.active).toBe(true);
+  });
+
+  it("returns to idle at originY, inactive, once fully risen again", () => {
+    const state = spikeheadState(def, 1200 + 500);
+    expect(state.phase).toBe("idle");
+    expect(state.y).toBeCloseTo(def.originY);
+    expect(state.active).toBe(false);
+  });
+
+  it("uses default warnMs/fallMs/restMs/riseMs when not specified", () => {
+    const bareDef = { originY: 0, fallToY: 50 } as const;
+    expect(spikeheadState(bareDef, 0).phase).toBe("warning");
+    expect(spikeheadState(bareDef, 100_000).phase).toBe("idle");
   });
 });

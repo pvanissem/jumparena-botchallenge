@@ -6,7 +6,7 @@
  * Plattform-Geometrie + dynamischem Zustand abgeleitet (KISS).
  */
 import type { HazardKind, TileType } from "@arena/bot-contract";
-import { isTimedActive } from "../hazards/behaviors";
+import { isTimedActive, spikeheadState } from "../hazards/behaviors";
 import type { HazardInstanceDef, LevelDef } from "./types";
 
 export const TILE_SIZE = 16;
@@ -21,35 +21,45 @@ export interface DynamicTileState {
 /**
  * Racer-Zustand wird hier bewusst NICHT als voller `RacerRuntimeState`
  * importiert (ISP): Diese Funktion braucht ausschließlich
- * `resolvedBlockIds`, keine weiteren Racer-Felder.
+ * `resolvedBlockIds`/`hazardTriggeredAtMs`, keine weiteren Racer-Felder.
  */
-export interface ResolvedBlocksSource {
+export interface DynamicStateSource {
   resolvedBlockIds: ReadonlySet<string>;
+  hazardTriggeredAtMs: ReadonlyMap<string, number>;
 }
 
 /**
  * Leitet `DynamicTileState` jeden Tick neu ab (nie eigenständig gespeichert,
  * siehe design.md "Drift-Schutz"): `activeHazardIds` rein aus
- * `(level.hazards, elapsedMs)`, `resolvedBlockIds` 1:1 aus
- * `racer.resolvedBlockIds`.
+ * `(level.hazards, elapsedMs, racer.hazardTriggeredAtMs)`, `resolvedBlockIds`
+ * 1:1 aus `racer.resolvedBlockIds`.
  */
 export function buildDynamicTileState(
   level: LevelDef,
-  racer: ResolvedBlocksSource,
+  racer: DynamicStateSource,
   elapsedMs: number
 ): DynamicTileState {
   const activeHazardIds = new Set<string>();
   for (const hazard of level.hazards) {
-    if (isHazardActive(hazard, elapsedMs)) {
+    if (isHazardActive(hazard, elapsedMs, racer.hazardTriggeredAtMs)) {
       activeHazardIds.add(hazard.id);
     }
   }
   return { activeHazardIds, resolvedBlockIds: racer.resolvedBlockIds };
 }
 
-function isHazardActive(hazard: HazardInstanceDef, elapsedMs: number): boolean {
+function isHazardActive(
+  hazard: HazardInstanceDef,
+  elapsedMs: number,
+  hazardTriggeredAtMs: ReadonlyMap<string, number>
+): boolean {
   if (hazard.kind === "loderix") {
     return isTimedActive(hazard, elapsedMs);
+  }
+  if (hazard.kind === "spikehead") {
+    const triggeredAt = hazardTriggeredAtMs.get(hazard.id);
+    const msSinceTrigger = triggeredAt === undefined ? null : elapsedMs - triggeredAt;
+    return spikeheadState(hazard, msSinceTrigger).active;
   }
   // schnetzler/stachlinger/kugelblitz sind laut docs/08 dauerhaft gefährlich.
   return true;
@@ -77,7 +87,12 @@ export function tileTypeAt(
   for (const hazard of level.hazards) {
     if (!dynamic.activeHazardIds.has(hazard.id)) continue;
     const hx = hazard.kind === "kugelblitz" ? hazard.pivotX : hazard.x;
-    const hy = hazard.kind === "kugelblitz" ? hazard.pivotY : hazard.y;
+    const hy =
+      hazard.kind === "kugelblitz"
+        ? hazard.pivotY
+        : hazard.kind === "spikehead"
+          ? hazard.fallToY
+          : hazard.y;
     if (tileSizeToCol(hx) === col && tileSizeToRow(hy) === row) {
       return "hazard";
     }

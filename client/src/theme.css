@@ -242,6 +242,33 @@ canvas {
   line-height: 1;
 }
 
+/* ---------- Level-Auswahl (Dropdown) ---------- */
+
+.pixel-select {
+  font-family: inherit;
+  font-size: 9px;
+  color: var(--ink);
+  background: var(--panel-hi);
+  border: none;
+  padding: 8px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow:
+    0 0 0 3px var(--border-dark),
+    3px 3px 0 3px rgba(0, 0, 0, 0.5);
+  image-rendering: pixelated;
+}
+
+.pixel-select:hover {
+  color: var(--neon-cyan);
+}
+
+.pixel-select:focus {
+  outline: 2px solid var(--neon-cyan);
+  outline-offset: 2px;
+}
+
 /* ---------- Audio-Controls ---------- */
 
 .pixel-audio {

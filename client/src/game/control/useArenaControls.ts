@@ -8,12 +8,17 @@
  * current-bot.js` (`currentBotSource`), keine Auswahl aus mehreren Dateien.
  */
 import { useState } from "react";
+import { DEFAULT_LEVEL_ID } from "../level/levelRegistry";
 
 export type ArenaControlMode = "keyboard" | "bot";
 
 export interface ArenaControls {
   mode: ArenaControlMode;
   setMode: (mode: ArenaControlMode) => void;
+  /** Aktuell gewählte Level-ID aus `LEVEL_REGISTRY` (siehe
+   *  `level/levelRegistry.ts`). Default `DEFAULT_LEVEL_ID`. */
+  levelId: string;
+  setLevelId: (levelId: string) => void;
 }
 
 export function useArenaControls(): ArenaControls {
@@ -21,6 +26,7 @@ export function useArenaControls(): ArenaControls {
   // (Testlauf gegen current-bot.js), "Selbst spielen" ist die Ausnahme zum
   // Level-Ausprobieren.
   const [mode, setMode] = useState<ArenaControlMode>("bot");
+  const [levelId, setLevelId] = useState<string>(DEFAULT_LEVEL_ID);
 
-  return { mode, setMode };
+  return { mode, setMode, levelId, setLevelId };
 }

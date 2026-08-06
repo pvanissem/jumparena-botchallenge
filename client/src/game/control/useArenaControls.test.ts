@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_LEVEL_ID } from "../level/levelRegistry";
 import { useArenaControls } from "./useArenaControls";
 
 describe("useArenaControls", () => {
@@ -23,5 +24,18 @@ describe("useArenaControls", () => {
 
     expect(result.current).not.toHaveProperty("selectedBot");
     expect(result.current).not.toHaveProperty("selectBot");
+  });
+});
+
+describe("useArenaControls levelId", () => {
+  it("starts with DEFAULT_LEVEL_ID", () => {
+    const { result } = renderHook(() => useArenaControls());
+    expect(result.current.levelId).toBe(DEFAULT_LEVEL_ID);
+  });
+
+  it("switches to another level id", () => {
+    const { result } = renderHook(() => useArenaControls());
+    act(() => result.current.setLevelId("level-two"));
+    expect(result.current.levelId).toBe("level-two");
   });
 });

@@ -19,6 +19,7 @@ import {
 } from "../hazards/factory";
 import { TILE_SIZE } from "../level/tiles";
 import type { LevelDef, PlatformDef } from "../level/types";
+import { BACKGROUND_REGISTRY, DEFAULT_BACKGROUND_KEY } from "./backgroundRegistry";
 
 export const WORLD_DEPTH = {
   bg: -10,
@@ -67,8 +68,12 @@ export function buildWorld(scene: Phaser.Scene, level: LevelDef): BuiltWorld {
 }
 
 function buildBackground(scene: Phaser.Scene, level: LevelDef): void {
+  const spec = BACKGROUND_REGISTRY[level.backgroundKey ?? DEFAULT_BACKGROUND_KEY];
+  const textureKey =
+    spec.kind === "procedural" ? spec.buildTexture(scene, level.worldHeight) : spec.textureKey;
+
   scene.add
-    .tileSprite(0, 0, level.worldWidth, level.worldHeight, "background")
+    .tileSprite(0, 0, level.worldWidth, level.worldHeight, textureKey)
     .setOrigin(0, 0)
     .setScrollFactor(0.3)
     .setDepth(WORLD_DEPTH.bg);
