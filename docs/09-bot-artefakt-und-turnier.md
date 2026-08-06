@@ -15,7 +15,7 @@ export default {
   author: "Anna",          // optional
   color: "#ff5da2",        // optional (sonst automatische Farbe)
   decide(state) {          // PFLICHT
-    return "right";        // "left" | "right" | "jump" | "idle"
+    return "right";        // "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right"
   },
 };
 ```

@@ -1,0 +1,33 @@
+/**
+ * Zentrale Level-Registry – siehe `.features/level-two-kaizo/design.md`,
+ * Abschnitt "Level-Registry". Einziger Ort, der konkrete Level-Module
+ * importiert; Konsumenten (RaceScene, /dev-UI, später ggf. /admin)
+ * referenzieren Level ausschließlich über ihre stabile `id`.
+ */
+import { LEVEL_ONE } from "./levelOne";
+import { LEVEL_TWO } from "./levelTwo";
+import type { LevelDef } from "./types";
+
+export interface LevelRegistryEntry {
+  id: string;
+  label: string;
+  level: LevelDef;
+}
+
+export const LEVEL_REGISTRY: readonly LevelRegistryEntry[] = [
+  { id: "level-one", label: "Level 1", level: LEVEL_ONE },
+  { id: "level-two", label: "Level 2 – Kaizo", level: LEVEL_TWO },
+];
+
+export const DEFAULT_LEVEL_ID = "level-one";
+
+/** Fail-Fast: wirft bei unbekannter ID, statt still ein Default zu laden. */
+export function getLevelById(levelId: string): LevelDef {
+  const entry = LEVEL_REGISTRY.find((e) => e.id === levelId);
+  if (!entry) {
+    throw new Error(
+      `Unbekannte Level-ID: "${levelId}". Verfügbar: ${LEVEL_REGISTRY.map((e) => e.id).join(", ")}`
+    );
+  }
+  return entry.level;
+}

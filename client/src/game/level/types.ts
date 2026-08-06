@@ -99,6 +99,22 @@ export type HazardInstanceDef =
       length: number;
       periodMs?: number;
       amplitudeDeg?: number;
+    }
+  | {
+      kind: Extract<HazardKind, "spikehead">;
+      id: string;
+      x: number;
+      /** Ruheposition (oben, ungefährlich, bis getriggert). */
+      originY: number;
+      /** Position nach dem Fall (typ. Bodenhöhe). */
+      fallToY: number;
+      /** Horizontale Zone, deren Betreten den Fall auslöst. */
+      triggerMinX: number;
+      triggerMaxX: number;
+      warnMs?: number;
+      fallMs?: number;
+      restMs?: number;
+      riseMs?: number;
     };
 
 export interface UtilityInstanceDef {
@@ -120,4 +136,8 @@ export interface LevelDef {
   checkpoints: CheckpointDef[];
   hazards: HazardInstanceDef[];
   utilities: UtilityInstanceDef[];
+  /** Welcher Hintergrund für dieses Level verwendet wird (siehe
+   *  `world/backgroundRegistry.ts`). Optional - Default `"default"`
+   *  (bisheriges einfarbiges Blue-Background). */
+  backgroundKey?: string;
 }

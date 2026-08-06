@@ -9,7 +9,7 @@
  */
 import type Phaser from "phaser";
 import type { HazardInstanceDef, UtilityInstanceDef } from "../level/types";
-import { isTimedActive, patrolX, pendulumOffset } from "./behaviors";
+import { isTimedActive, patrolX, pendulumOffset, spikeheadState } from "./behaviors";
 import { HAZARD_REGISTRY, type HitboxSpec, UTILITY_REGISTRY } from "./registry";
 
 export interface HazardInstance {
@@ -31,6 +31,9 @@ function spawnPosition(def: HazardInstanceDef): { x: number; y: number } {
   if (def.kind === "kugelblitz") {
     return { x: def.pivotX, y: def.pivotY + def.length };
   }
+  if (def.kind === "spikehead") {
+    return { x: def.x, y: def.originY };
+  }
   return { x: def.x, y: def.y };
 }
 
@@ -46,6 +49,7 @@ export function createHazard(
   sprite.setDepth(depth);
   applyHitbox(sprite, spec.hitbox);
   if (spec.anim) sprite.play(spec.anim, true);
+  if (spec.tint !== undefined) sprite.setTint(spec.tint);
   sprite.setData("id", def.id);
   sprite.setData("kind", def.kind);
   sprite.setData("stompable", spec.stompable);
@@ -60,9 +64,16 @@ export function createHazard(
 /**
  * Aktualisiert Position/Sichtbarkeit eines Hazard-Sprites gemäß der pure
  * `hazards/behaviors.ts`-Funktionen. Wird von `RaceScene` einmal pro Frame
- * für jeden Hazard aufgerufen.
+ * für jeden Hazard aufgerufen. `hazardTriggeredAtMs` wird nur von
+ * Trigger-Hazards (Spikehead) benötigt, wird der Einfachheit halber aber
+ * einheitlich durchgereicht (dünne Wiring-Schicht, kein Sonderfall pro
+ * Aufrufer nötig).
  */
-export function updateHazard(instance: HazardInstance, elapsedMs: number): void {
+export function updateHazard(
+  instance: HazardInstance,
+  elapsedMs: number,
+  hazardTriggeredAtMs: ReadonlyMap<string, number>
+): void {
   const { sprite, def } = instance;
   if (def.kind === "schnetzler") {
     sprite.x = patrolX(def, elapsedMs);
@@ -76,8 +87,34 @@ export function updateHazard(instance: HazardInstance, elapsedMs: number): void 
     const offset = pendulumOffset(def, elapsedMs);
     sprite.x = def.pivotX + offset.x;
     sprite.y = def.pivotY + offset.y;
+    return;
+  }
+  if (def.kind === "spikehead") {
+    updateSpikehead(sprite, def, elapsedMs, hazardTriggeredAtMs);
+    return;
   }
   // "stachlinger": statisch, keine Aktualisierung nötig.
+}
+
+/**
+ * Setzt Position + Kollisions-Aktivität eines Spikehead gemäß der pure
+ * `spikeheadState`-Funktion. Der Auslöse-Zeitpunkt selbst wird NICHT hier
+ * ermittelt (das ist Racer-Positions-abhängig, siehe `RaceScene
+ * .updateSpikeheadTriggers`) - diese Funktion liest ihn nur aus.
+ */
+function updateSpikehead(
+  sprite: Phaser.Physics.Arcade.Sprite,
+  def: Extract<HazardInstanceDef, { kind: "spikehead" }>,
+  elapsedMs: number,
+  hazardTriggeredAtMs: ReadonlyMap<string, number>
+): void {
+  const triggeredAt = hazardTriggeredAtMs.get(def.id);
+  const msSinceTrigger = triggeredAt === undefined ? null : elapsedMs - triggeredAt;
+  const state = spikeheadState(def, msSinceTrigger);
+  sprite.y = state.y;
+  if (sprite.body?.checkCollision) {
+    sprite.body.checkCollision.none = !state.active;
+  }
 }
 
 /**

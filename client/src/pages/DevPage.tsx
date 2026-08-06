@@ -6,6 +6,7 @@ import { ScoreHud } from "../components/ScoreHud";
 import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
 import { useArenaControls } from "../game/control/useArenaControls";
+import { LEVEL_REGISTRY } from "../game/level/levelRegistry";
 import type { RacerRuntimeState } from "../game/rules/racerState";
 
 type BotDiagnosis = Pick<
@@ -37,7 +38,7 @@ function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
 }
 
 export function DevPage() {
-  const { mode, setMode } = useArenaControls();
+  const { mode, setMode, levelId, setLevelId } = useArenaControls();
   const [racer, setRacer] = useState<RacerRuntimeState | null>(null);
   const [diagnosis, setDiagnosis] = useState<BotDiagnosis | null>(null);
   // Erhöht sich bei Klick auf "Neu starten" und wird als React-`key` an
@@ -46,6 +47,10 @@ export function DevPage() {
   // `create()`/Racer-State neu, siehe ArenaView.tsx Cleanup-Effect).
   const [runId, setRunId] = useState(0);
 
+  // Gemeinsamer Reset-Mechanismus für "↻ Neu", einen Levelwechsel (US-4) UND
+  // den "Nochmal"-Button im FinishOverlay: alle sollen den Lauf identisch
+  // zurücksetzen (Racer/Coins/Leben/Zeit), der bereits bestehende
+  // `key`-Remount-Mechanismus übernimmt das (DRY).
   const restart = () => {
     setRacer(null);
     setDiagnosis(null);
@@ -76,16 +81,26 @@ export function DevPage() {
                 mode === "bot" ? " pixel-toggle__option--active" : ""
               }`}
             >
-              <input type="radio" checked={mode === "bot"} onChange={() => setMode("bot")} />
-              🤖 Bot
+              <input type="radio" checked={mode === "bot"} onChange={() => setMode("bot")} />🤖 Bot
             </label>
           </div>
 
-          <button
-            type="button"
-            className="pixel-btn pixel-btn--accent"
-            onClick={restart}
+          <select
+            className="pixel-select"
+            value={levelId}
+            onChange={(e) => {
+              setLevelId(e.target.value);
+              restart();
+            }}
           >
+            {LEVEL_REGISTRY.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.label}
+              </option>
+            ))}
+          </select>
+
+          <button type="button" className="pixel-btn pixel-btn--accent" onClick={restart}>
             ↻ Neu
           </button>
 
@@ -102,6 +117,7 @@ export function DevPage() {
           <ArenaView
             key={runId}
             controlMode={mode}
+            levelId={levelId}
             botSourceCode={mode === "bot" ? currentBotSource : undefined}
             startingLives={UNLIMITED_LIVES}
             onStatusChange={(s) => {

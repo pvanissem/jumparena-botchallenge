@@ -15,15 +15,18 @@ export interface CursorKeysLike {
   left: KeyState;
   right: KeyState;
   space: KeyState;
+  shift: KeyState;
 }
 
 /** Rohes, mehrachsiges Tastatur-Eingabesignal für EINEN Frame (Multi-Input:
- *  horizontale Bewegung UND Sprung können gleichzeitig aktiv sein). Bewusst
- *  kein Teil des `Action`-Contracts (`@arena/bot-contract` bleibt
+ *  horizontale Bewegung, Sprung UND Sprint können gleichzeitig aktiv sein).
+ *  Bewusst kein Teil des `Action`-Contracts (`@arena/bot-contract` bleibt
  *  unverändert) – nur `RaceScene` nutzt dies für den Tastatur-Sonderpfad. */
 export interface KeyboardInput {
   dir: -1 | 0 | 1;
   jump: boolean;
+  /** Ob Shift gehalten wird (nur zusammen mit `dir!==0` als "Sprint" relevant). */
+  sprint: boolean;
 }
 
 export class KeyboardController implements RacerController {
@@ -32,11 +35,15 @@ export class KeyboardController implements RacerController {
   /**
    * Einzelne `Action` pro Aufruf – Bot-Parität (z.B. für Tests/Vergleiche).
    * Für die tatsächliche Steuerung in `RaceScene` wird `getInput()`
-   * verwendet, das gleichzeitige Bewegung + Sprung erlaubt.
+   * verwendet, das gleichzeitige Bewegung + Sprung + Sprint erlaubt.
    */
   getNextAction(): Action {
-    if (this.keys.left.isDown) return "left";
-    if (this.keys.right.isDown) return "right";
+    const dir = this.keys.left.isDown ? -1 : this.keys.right.isDown ? 1 : 0;
+    if (dir !== 0 && this.keys.shift.isDown) {
+      return dir < 0 ? "sprint-left" : "sprint-right";
+    }
+    if (dir < 0) return "left";
+    if (dir > 0) return "right";
     if (this.keys.space.isDown) return "jump";
     return "idle";
   }
@@ -44,7 +51,7 @@ export class KeyboardController implements RacerController {
   /** Mehrachsiges Rohsignal für den aktuellen Frame (siehe `KeyboardInput`). */
   getInput(): KeyboardInput {
     const dir = this.keys.left.isDown ? -1 : this.keys.right.isDown ? 1 : 0;
-    return { dir, jump: this.keys.space.isDown };
+    return { dir, jump: this.keys.space.isDown, sprint: this.keys.shift.isDown };
   }
 
   dispose(): void {

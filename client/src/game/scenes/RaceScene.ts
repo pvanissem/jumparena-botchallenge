@@ -25,18 +25,26 @@ import { audioSettings } from "../audio/audioSettings";
 import { BotController } from "../control/BotController";
 import { KeyboardController } from "../control/KeyboardController";
 import type { RacerController } from "../control/RacerController";
+import { spikeheadState } from "../hazards/behaviors";
 import { updateHazard } from "../hazards/factory";
 import { UTILITY_REGISTRY } from "../hazards/registry";
-import { LEVEL_ONE } from "../level/levelOne";
+import { DEFAULT_LEVEL_ID, getLevelById } from "../level/levelRegistry";
 import { buildDynamicTileState } from "../level/tiles";
 import type { FruitKind, LevelDef } from "../level/types";
 import { FRUIT_VALUES } from "../level/types";
+import {
+  jumpVelocityForSpeed,
+  MOVEMENT_TUNING,
+  rampedSprintSpeed,
+  shouldCutJump,
+} from "../movement/movement";
 import {
   applyBlockHit,
   applyCheckpointReached,
   applyCoinPickup,
   applyGoalReached,
   applyHazardContact,
+  applyHazardTriggered,
   applyPitFall,
   applyTimeLimitReached,
   resolveHazardContact,
@@ -55,8 +63,6 @@ const BOT_TICK_INTERVAL_MS = 150;
 // Wie oft die Live-HUD-Anzeige (Zeit/Coins) aktualisiert wird. ~10x/s reicht
 // für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
 const STATUS_EMIT_INTERVAL_MS = 100;
-const MOVE_SPEED = 200;
-const JUMP_VELOCITY = -560;
 const STOMP_BOUNCE_VELOCITY = -280;
 const BOINGO_JUMP_VELOCITY = -820;
 /** Ab dieser horizontalen Geschwindigkeit gilt der Racer als "läuft" (Anim). */
@@ -64,6 +70,9 @@ const RUN_ANIM_THRESHOLD = 1;
 
 export interface RaceSceneInitData {
   controllerMode: "keyboard" | "bot";
+  /** Level-ID aus `LEVEL_REGISTRY` (siehe `level/levelRegistry.ts`). Default
+   *  `DEFAULT_LEVEL_ID`, falls nicht angegeben (z.B. bestehende Aufrufer). */
+  levelId?: string;
   botSourceCode?: string;
   /** Start-Leben für diesen Lauf (Default: `LIVES_PER_RUN`, siehe
    *  `racerState.ts`). `/dev` übergibt hier `Infinity`, damit ein Testlauf
@@ -85,10 +94,12 @@ export interface RaceSceneInitData {
 }
 
 export class RaceScene extends Phaser.Scene {
-  private level: LevelDef = LEVEL_ONE;
+  /** Wird garantiert in `init()` gesetzt, bevor `create()` läuft (Phaser-
+   *  Lifecycle) - siehe `getLevelById`/`DEFAULT_LEVEL_ID`. */
+  private level!: LevelDef;
   private world!: BuiltWorld;
   private player!: Phaser.Physics.Arcade.Sprite;
-  private racer: RacerRuntimeState = createInitialRacerState(LEVEL_ONE);
+  private racer!: RacerRuntimeState;
   private controller!: RacerController;
   /** Nicht-null nur im Tastatur-Modus – erlaubt den Multi-Input-Sonderpfad
    *  (siehe `applyKeyboardInput`), ohne den `RacerController`-Contract für
@@ -104,6 +115,17 @@ export class RaceScene extends Phaser.Scene {
   /** Zuletzt vom Bot gelieferte Action – wird jeden Frame erneut angewendet,
    *  bis der nächste Bot-Tick eine neue liefert (nicht-blockierend). */
   private lastBotAction: Action = "idle";
+  /** Wie lange ununterbrochen in dieselbe Richtung gesprintet wurde (siehe
+   *  `movement/movement.ts#rampedSprintSpeed`) – 0, solange nicht gesprintet
+   *  wird. */
+  private sprintHoldMs = 0;
+  /** Zeitpunkt (elapsedMs) des zuletzt ausgelösten Sprungs, oder `null`
+   *  zwischen Sprüngen (siehe `movement/movement.ts#shouldCutJump`). */
+  private jumpStartMs: number | null = null;
+  /** Frame-Delta des aktuellen `update()`-Aufrufs – als Feld zwischengespeichert,
+   *  da `applyKeyboardInput`/`applyBotAction`/`applyMovement` es für die
+   *  Sprint-Rampe brauchen, aber (historisch) kein `delta`-Argument haben. */
+  private currentDelta = 0;
   private initData: RaceSceneInitData = { controllerMode: "keyboard" };
   /** Rein visuelle Buchführung (nicht Teil des Racer-/Rules-State): welche
    *  Checkpoints haben ihre Hiss-Animation bereits gezeigt. */
@@ -117,6 +139,7 @@ export class RaceScene extends Phaser.Scene {
 
   init(data: RaceSceneInitData): void {
     this.initData = data;
+    this.level = getLevelById(data.levelId ?? DEFAULT_LEVEL_ID);
   }
 
   preload(): void {
@@ -148,6 +171,8 @@ export class RaceScene extends Phaser.Scene {
     this.sinceLastBotTick = 0;
     this.tickCounter = 0;
     this.lastBotAction = "idle";
+    this.sprintHoldMs = 0;
+    this.jumpStartMs = null;
     this.activatedCheckpointIds = new Set<string>();
 
     createAnimations(this);
@@ -245,11 +270,12 @@ export class RaceScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     if (this.racer.finished || this.racer.didNotFinish) return;
 
+    this.currentDelta = delta;
     this.elapsedMs += delta;
     this.racer = { ...this.racer, timeElapsedMs: this.elapsedMs };
 
     for (const instance of this.world.hazardInstances) {
-      updateHazard(instance, this.elapsedMs);
+      updateHazard(instance, this.elapsedMs, this.racer.hazardTriggeredAtMs);
     }
 
     if (this.elapsedMs >= RUN_TIME_LIMIT_MS && !this.racer.finished) {
@@ -283,6 +309,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.updatePlayerAnimation();
     this.syncRacerPositionFromPhysics();
+    this.updateSpikeheadTriggers();
 
     // Live-HUD (Zeit/Coins) gedrosselt aktualisieren.
     this.sinceLastStatusEmit += delta;
@@ -321,49 +348,124 @@ export class RaceScene extends Phaser.Scene {
         id: h.id,
         kind: h.kind,
         x: h.kind === "kugelblitz" ? h.pivotX : h.x,
-        y: h.kind === "kugelblitz" ? h.pivotY : h.y,
+        y: h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y,
         active: dynamic.activeHazardIds.has(h.id),
       })),
       utilities: this.level.utilities.map((u) => ({ id: u.id, kind: u.kind, x: u.x, y: u.y })),
     };
   }
 
-  /** Mehrachsiger Tastatur-Input: Bewegung und Sprung unabhängig, im selben Frame. */
-  private applyKeyboardInput(keyboard: KeyboardController): void {
-    const { dir, jump } = keyboard.getInput();
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
+  /**
+   * Erkennt, wenn der Racer die Trigger-Zone eines Spikehead betritt (nur
+   * relevant, wenn dessen aktueller Zyklus bereits abgeklungen ist -
+   * `phase === "idle"`, siehe `spikeheadState`) und merkt den Auslöse-
+   * Zeitpunkt im Racer-State (`applyHazardTriggered`). Rein positions-/
+   * zeitbasiert, keine eigene Spielregel-Entscheidung über hinaus
+   * (delegiert komplett an die pure `spikeheadState`-Funktion).
+   */
+  private updateSpikeheadTriggers(): void {
+    for (const hazard of this.level.hazards) {
+      if (hazard.kind !== "spikehead") continue;
+      const triggeredAt = this.racer.hazardTriggeredAtMs.get(hazard.id);
+      const msSinceTrigger = triggeredAt === undefined ? null : this.elapsedMs - triggeredAt;
+      const phase = spikeheadState(hazard, msSinceTrigger).phase;
+      if (phase !== "idle") continue;
 
-    body.setVelocityX(dir * MOVE_SPEED);
-    if (dir !== 0) {
-      this.racer = { ...this.racer, facing: dir < 0 ? "left" : "right" };
-    }
-
-    const onGround = body.blocked.down || body.touching.down;
-    this.racer = { ...this.racer, onGround };
-    if (jump && onGround) {
-      body.setVelocityY(JUMP_VELOCITY);
-      this.playSfx(AUDIO_KEYS.JUMP);
+      const inZone = this.racer.x >= hazard.triggerMinX && this.racer.x <= hazard.triggerMaxX;
+      if (inZone) {
+        this.racer = applyHazardTriggered(this.racer, hazard.id, this.elapsedMs);
+      }
     }
   }
 
-  /** Einzelne Action (Bot-Contract) – links/rechts/springen/idle. */
+  /** Mehrachsiger Tastatur-Input: Bewegung, Sprung UND Sprint unabhängig, im selben Frame. */
+  private applyKeyboardInput(keyboard: KeyboardController): void {
+    const { dir, jump, sprint } = keyboard.getInput();
+    this.applyMovement(dir, sprint, jump);
+  }
+
+  /** Einzelne Action (Bot-Contract) – links/rechts/sprint-links/sprint-rechts/springen/idle. */
   private applyBotAction(action: Action): void {
+    if (action === "jump") {
+      // Horizontale Bewegung/Sprint-Rampe bewusst UNVERÄNDERT lassen (siehe
+      // .features/movement-sprint-and-variable-jump/requirements.md, US-3,
+      // letztes Akzeptanzkriterium) - sonst wäre der Sprung-Boost für Bots
+      // wirkungslos, da die Geschwindigkeit sonst in diesem Tick auf 0 fiele.
+      this.applyJumpOnly(true);
+      return;
+    }
+    if (action === "idle") {
+      this.sprintHoldMs = 0;
+      (this.player.body as Phaser.Physics.Arcade.Body).setVelocityX(0);
+      this.applyJumpOnly(false);
+      return;
+    }
+
+    const dir: -1 | 0 | 1 =
+      action === "left" || action === "sprint-left"
+        ? -1
+        : action === "right" || action === "sprint-right"
+          ? 1
+          : 0;
+    const sprint = action === "sprint-left" || action === "sprint-right";
+    this.applyMovement(dir, sprint, false);
+  }
+
+  /**
+   * Gemeinsame Bewegungs-Pipeline für Tastatur UND Bot (`left`/`right`/
+   * `sprint-left`/`sprint-right`/Multi-Input-Richtung): pflegt die
+   * Sprint-Rampe (`sprintHoldMs`), setzt die horizontale Geschwindigkeit
+   * gemäß `rampedSprintSpeed`, delegiert die Sprung-/Cutoff-Logik an
+   * `applyJumpOnly` (DRY - keine doppelte Sprung-Logik pro Steuerquelle).
+   */
+  private applyMovement(dir: -1 | 0 | 1, sprint: boolean, jumpHeld: boolean): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    if (action === "left") {
-      body.setVelocityX(-MOVE_SPEED);
-      this.racer = { ...this.racer, facing: "left" };
-    } else if (action === "right") {
-      body.setVelocityX(MOVE_SPEED);
-      this.racer = { ...this.racer, facing: "right" };
+
+    if (dir !== 0 && sprint) {
+      this.sprintHoldMs += this.currentDelta;
+    } else if (dir !== 0) {
+      this.sprintHoldMs = 0;
+    }
+
+    if (dir !== 0) {
+      body.setVelocityX(dir * rampedSprintSpeed(this.sprintHoldMs));
+      this.racer = { ...this.racer, facing: dir < 0 ? "left" : "right" };
     } else {
       body.setVelocityX(0);
     }
 
+    this.applyJumpOnly(jumpHeld);
+  }
+
+  /**
+   * Wendet NUR die Sprung-/Cutoff-Logik an, ohne horizontale
+   * Velocity/Sprint-Rampe zu verändern (Bot-"jump"-Tick UND der
+   * Sprung-Anteil von `applyMovement` teilen sich diese Logik, DRY).
+   * Sprung-Boost (`jumpVelocityForSpeed`) nutzt die AKTUELLE horizontale
+   * Geschwindigkeit des Bodies zum Absprungzeitpunkt (siehe design.md).
+   */
+  private applyJumpOnly(jumpHeld: boolean): void {
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
     const onGround = body.blocked.down || body.touching.down;
     this.racer = { ...this.racer, onGround };
-    if (action === "jump" && onGround) {
-      body.setVelocityY(JUMP_VELOCITY);
+
+    if (onGround && this.jumpStartMs !== null) {
+      this.jumpStartMs = null;
+    }
+
+    if (jumpHeld && onGround) {
+      const currentSpeed = Math.abs(body.velocity.x) || MOVEMENT_TUNING.BASE_MOVE_SPEED;
+      body.setVelocityY(jumpVelocityForSpeed(currentSpeed));
+      this.jumpStartMs = this.elapsedMs;
       this.playSfx(AUDIO_KEYS.JUMP);
+      return;
+    }
+
+    if (!onGround && this.jumpStartMs !== null && body.velocity.y < 0) {
+      const msSinceJumpStart = this.elapsedMs - this.jumpStartMs;
+      if (shouldCutJump(msSinceJumpStart, jumpHeld)) {
+        body.setVelocityY(0);
+      }
     }
   }
 

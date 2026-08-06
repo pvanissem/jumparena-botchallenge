@@ -18,6 +18,11 @@ export interface ArenaViewStatus {
 
 export interface ArenaViewProps {
   controlMode: "keyboard" | "bot";
+  /** Level-ID aus `LEVEL_REGISTRY` (siehe `level/levelRegistry.ts`). Nur
+   *  beim Mount relevant (siehe Mount-Effect unten) - ein Levelwechsel
+   *  während des laufenden Spiels läuft über den `key`-Remount-Mechanismus
+   *  des Aufrufers (z.B. `DevPage`), nicht über einen reaktiven Effect. */
+  levelId: string;
   botSourceCode?: string;
   /** Start-Leben für diesen Lauf (siehe `RaceSceneInitData.startingLives`).
    *  Nur beim (Neu-)Start eines Laufs relevant, kein Live-Umschalten
@@ -29,6 +34,7 @@ export interface ArenaViewProps {
 
 export function ArenaView({
   controlMode,
+  levelId,
   botSourceCode,
   startingLives,
   onStatusChange,
@@ -73,6 +79,7 @@ export function ArenaView({
 
     game.scene.start("RaceScene", {
       controllerMode: controlMode,
+      levelId,
       botSourceCode,
       startingLives,
       onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) =>

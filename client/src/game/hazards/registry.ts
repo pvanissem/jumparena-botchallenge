@@ -8,7 +8,7 @@
  */
 import type { HazardKind, UtilityKind } from "@arena/bot-contract";
 
-export type HazardBehaviorKind = "patrol" | "static" | "timed" | "pendulum";
+export type HazardBehaviorKind = "patrol" | "static" | "timed" | "pendulum" | "trigger";
 
 export interface HitboxSpec {
   width: number;
@@ -27,6 +27,12 @@ export interface HazardSpec {
    * fälschlich wie ein fehlendes Asset aussieht.
    */
   inactiveTexture?: string;
+  /**
+   * Tint (Phaser `setTint`-Farbwert), um ein bestehendes Sprite ohne neues
+   * Asset optisch zu unterscheiden (Spikehead nutzt das Stachlinger-Sprite in
+   * einer anderen Farbe, siehe `.features/level-two-kaizo/design.md`).
+   */
+  tint?: number;
   stompable: boolean;
   behavior: HazardBehaviorKind;
   hitbox: HitboxSpec;
@@ -60,6 +66,17 @@ export const HAZARD_REGISTRY: Record<HazardKind, HazardSpec> = {
     behavior: "pendulum",
     hitbox: { width: 24, height: 24, offsetX: 2, offsetY: 2 },
   },
+  spikehead: {
+    // Nutzt bewusst dasselbe Asset wie Kugelblitz (Spiked Ball) statt
+    // Stachlinger - passt optisch besser zur fallenden/kletternden Bewegung
+    // als das flache Stachel-Sprite. Der Tint macht ihn trotzdem
+    // unterscheidbar (rot statt der neutralen Kugelblitz-Farbe).
+    texture: "spiked-ball",
+    stompable: false,
+    behavior: "trigger",
+    hitbox: { width: 24, height: 24, offsetX: 2, offsetY: 2 },
+    tint: 0xff5555,
+  },
 };
 
 /**
@@ -87,4 +104,5 @@ export const UTILITY_REGISTRY: Record<UtilityKind, UtilitySpec> = {
 export const HAZARD_DEFAULTS = {
   loderix: { onMs: 1500, offMs: 1500, phaseMs: 0 },
   kugelblitz: { periodMs: 2400, amplitudeDeg: 50 },
+  spikehead: { warnMs: 400, fallMs: 200, restMs: 600, riseMs: 500 },
 } as const;

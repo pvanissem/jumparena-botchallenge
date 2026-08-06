@@ -31,6 +31,7 @@ src/game/hazards/
 | **Stachlinger** | Spikes | statisch, sitzt auf dem Boden | ❌ nein | ja |
 | **Loderix** | Fire | getaktet an/aus (Feuerstoß) | ❌ nein | **nein** (nur "an") |
 | **Kugelblitz** | Spiked Ball | schwingt als Pendel um einen Aufhängepunkt | ❌ nein | ja |
+| **Spikehead** | Spiked Ball (rot eingefärbt) | fällt nach Betreten einer Trigger-Zone herab, steigt danach langsam wieder auf | ❌ nein | **nein** (nur während Fallen/Liegen/Aufsteigen) |
 
 ### Schnetzler (Säge)
 - Bewegt sich zwischen `minX` und `maxX` mit `speed`.
@@ -54,6 +55,24 @@ src/game/hazards/
   und `amplitudeDeg` (Default: 2400 ms, 50°).
 - Dauerhaft gefährlich; muss zeitlich zwischen den Schwüngen passiert werden.
 
+### Spikehead (fallender Stachelkopf)
+- Nutzt dasselbe Sprite wie Kugelblitz (Spiked Ball), aber rot eingefärbt
+  (kein eigenes Asset nötig).
+- Hängt in Ruheposition (`originY`) über einer Passage. Betritt der Racer
+  eine definierte horizontale Trigger-Zone (`triggerMinX`/`triggerMaxX`),
+  löst dies nach einer kurzen, festen Vorwarnzeit (`warnMs`, Default 400ms)
+  den Fall aus.
+- Zyklus: **warning** (an `originY`, ungefährlich) → **falling** (`fallMs`,
+  Default 200ms, Y interpoliert `originY`→`fallToY`) → **resting** (`restMs`,
+  Default 600ms, verharrt unten) → **rising** (`riseMs`, Default 500ms, Y
+  interpoliert langsam zurück `fallToY`→`originY`) → **idle** (wieder oben,
+  erneut auslösbar).
+- Während falling/resting/rising ist er durchgehend gefährlich (nicht
+  stompbar) – erst im "idle"-Zustand oben ist er ungefährlich und kann
+  erneut getriggert werden.
+- Rein zeit-/positionsbasiert, kein Zufall – siehe
+  `client/src/game/hazards/behaviors.ts#spikeheadState`.
+
 ## Utilities
 
 | Name | Asset | Mechanik |
@@ -73,7 +92,7 @@ Ein Bot bekommt pro Tick u.a. diese Felder (siehe `src/game/types.ts`):
 nearestHazard: {
   dx: number;          // Tile-Distanz horizontal (– = links, + = rechts)
   dy: number;          // Tile-Distanz vertikal (– = oben, + = unten)
-  kind: HazardKind;    // "schnetzler" | "stachlinger" | "loderix" | "kugelblitz"
+  kind: HazardKind;    // "schnetzler" | "stachlinger" | "loderix" | "kugelblitz" | "spikehead"
   active: boolean;     // ob gerade gefährlich (bei Loderix togglt es)
 } | null;
 
@@ -103,6 +122,7 @@ als `"hazard"` auf (getaktete nur, solange sie „an" sind).
 
 ## Bewusst (noch) nicht enthalten
 
-- **Arrow Trap** (Projektil) und **Rock/Spike Head** (Richtungs-Trigger) – höherer
-  Implementierungsaufwand; können bei Bedarf additiv über Registry/Behavior
-  ergänzt werden, ohne bestehende Logik zu ändern.
+- **Arrow Trap** (Projektil) – höherer Implementierungsaufwand; kann bei Bedarf
+  additiv über Registry/Behavior ergänzt werden, ohne bestehende Logik zu
+  ändern. (**Rock/Spike Head** wurde als "Spikehead" für Level 2 umgesetzt,
+  siehe oben und `.features/level-two-kaizo/`.)

@@ -9,10 +9,17 @@ import type { HazardKind, UtilityKind } from "./hazards";
 
 export type TileType = "empty" | "solid" | "hazard" | "coinBlock" | "goal" | "unknown";
 
-export type Action = "left" | "right" | "jump" | "idle";
+export type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right";
 
 /** Einzige Quelle der Wahrheit für gültige Action-Werte (Laufzeit-Prüfung). */
-export const ACTIONS: readonly Action[] = ["left", "right", "jump", "idle"];
+export const ACTIONS: readonly Action[] = [
+  "left",
+  "right",
+  "jump",
+  "idle",
+  "sprint-left",
+  "sprint-right",
+];
 
 export interface NearestCoin {
   dx: number;

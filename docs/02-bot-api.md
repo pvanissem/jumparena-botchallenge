@@ -45,8 +45,24 @@ interface BotState {
 
 type TileType = "empty" | "solid" | "hazard" | "coinBlock" | "goal" | "unknown";
 
-type Action = "left" | "right" | "jump" | "idle";
+type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right";
 ```
+
+## Sprint & variable Sprunghöhe
+
+- **`"sprint-left"`/`"sprint-right"`**: wie `"left"`/`"right"`, aber der Bot baut über eine
+  kurze Zeitspanne Momentum auf – je länger er ununterbrochen dieselbe Sprint-Action
+  zurückgibt, desto schneller wird er (bis zu einer maximalen Sprint-Geschwindigkeit).
+  Wechselt er zurück zu `"left"`/`"right"`/`"idle"` oder die Richtung, fällt die
+  Geschwindigkeit sofort auf das Basistempo zurück.
+- **Sprung-Boost:** Löst ein Bot einen Sprung aus, während er (durch vorheriges Sprinten)
+  schneller als die Basisgeschwindigkeit ist, wird der Sprung automatisch höher UND weiter.
+- **Variable Sprunghöhe:** Gibt ein Bot `"jump"` über mehrere aufeinanderfolgende Ticks
+  zurück ("hält die Taste"), erreicht der Sprung seine volle Höhe. Wechselt er direkt danach
+  zu einer anderen Action, wird der Sprung abgeschnitten und der Bot fällt sofort – ein Bot
+  kann also über die Anzahl aufeinanderfolgender `"jump"`-Ticks die Sprunghöhe steuern. Ein
+  einzelner `"jump"`-Tick reicht dabei immer für eine brauchbare Mindesthöhe (kein
+  Nachteil für Bots, die "jump" nur kurz zurückgeben).
 
 ## Regeln, die das devkcode-Profil dem Nutzer/der KI erklären muss
 
@@ -56,7 +72,7 @@ type Action = "left" | "right" | "jump" | "idle";
    sollte der KI aber explizit sagen, dass sie sich darauf nicht verlassen soll.
 3. **Kein Zustand über Ticks hinweg garantiert**, außer via Closure-Variablen innerhalb der
    Bot-Datei selbst (das ist erlaubt und sogar erwünscht, z.B. für einfache State-Machines).
-4. **Rückgabewert muss exakt einem der 4 Action-Strings entsprechen.** Ungültige oder fehlende
+4. **Rückgabewert muss exakt einem der 6 Action-Strings entsprechen.** Ungültige oder fehlende
    Rückgaben → Bot macht in diesem Tick nichts (`idle`), keine Disqualifikation (Fehlertoleranz
    für's Publikum wichtiger als Strenge).
 5. **Performance-Limit:** `decide()` muss innerhalb von z.B. 5ms zurückkehren. Bots, die das

@@ -48,6 +48,12 @@ Vergleiche im Leaderboard (schnellster Bot ≠ zwangsläufig Sieger).
 
 - Soll es mehrere unterschiedliche Level geben (z.B. eines pro Heat-Runde, damit es nicht
   langweilig wird für Zuschauer), oder bewusst immer dasselbe Level für Vergleichbarkeit?
+  **Update:** Es gibt inzwischen zwei Level mit steigendem Schwierigkeitsgrad (`LEVEL_ONE`,
+  `LEVEL_TWO` – siehe `.features/level-two-kaizo/`), auswählbar über eine zentrale
+  `LEVEL_REGISTRY` (`client/src/game/level/levelRegistry.ts`). Level 2 ("Kaizo Light") setzt
+  spürbar engere Sprungdistanzen, ein Gegner-Gauntlet sowie einen neuen Hazard (Spikehead,
+  siehe `docs/08`) ein. Die Frage, ob/wie mehrere Level auch im Turniermodus (`docs/09`)
+  eingesetzt werden, bleibt weiterhin offen.
 - Wie wird das Level technisch erstellt (Tiled-Editor-Export als JSON, oder handgeschriebene
   Tilemap-Daten für den MVP)?
 - Reicht ein einziges Level für die ganze Konferenz, oder braucht es eine "Schwierigkeitskurve"

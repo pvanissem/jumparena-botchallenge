@@ -6,6 +6,7 @@ import {
   applyCoinPickup,
   applyGoalReached,
   applyHazardContact,
+  applyHazardTriggered,
   applyPitFall,
   applyTimeLimitReached,
   resolveHazardContact,
@@ -143,5 +144,26 @@ describe("applyTimeLimitReached", () => {
     const next = applyTimeLimitReached(state);
     expect(next.didNotFinish).toBe(false);
     expect(next.finished).toBe(true);
+  });
+});
+
+describe("applyHazardTriggered", () => {
+  it("records the trigger timestamp for the given hazard id", () => {
+    const state = createInitialRacerState(LEVEL);
+    const next = applyHazardTriggered(state, "spikehead-1", 1234);
+    expect(next.hazardTriggeredAtMs.get("spikehead-1")).toBe(1234);
+  });
+
+  it("leaves other hazard ids' timestamps unchanged", () => {
+    const state = applyHazardTriggered(createInitialRacerState(LEVEL), "spikehead-1", 100);
+    const next = applyHazardTriggered(state, "spikehead-2", 200);
+    expect(next.hazardTriggeredAtMs.get("spikehead-1")).toBe(100);
+    expect(next.hazardTriggeredAtMs.get("spikehead-2")).toBe(200);
+  });
+
+  it("overwrites a previous timestamp for the same hazard id", () => {
+    const state = applyHazardTriggered(createInitialRacerState(LEVEL), "spikehead-1", 100);
+    const next = applyHazardTriggered(state, "spikehead-1", 999);
+    expect(next.hazardTriggeredAtMs.get("spikehead-1")).toBe(999);
   });
 });

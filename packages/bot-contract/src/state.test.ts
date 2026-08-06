@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ACTIONS, type Action, type BotState } from "./state";
 
 describe("state contract", () => {
-  it("ACTIONS contains exactly the four allowed actions", () => {
-    expect(ACTIONS).toEqual(["left", "right", "jump", "idle"]);
+  it("ACTIONS contains exactly the six allowed actions", () => {
+    expect(ACTIONS).toEqual(["left", "right", "jump", "idle", "sprint-left", "sprint-right"]);
   });
 
   it("accepts a fully populated BotState object", () => {
@@ -46,8 +46,8 @@ describe("state contract", () => {
     expect(state.nearestCoin).toBeNull();
   });
 
-  it("Action type only allows the four known string values at runtime too", () => {
-    const values: Action[] = ["left", "right", "jump", "idle"];
+  it("Action type only allows the six known string values at runtime too", () => {
+    const values: Action[] = ["left", "right", "jump", "idle", "sprint-left", "sprint-right"];
     for (const value of values) {
       expect(ACTIONS).toContain(value);
     }
