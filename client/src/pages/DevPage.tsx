@@ -6,6 +6,7 @@ import { HazardLegend } from "../components/HazardLegend";
 import { ScoreHud } from "../components/ScoreHud";
 import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
+import { useAudioUnlockHint } from "../game/audio/useAudioUnlockHint";
 import { useArenaControls } from "../game/control/useArenaControls";
 import { LEVEL_REGISTRY } from "../game/level/levelRegistry";
 import type { RacerRuntimeState } from "../game/rules/racerState";
@@ -40,6 +41,12 @@ function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
 
 export function DevPage() {
   const { mode, setMode, levelId, setLevelId } = useArenaControls();
+  // Browser-Autoplay-Policy: Lautstärke/Mute wirken sich erst hörbar aus,
+  // sobald der AudioContext durch eine Nutzer-Geste entsperrt wurde (siehe
+  // `.features/game-audio-unlock-hint/bugfix.md`). Bis dahin scheint der
+  // Regler "nicht live" zu reagieren, obwohl der Store bereits korrekt
+  // aktualisiert wird.
+  const audioLocked = useAudioUnlockHint();
   const [racer, setRacer] = useState<RacerRuntimeState | null>(null);
   const [diagnosis, setDiagnosis] = useState<BotDiagnosis | null>(null);
   // Erhöht sich bei Klick auf "Neu starten" und wird als React-`key` an
@@ -106,6 +113,11 @@ export function DevPage() {
           </button>
 
           <AudioControls />
+          {audioLocked && (
+            <span className="pixel-status" title="Browser-Autoplay-Policy: Ton startet mit der ersten Interaktion">
+              🔈 Ton startet mit der ersten Interaktion
+            </span>
+          )}
 
           {racer && <ScoreHud racer={racer} />}
 

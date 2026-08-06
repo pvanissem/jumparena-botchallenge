@@ -224,9 +224,20 @@ export class RaceScene extends Phaser.Scene {
     // erst mit dem ersten Bot-Tick (150ms später) sichtbar.
     this.notifyStatus();
 
-    this.music = this.sound.add(AUDIO_KEYS.THEME, { loop: true });
-    this.applyAudioVolume();
+    // Lautstärke bewusst bereits in der `add()`-Config setzen: Phasers eigenes
+    // `play()` setzt `currentConfig` auf diese Ausgangs-Config zurück und
+    // wendet sie erneut an (`applyConfig()`, siehe
+    // node_modules/phaser/src/sound/BaseSound.js) - ein `setVolume()`-Aufruf
+    // VOR `play()` würde dadurch sofort wieder auf den Default (1.0)
+    // zurückgesetzt. Der zusätzliche `applyAudioVolume()`-Aufruf NACH `play()`
+    // fängt nur noch den seltenen Fall ab, dass sich die Einstellung zwischen
+    // `add()` und `play()` geändert hat.
+    this.music = this.sound.add(AUDIO_KEYS.THEME, {
+      loop: true,
+      volume: audioSettings.getEffectiveVolume(),
+    });
     this.music.play();
+    this.applyAudioVolume();
     this.unsubscribeAudio = audioSettings.subscribe(() => this.applyAudioVolume());
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
