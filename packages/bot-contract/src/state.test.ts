@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { ACTIONS, type Action, type BotState, type DecideResult } from "./state";
 
+const TUNING: BotState["tuning"] = {
+  gravity: 900,
+  tileSize: 16,
+  tickMs: 33,
+  baseMoveSpeed: 200,
+  sprintMoveSpeed: 320,
+  sprintRampMs: 450,
+  baseJumpVelocity: -560,
+  sprintJumpVelocity: -650,
+  minJumpHoldMs: 180,
+  botWidth: 24,
+  botHeight: 32,
+};
+
 describe("state contract", () => {
   it("ACTIONS contains exactly the six allowed actions", () => {
     expect(ACTIONS).toEqual(["left", "right", "jump", "idle", "sprint-left", "sprint-right"]);
@@ -22,7 +36,10 @@ describe("state contract", () => {
       isAlive: true,
       velocity: { vx: 200, vy: 0 },
       isSprinting: false,
+      sprintRampProgress: 0,
       nearbyTiles: [["empty", "solid"]],
+      platforms: [{ dx: -8, dy: 16, width: 64, height: 16, kind: "ground" }],
+      tuning: TUNING,
       nearestCoin: { dx: 1, dy: -1, value: 10 },
       nearestHazard: {
         dx: -2,
@@ -31,11 +48,22 @@ describe("state contract", () => {
         active: true,
         warning: false,
         stompable: true,
+        vx: 0,
+        vy: 0,
       },
       nearestUtility: { dx: 3, dy: 0, kind: "boingo" },
       coins: [{ dx: 1, dy: -1, value: 10 }],
       hazards: [
-        { dx: -2, dy: 0, kind: "schnetzler", active: true, warning: false, stompable: true },
+        {
+          dx: -2,
+          dy: 0,
+          kind: "schnetzler",
+          active: true,
+          warning: false,
+          stompable: true,
+          vx: 0,
+          vy: 0,
+        },
       ],
       utilities: [{ dx: 3, dy: 0, kind: "boingo" }],
       goalDirection: { dx: 1, dy: 0 },
@@ -62,7 +90,10 @@ describe("state contract", () => {
       isAlive: true,
       velocity: { vx: 0, vy: 0 },
       isSprinting: false,
+      sprintRampProgress: 0,
       nearbyTiles: [],
+      platforms: [],
+      tuning: TUNING,
       nearestCoin: null,
       nearestHazard: null,
       nearestUtility: null,

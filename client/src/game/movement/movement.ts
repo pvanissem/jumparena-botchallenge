@@ -17,6 +17,20 @@ export const MOVEMENT_TUNING = {
   SPRINT_JUMP_VELOCITY: -650,
   /** Garantierte Mindest-Halte-Zeit eines Sprungs (> 150ms Bot-Tick-Intervall). */
   MIN_JUMP_HOLD_MS: 180,
+  /** Schwerkraft (Arcade-Physik-Y-Achse, siehe `ArenaView.tsx`). Hochgezogen
+   *  aus dem bisherigen Literal, damit sie konsistent im Bot-State
+   *  (`state.tuning.gravity`, siehe `.features/bot-toolkit/`) exponiert
+   *  werden kann. */
+  GRAVITY_Y: 900,
+  /** Arcade-Body-Größe des Spielers (siehe `RaceScene.ts` `body.setSize(...)`).
+   *  Ebenfalls für `state.tuning` benötigt (Kollisionsboxen in Trajektorie-
+   *  Berechnungen). */
+  PLAYER_BODY_SIZE: { width: 24, height: 32 },
+  /** Intervall zwischen zwei Bot-Ticks in Millisekunden (~30Hz). Hochgezogen
+   *  aus `RaceScene.ts`s vormals lokaler Konstante, damit `state.tuning.tickMs`
+   *  (siehe `.features/bot-toolkit/`) dieselbe Quelle referenziert, ohne einen
+   *  Phaser-Import in reine State-Tests zu ziehen. */
+  BOT_TICK_INTERVAL_MS: 33,
 } as const;
 
 type SprintSpeedTuning = Pick<

@@ -49,8 +49,14 @@ export interface VisibleHazard {
    *  `false`. */
   warning: boolean;
   /** Ob dieser Hazard durch Draufspringen neutralisiert werden kann (vorberechnet,
-   *  damit der Bot die Spielregeln nicht kennen muss – aktuell nur `schnetzler`). */
+   *  damit der Bot die Spielregeln nicht kennen muss – aktuell nur `ninjafrog`,
+   *  siehe docs/08-hazards-und-utilities.md). */
   stompable: boolean;
+  /** Aktuelle Geschwindigkeit des Hazards (Pixel/s; vx>0 = rechts, vy>0 = unten).
+   *  Ermittelt aus der Positionsänderung zwischen zwei Ticks (siehe
+   *  `.features/bot-toolkit/design.md`, US-7). */
+  vx: number;
+  vy: number;
 }
 
 export interface VisibleUtility {
@@ -71,6 +77,52 @@ export interface GapAhead {
   distance: number | null;
 }
 
+/** Art einer sichtbaren, physikalisch soliden Fläche (`state.platforms`). */
+export type PlatformKind = "ground" | "float" | "ceiling" | "block";
+
+/**
+ * Exakte (nicht gerasterte) Rechteck-Geometrie einer sichtbaren, solide
+ * kollidierenden Fläche, relativ zum Bot. `kind: "block"` ist ein noch nicht
+ * ausgelöster versteckter Münzblock (voller Collider, von jeder Seite
+ * solide; wird nach Auflösung nicht mehr geliefert). Siehe
+ * `.features/bot-toolkit/design.md`, US-2.
+ */
+export interface VisiblePlatform {
+  /** Linke obere Ecke, horizontal relativ zum Bot (Pixel). */
+  dx: number;
+  /** Linke obere Ecke, vertikal relativ zum Bot (Pixel). */
+  dy: number;
+  width: number;
+  height: number;
+  kind: PlatformKind;
+}
+
+/**
+ * Bewegungsrelevante Physik-Konstanten, damit ein Bot Trajektorien/Sprünge
+ * ohne geratene Zahlen berechnen kann (siehe `.features/bot-toolkit/design.md`,
+ * US-3). Single Source of Truth ist `MOVEMENT_TUNING`/`TILE_SIZE` im Client;
+ * dieser Block spiegelt deren aktuelle Werte pro Tick.
+ */
+export interface BotTuning {
+  /** Schwerkraft (Pixel/s², positiv = nach unten). */
+  gravity: number;
+  /** Kantenlänge eines Tiles in Pixeln. */
+  tileSize: number;
+  /** Intervall zwischen zwei `decide`-Aufrufen in Millisekunden (~30Hz). */
+  tickMs: number;
+  baseMoveSpeed: number;
+  sprintMoveSpeed: number;
+  sprintRampMs: number;
+  /** Sprungimpuls ohne Sprint (negativ = nach oben). */
+  baseJumpVelocity: number;
+  /** Sprungimpuls bei voller Sprint-Geschwindigkeit (negativ = nach oben). */
+  sprintJumpVelocity: number;
+  minJumpHoldMs: number;
+  /** Breite/Höhe der eigenen Arcade-Kollisionsbox in Pixeln. */
+  botWidth: number;
+  botHeight: number;
+}
+
 export interface BotState {
   tick: number;
   position: { x: number; y: number };
@@ -82,9 +134,23 @@ export interface BotState {
   velocity: { vx: number; vy: number };
   /** Ob der Bot gerade Sprint-Momentum aufbaut. */
   isSprinting: boolean;
+  /** Fortschritt der Sprint-Rampe (0 = Basistempo, 1 = volles Sprint-Tempo).
+   *  Ergänzt `isSprinting` (nur boolean) um den genauen Stand, damit die
+   *  künftige Geschwindigkeit vorhersagbar ist (siehe
+   *  `.features/bot-toolkit/design.md`, US-3). */
+  sprintRampProgress: number;
 
   /** Begrenztes Sichtfeld um den Bot herum (7×5, Bot in der Mitte). */
   nearbyTiles: TileType[][];
+
+  /** Exakte Rechteck-Geometrie aller sichtbaren, solide kollidierenden
+   *  Flächen (Plattformen + ungelöste versteckte Münzblöcke). Ergänzt
+   *  `nearbyTiles` um nicht gerasterte Geometrie für Trajektorien-Berechnungen
+   *  (siehe `.features/bot-toolkit/design.md`, US-2). */
+  platforms: VisiblePlatform[];
+
+  /** Bewegungsrelevante Physik-Konstanten (siehe `BotTuning`). */
+  tuning: BotTuning;
 
   /** Nächstgelegenes Objekt je Art (= erstes Element der jeweiligen Liste) oder
    *  `null`, wenn die Liste leer ist. */

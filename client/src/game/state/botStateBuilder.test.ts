@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { TILE_SIZE } from "../level/tiles";
 import type { LevelDef } from "../level/types";
+import { MOVEMENT_TUNING } from "../movement/movement";
 import type { RacerRuntimeState } from "../rules/racerState";
 import { createInitialRacerState } from "../rules/racerState";
 import { type BotStateExtras, buildBotState } from "./botStateBuilder";
@@ -37,6 +39,7 @@ function racer(overrides: Partial<RacerRuntimeState> = {}): RacerRuntimeState {
 const NO_EXTRAS: BotStateExtras = {
   velocity: { vx: 0, vy: 0 },
   isSprinting: false,
+  sprintHoldMs: 0,
   justRespawned: false,
   tookDamage: false,
 };
@@ -84,6 +87,7 @@ describe("buildBotState basics", () => {
     const state = build(snapshot(), racer(), 0, {
       velocity: { vx: 200, vy: -50 },
       isSprinting: true,
+      sprintHoldMs: 0,
       justRespawned: true,
       tookDamage: true,
     });
@@ -91,6 +95,46 @@ describe("buildBotState basics", () => {
     expect(state.isSprinting).toBe(true);
     expect(state.justRespawned).toBe(true);
     expect(state.tookDamage).toBe(true);
+  });
+
+  it("exposes tuning matching MOVEMENT_TUNING/TILE_SIZE/BOT_TICK_INTERVAL_MS", () => {
+    const state = build(snapshot(), racer());
+    expect(state.tuning).toEqual({
+      gravity: MOVEMENT_TUNING.GRAVITY_Y,
+      tileSize: TILE_SIZE,
+      tickMs: MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS,
+      baseMoveSpeed: MOVEMENT_TUNING.BASE_MOVE_SPEED,
+      sprintMoveSpeed: MOVEMENT_TUNING.SPRINT_MOVE_SPEED,
+      sprintRampMs: MOVEMENT_TUNING.SPRINT_RAMP_MS,
+      baseJumpVelocity: MOVEMENT_TUNING.BASE_JUMP_VELOCITY,
+      sprintJumpVelocity: MOVEMENT_TUNING.SPRINT_JUMP_VELOCITY,
+      minJumpHoldMs: MOVEMENT_TUNING.MIN_JUMP_HOLD_MS,
+      botWidth: MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
+      botHeight: MOVEMENT_TUNING.PLAYER_BODY_SIZE.height,
+    });
+  });
+
+  it("computes sprintRampProgress from sprintHoldMs (0 at 0, 1 at full ramp)", () => {
+    const zero = build(snapshot(), racer(), 0, { ...NO_EXTRAS, sprintHoldMs: 0 });
+    expect(zero.sprintRampProgress).toBe(0);
+
+    const full = build(snapshot(), racer(), 0, {
+      ...NO_EXTRAS,
+      sprintHoldMs: MOVEMENT_TUNING.SPRINT_RAMP_MS,
+    });
+    expect(full.sprintRampProgress).toBe(1);
+
+    const half = build(snapshot(), racer(), 0, {
+      ...NO_EXTRAS,
+      sprintHoldMs: MOVEMENT_TUNING.SPRINT_RAMP_MS / 2,
+    });
+    expect(half.sprintRampProgress).toBeCloseTo(0.5);
+  });
+
+  it("exposes visible platforms built from level.platforms/hiddenCoinBlocks", () => {
+    const level: LevelDef = { ...LEVEL, platforms: [{ x: 0, y: 16, tilesWide: 2 }] };
+    const state = build(snapshot({ level }), racer({ x: 0, y: 0 }));
+    expect(state.platforms).toEqual([{ dx: 0, dy: 16, width: 32, height: 16, kind: "ground" }]);
   });
 });
 
@@ -156,6 +200,8 @@ describe("buildBotState coin/hazard/utility lists", () => {
       active: true,
       warning: false,
       stompable: true,
+      vx: 0,
+      vy: 0,
     });
     expect(saw).toEqual({
       dx: 20,
@@ -164,6 +210,8 @@ describe("buildBotState coin/hazard/utility lists", () => {
       active: true,
       warning: false,
       stompable: false,
+      vx: 0,
+      vy: 0,
     });
     expect(spike).toEqual({
       dx: 30,
@@ -172,6 +220,8 @@ describe("buildBotState coin/hazard/utility lists", () => {
       active: false,
       warning: true,
       stompable: false,
+      vx: 0,
+      vy: 0,
     });
     expect(state.nearestHazard).toEqual(state.hazards[0]);
   });

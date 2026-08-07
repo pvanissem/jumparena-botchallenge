@@ -37,12 +37,24 @@ interface BotState {
   isAlive: boolean;
   velocity: { vx: number; vy: number };  // px/s
   isSprinting: boolean;
+  sprintRampProgress: number;            // 0..1, Fortschritt der Sprint-Rampe
 
   nearbyTiles: TileType[][];             // 7x5, Bot in der Mitte
+  platforms: {                           // exakte Rechteck-Geometrie aller
+    dx: number; dy: number;              // sichtbaren, festen Flächen (siehe
+    width: number; height: number;       // .features/bot-toolkit/), NICHT
+    kind: "ground" | "float" | "ceiling" | "block";  // gerastert wie nearbyTiles
+  }[];
+  tuning: {                              // Bewegungs-Physik-Konstanten, damit
+    gravity: number; tileSize: number; tickMs: number;
+    baseMoveSpeed: number; sprintMoveSpeed: number; sprintRampMs: number;
+    baseJumpVelocity: number; sprintJumpVelocity: number; minJumpHoldMs: number;
+    botWidth: number; botHeight: number; // eigene Kollisionsbox
+  };
 
   coins: { dx: number; dy: number; value: number }[];
   hazards: { dx: number; dy: number; kind: HazardKind; active: boolean;
-             warning: boolean; stompable: boolean }[];
+             warning: boolean; stompable: boolean; vx: number; vy: number }[];
   utilities: { dx: number; dy: number; kind: UtilityKind }[];
 
   nearestCoin: (typeof coins)[number] | null;      // = coins[0] ?? null
@@ -67,6 +79,18 @@ type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right
 // Rückgabe von decide: mehrere gleichzeitige Actions pro Tick.
 type DecideResult = Action[];
 ```
+
+## Navigations-Hilfsfunktionen im Bot-Template
+
+`client/src/bot/current-bot.template.js` enthält neben `decide` bereits fertige,
+getestete Hilfsfunktionen (siehe `.features/bot-toolkit/`), die devkcode beim
+Bauen der `decide`-Logik direkt nutzen (und beliebig anpassen) kann, z.B.
+`predictPath`/`calcLandingCoords` (wo lande ich, wenn ich nichts ändere?),
+`minJumpHoldToReach` (wie lange muss ich springen, um X zu erreichen?),
+`wallAhead`/`surfaceAt` (lokale Geometrie), `predictHazard`/
+`pathIntersectsHazard` (kreuzt meine Bahn einen beweglichen Hazard?) sowie
+kleinere Bausteine wie `moveToward` und `createJumpHold`. Vollständiger
+Referenz-Index direkt im Kopfkommentar der Datei.
 
 ## Sprint & variable Sprunghöhe
 
