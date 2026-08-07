@@ -6,6 +6,16 @@ import {
   shouldCutJump,
 } from "./movement";
 
+describe("MOVEMENT_TUNING constants", () => {
+  it("exposes GRAVITY_Y matching the Arcade Physics config value", () => {
+    expect(MOVEMENT_TUNING.GRAVITY_Y).toBe(900);
+  });
+
+  it("exposes PLAYER_BODY_SIZE matching the player's Arcade body", () => {
+    expect(MOVEMENT_TUNING.PLAYER_BODY_SIZE).toEqual({ width: 24, height: 32 });
+  });
+});
+
 describe("rampedSprintSpeed", () => {
   it("returns BASE_MOVE_SPEED at sprintHoldMs=0", () => {
     expect(rampedSprintSpeed(0)).toBe(MOVEMENT_TUNING.BASE_MOVE_SPEED);

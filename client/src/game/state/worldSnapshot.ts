@@ -19,6 +19,12 @@ export interface WorldSnapshot {
     active: boolean;
     /** Ob sich die Gefahr gerade ankündigt (Spikehead-Vorwarnphase). */
     warning: boolean;
+    /** Aktuelle Geschwindigkeit (px/s), aus der Positionsänderung zwischen
+     *  zwei Ticks abgeleitet (siehe `hazardVelocity.ts`). Optional/undefined
+     *  vor der Verdrahtung in `RaceScene` (US-7) – `botStateBuilder`
+     *  behandelt das als `0`. */
+    vx?: number;
+    vy?: number;
   }>;
   utilities: ReadonlyArray<{ id: string; kind: UtilityKind; x: number; y: number }>;
 }

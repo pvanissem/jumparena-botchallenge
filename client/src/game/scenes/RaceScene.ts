@@ -18,9 +18,9 @@ import {
   fruitSheetPath,
   SHEET_SPECS,
   SheetKeys,
-  spriteScale,
   STATIC_IMAGE_KEYS,
   STATIC_IMAGE_SPECS,
+  spriteScale,
 } from "../assets/spriteSheets";
 import { audioSettings } from "../audio/audioSettings";
 import { BotController } from "../control/BotController";
@@ -56,10 +56,11 @@ import {
   RUN_TIME_LIMIT_MS,
 } from "../rules/racerState";
 import { buildBotState } from "../state/botStateBuilder";
+import { computeHazardVelocities } from "../state/hazardVelocity";
 import type { WorldSnapshot } from "../state/worldSnapshot";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
 
-const BOT_TICK_INTERVAL_MS = 33;
+const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
 
 // Wie oft die Live-HUD-Anzeige (Zeit/Coins) aktualisiert wird. ~10x/s reicht
 // für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
@@ -120,6 +121,10 @@ export class RaceScene extends Phaser.Scene {
    *  `movement/movement.ts#rampedSprintSpeed`) – 0, solange nicht gesprintet
    *  wird. */
   private sprintHoldMs = 0;
+  /** Weltpositionen der Hazards zum Zeitpunkt des vorherigen Bot-Ticks – Basis
+   *  für `computeHazardVelocities` (US-7, siehe `state/hazardVelocity.ts`). */
+  private previousHazardPositions = new Map<string, { x: number; y: number }>();
+  private previousHazardTickElapsedMs: number | null = null;
   /** Zeitpunkt (elapsedMs) des zuletzt ausgelösten Sprungs, oder `null`
    *  zwischen Sprüngen (siehe `movement/movement.ts#shouldCutJump`). */
   private jumpStartMs: number | null = null;
@@ -197,7 +202,10 @@ export class RaceScene extends Phaser.Scene {
     // Skalierungsfaktor multiplizieren (das würde doppelt skalieren und die
     // Hitbox aus dem Zentrum schieben, siehe hazards/factory.ts).
     this.player.setScale(spriteScale(SheetKeys.PLAYER_IDLE));
-    this.player.body.setSize(24, 32);
+    this.player.body.setSize(
+      MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
+      MOVEMENT_TUNING.PLAYER_BODY_SIZE.height
+    );
 
     this.physics.add.collider(this.player, this.world.solids);
     this.physics.add.overlap(this.player, this.world.coins, (_player, coin) =>
@@ -358,6 +366,7 @@ export class RaceScene extends Phaser.Scene {
     const botState = buildBotState(snapshot, this.racer, this.tickCounter++, {
       velocity: { vx: body.velocity.x, vy: body.velocity.y },
       isSprinting: this.sprintHoldMs > 0,
+      sprintHoldMs: this.sprintHoldMs,
       justRespawned: this.pendingJustRespawned,
       tookDamage: this.pendingTookDamage,
     });
@@ -384,20 +393,44 @@ export class RaceScene extends Phaser.Scene {
 
   private buildSnapshot(): WorldSnapshot {
     const dynamic = buildDynamicTileState(this.level, this.racer, this.elapsedMs);
+    const hazardPositions = this.level.hazards.map((h) => ({
+      id: h.id,
+      x: h.kind === "kugelblitz" ? h.pivotX : h.x,
+      y: h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y,
+    }));
+    const deltaMs =
+      this.previousHazardTickElapsedMs === null
+        ? 0
+        : this.elapsedMs - this.previousHazardTickElapsedMs;
+    const velocities = computeHazardVelocities(
+      hazardPositions,
+      this.previousHazardPositions,
+      deltaMs
+    );
+    this.previousHazardPositions = new Map(hazardPositions.map((h) => [h.id, { x: h.x, y: h.y }]));
+    this.previousHazardTickElapsedMs = this.elapsedMs;
+
     return {
       level: this.level,
       dynamic,
       visibleCoins: this.level.coins
         .filter((c) => !this.racer.collectedCoinIds.has(c.id))
         .map((c) => ({ id: c.id, x: c.x, y: c.y, value: FRUIT_VALUES[c.fruit] })),
-      hazards: this.level.hazards.map((h) => ({
-        id: h.id,
-        kind: h.kind,
-        x: h.kind === "kugelblitz" ? h.pivotX : h.x,
-        y: h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y,
-        active: dynamic.activeHazardIds.has(h.id),
-        warning: this.isHazardWarning(h),
-      })),
+      hazards: this.level.hazards.map((h) => {
+        const pos = h.kind === "kugelblitz" ? h.pivotX : h.x;
+        const y = h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y;
+        const velocity = velocities.get(h.id) ?? { vx: 0, vy: 0 };
+        return {
+          id: h.id,
+          kind: h.kind,
+          x: pos,
+          y,
+          active: dynamic.activeHazardIds.has(h.id),
+          warning: this.isHazardWarning(h),
+          vx: velocity.vx,
+          vy: velocity.vy,
+        };
+      }),
       utilities: this.level.utilities.map((u) => ({ id: u.id, kind: u.kind, x: u.x, y: u.y })),
     };
   }

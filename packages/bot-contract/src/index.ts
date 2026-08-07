@@ -5,14 +5,17 @@ export type { HazardKind, UtilityKind } from "./hazards";
 export type {
   Action,
   BotState,
+  BotTuning,
   DecideResult,
   GapAhead,
   NearestCoin,
   NearestHazard,
   NearestUtility,
+  PlatformKind,
   TileType,
   VisibleCoin,
   VisibleHazard,
+  VisiblePlatform,
   VisibleUtility,
 } from "./state";
 export { ACTIONS } from "./state";

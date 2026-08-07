@@ -241,12 +241,15 @@ Felder im Detail:
 | `isAlive` | `boolean` | `false`, wenn alle Leben verbraucht sind. |
 | `velocity` | `{ vx, vy }` | Eigene Geschwindigkeit in px/s (`vx>0` rechts, `vy>0` runter). |
 | `isSprinting` | `boolean` | Ob der Bot gerade Sprint-Tempo aufbaut. |
+| `sprintRampProgress` | `number` | 0..1, wie weit die Sprint-Rampe schon aufgebaut ist (0 = Basistempo, 1 = volles Sprint-Tempo). |
 | `nearbyTiles` | `TileType[][]` | Sichtfeld-Raster um den Bot (siehe unten). |
+| `platforms` | `{ dx, dy, width, height, kind }[]` | Exakte Rechteck-Geometrie aller sichtbaren, festen Flächen (Plattformen + noch nicht ausgelöste versteckte Münzblöcke). `kind`: `"ground" \| "float" \| "ceiling" \| "block"`. Nicht gerastert wie `nearbyTiles` – nützlich für die Navigations-Hilfsfunktionen unten. |
+| `tuning` | `{ gravity, tileSize, tickMs, baseMoveSpeed, sprintMoveSpeed, sprintRampMs, baseJumpVelocity, sprintJumpVelocity, minJumpHoldMs, botWidth, botHeight }` | Alle bewegungsrelevanten Physik-Konstanten sowie die eigene Kollisionsbox-Größe – exakt dieselben Werte, die auch das Spiel selbst verwendet. |
 | `coins` | `{ dx, dy, value }[]` | **Alle** sichtbaren Früchte, nach Distanz sortiert. |
-| `hazards` | `{ dx, dy, kind, active, warning, stompable }[]` | **Alle** sichtbaren Gefahren, nach Distanz sortiert. |
+| `hazards` | `{ dx, dy, kind, active, warning, stompable, vx, vy }[]` | **Alle** sichtbaren Gefahren, nach Distanz sortiert. `vx`/`vy` sind die aktuelle Geschwindigkeit des Hazards in px/s. |
 | `utilities` | `{ dx, dy, kind }[]` | **Alle** sichtbaren Hilfsobjekte (z.B. Trampolin). |
 | `nearestCoin` | `{ dx, dy, value } \| null` | Abkürzung für `coins[0]` (oder `null`). |
-| `nearestHazard` | `{ dx, dy, kind, active, warning, stompable } \| null` | Abkürzung für `hazards[0]` (oder `null`). |
+| `nearestHazard` | `{ dx, dy, kind, active, warning, stompable, vx, vy } \| null` | Abkürzung für `hazards[0]` (oder `null`). |
 | `nearestUtility` | `{ dx, dy, kind } \| null` | Abkürzung für `utilities[0]` (oder `null`). |
 | `goalDirection` | `{ dx, dy }` | Richtung/Distanz zum Ziel (Pixel). |
 | `gapAhead` | `{ present, distance }` | `present: true` + `distance` (px bis zur Kante), wenn in Laufrichtung eine Lücke im Boden kommt; sonst `{ present: false, distance: null }`. |
@@ -341,6 +344,48 @@ Actions:
   dir etwas über mehrere Schritte merken (z.B. einen kleinen Zustandsautomaten oder
   einen Timer), leg dafür eine **Variable außerhalb von `decide`** in derselben
   Datei an (per Closure). Das ist erlaubt und erwünscht.
+
+---
+
+## Fertige Navigations-Hilfsfunktionen (bereits in der Datei vorhanden!)
+
+Über `decide` hinweg stehen in `current-bot.js` bereits fertige, getestete
+Hilfsfunktionen zur Verfügung – du musst sie nicht neu schreiben, sondern
+kannst sie direkt in `decide` aufrufen (und bei Bedarf anpassen):
+
+| Funktion | Gibt zurück |
+|---|---|
+| `predictPath(state, opts)` | Simulierte Flugbahn `[{ dx, dy, vx, vy, ticks }, ...]` für eine angenommene Aktion (`opts: { dir, sprint, jump, holdJumpTicks, maxTicks }`). |
+| `calcLandingCoords(state, opts?)` | Wo lande ich, wenn ich `opts` ausführe (Default: aktuelle Bewegung unverändert fortsetzen)? `{ dx, dy, ticks, kind }`. |
+| `simulateJump(state, holdTicks)` | Wie `calcLandingCoords`, aber mit explizitem Sprung über `holdTicks` Ticks. |
+| `apex(state, opts?)` | Höchster Punkt der Flugbahn. |
+| `minJumpHoldToReach(state, dx, dy)` | Wie lange muss ich `jump` halten, um den Punkt `(dx, dy)` zu erreichen? `null`, wenn unerreichbar. |
+| `ticksUntilEdge(state)` | Wie viele Ticks, bis ich die aktuelle Plattform in Laufrichtung verlasse? |
+| `surfaceAt(state, dx)` | Höhe (`dy`) der nächsten festen Fläche bei horizontalem Versatz `dx`. |
+| `wallAhead(state)` | Unspringbare Wand in Laufrichtung: `{ distance, height }` oder `null`. |
+| `predictHazard(state, hazard, ticks)` | Vorhergesagte Position/Aktivität eines Hazards `ticks` Ticks in der Zukunft. |
+| `pathIntersectsHazard(state, path, hazard)` | Kreuzt eine geplante Flugbahn einen (aktiven) Hazard? |
+| `moveToward(dx, sprint)` | Passende Bewegungs-Action für einen horizontalen Versatz. |
+| `createJumpHold()` | Kleines Zähler-Objekt zum Halten von `"jump"` über mehrere Ticks. |
+| `pathHits(path, dx, dy, radius)` | Kommt eine Flugbahn nah an einen Punkt heran (z.B. eine Münze)? |
+
+Beispiel – "springe genau so lange, dass ich die nächste Münze erreiche":
+
+```js
+const coin = state.nearestCoin;
+if (coin) {
+  const holdTicks = minJumpHoldToReach(state, coin.dx, coin.dy);
+  if (holdTicks !== null && state.onGround) {
+    const hold = createJumpHold();
+    actions.push(moveToward(coin.dx, true));
+    if (hold.tick(true, holdTicks)) actions.push("jump");
+  }
+}
+```
+
+Diese Funktionen sind **Bausteine, keine fertige Strategie** – sie beantworten
+Fragen ("wo lande ich?"), treffen aber keine Entscheidung. Du darfst sie
+frei lesen, anpassen oder durch eigene Logik ersetzen.
 
 ---
 

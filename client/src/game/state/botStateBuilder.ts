@@ -6,9 +6,11 @@
 import type { BotState, VisibleCoin, VisibleHazard, VisibleUtility } from "@arena/bot-contract";
 import { HAZARD_REGISTRY } from "../hazards/registry";
 import { buildNearbyTiles, TILE_SIZE } from "../level/tiles";
+import { MOVEMENT_TUNING } from "../movement/movement";
 import type { RacerRuntimeState } from "../rules/racerState";
 import { computeGapAhead } from "./gapAhead";
 import { withinViewRadius } from "./viewport";
+import { buildVisiblePlatforms } from "./visiblePlatforms";
 import type { WorldSnapshot } from "./worldSnapshot";
 
 interface Positioned {
@@ -21,6 +23,9 @@ interface Positioned {
 export interface BotStateExtras {
   velocity: { vx: number; vy: number };
   isSprinting: boolean;
+  /** Wie lange ununterbrochen in dieselbe Sprint-Richtung gehalten wurde
+   *  (siehe `RaceScene.sprintHoldMs`) – Grundlage für `sprintRampProgress`. */
+  sprintHoldMs: number;
   justRespawned: boolean;
   tookDamage: boolean;
 }
@@ -69,6 +74,8 @@ export function buildBotState(
       active: hazard.active,
       warning: hazard.warning,
       stompable: HAZARD_REGISTRY[hazard.kind].stompable,
+      vx: hazard.vx ?? 0,
+      vy: hazard.vy ?? 0,
     })
   );
   const utilities = toVisibleList(
@@ -80,6 +87,16 @@ export function buildBotState(
   const centerCol = Math.floor(racer.x / TILE_SIZE);
   const centerRow = Math.floor(racer.y / TILE_SIZE);
   const nearbyTiles = buildNearbyTiles(snapshot.level, snapshot.dynamic, centerCol, centerRow);
+  const platforms = buildVisiblePlatforms(
+    snapshot.level,
+    snapshot.dynamic.resolvedBlockIds,
+    racer.x,
+    racer.y
+  );
+  const sprintRampProgress = Math.max(
+    0,
+    Math.min(1, extras.sprintHoldMs / MOVEMENT_TUNING.SPRINT_RAMP_MS)
+  );
 
   return {
     tick,
@@ -89,7 +106,22 @@ export function buildBotState(
     isAlive: racer.isAlive,
     velocity: extras.velocity,
     isSprinting: extras.isSprinting,
+    sprintRampProgress,
     nearbyTiles,
+    platforms,
+    tuning: {
+      gravity: MOVEMENT_TUNING.GRAVITY_Y,
+      tileSize: TILE_SIZE,
+      tickMs: MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS,
+      baseMoveSpeed: MOVEMENT_TUNING.BASE_MOVE_SPEED,
+      sprintMoveSpeed: MOVEMENT_TUNING.SPRINT_MOVE_SPEED,
+      sprintRampMs: MOVEMENT_TUNING.SPRINT_RAMP_MS,
+      baseJumpVelocity: MOVEMENT_TUNING.BASE_JUMP_VELOCITY,
+      sprintJumpVelocity: MOVEMENT_TUNING.SPRINT_JUMP_VELOCITY,
+      minJumpHoldMs: MOVEMENT_TUNING.MIN_JUMP_HOLD_MS,
+      botWidth: MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
+      botHeight: MOVEMENT_TUNING.PLAYER_BODY_SIZE.height,
+    },
     nearestCoin: coins[0] ?? null,
     nearestHazard: hazards[0] ?? null,
     nearestUtility: utilities[0] ?? null,
