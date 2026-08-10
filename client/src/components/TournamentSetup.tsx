@@ -1,24 +1,39 @@
 import type { BotArtifact } from "@arena/shared";
 import {
+  ALLOWED_GROUP_SIZES,
+  DEFAULT_GROUP_SIZE,
   DEFAULT_LIVES_PER_RUN,
+  estimateRoundCount,
   isValidLivesPerRun,
   MAX_LIVES_PER_RUN,
   MIN_LIVES_PER_RUN,
 } from "@arena/shared";
-import { useState } from "react";
-import { LEVEL_REGISTRY } from "../game/level/levelRegistry";
+import { useMemo, useState } from "react";
+import { DEFAULT_LEVEL_ID } from "../game/level/levelRegistry";
+import { StageLevelEditor } from "./StageLevelEditor";
 
 interface TournamentSetupProps {
   bots: BotArtifact[];
-  onStart: (levelId: string, botIds: string[], livesPerRun: number) => void;
+  onStart: (
+    stageLevelIds: string[],
+    botIds: string[],
+    livesPerRun: number,
+    groupSize: number
+  ) => void;
 }
 
 export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(bots.map((b) => b.id)));
-  const [levelId, setLevelId] = useState<string>(LEVEL_REGISTRY[0].id);
+  const [stageLevelIds, setStageLevelIds] = useState<string[]>([DEFAULT_LEVEL_ID]);
   // Als String gehalten, damit ein leeres Feld während der Eingabe möglich ist
   // (eine `number`-State würde auf NaN/0 springen).
   const [livesInput, setLivesInput] = useState<string>(String(DEFAULT_LIVES_PER_RUN));
+  const [groupSize, setGroupSize] = useState<number>(DEFAULT_GROUP_SIZE);
+
+  const expectedRoundCount = useMemo(
+    () => estimateRoundCount(selectedIds.size, groupSize),
+    [selectedIds.size, groupSize]
+  );
 
   const toggleBot = (id: string) => {
     setSelectedIds((previous) => {
@@ -36,23 +51,18 @@ export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
 
   const handleStart = () => {
     if (!canStart) return;
-    onStart(levelId, [...selectedIds], livesPerRun);
+    onStart(stageLevelIds, [...selectedIds], livesPerRun, groupSize);
   };
 
   return (
     <section>
       <h2>Turnier starten</h2>
 
-      <label>
-        Level
-        <select value={levelId} onChange={(event) => setLevelId(event.target.value)}>
-          {LEVEL_REGISTRY.map((entry) => (
-            <option key={entry.id} value={entry.id}>
-              {entry.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <StageLevelEditor
+        stageLevelIds={stageLevelIds}
+        onChange={setStageLevelIds}
+        expectedRoundCount={expectedRoundCount}
+      />
 
       <label>
         Leben pro Lauf
@@ -65,6 +75,20 @@ export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
           onChange={(event) => setLivesInput(event.target.value)}
         />
       </label>
+
+      <fieldset>
+        <legend>Bots pro Match</legend>
+        {ALLOWED_GROUP_SIZES.map((size) => (
+          <button
+            key={size}
+            type="button"
+            className={`pixel-btn ${groupSize === size ? "pixel-btn--active" : ""}`}
+            onClick={() => setGroupSize(size)}
+          >
+            {size}
+          </button>
+        ))}
+      </fieldset>
 
       <fieldset>
         <legend>Teilnehmer ({selectedIds.size} ausgewählt)</legend>
@@ -80,6 +104,8 @@ export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
           </label>
         ))}
       </fieldset>
+
+      <p>Erwartete Rundenzahl: {expectedRoundCount}</p>
 
       {!enoughBots && <p>Wähle mindestens zwei Bots aus.</p>}
       {!livesValid && (

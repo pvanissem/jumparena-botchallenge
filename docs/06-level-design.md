@@ -62,9 +62,15 @@ Vergleiche im Leaderboard (schnellster Bot ≠ zwangsläufig Sieger).
   Stein-Tiles aus dem Terrain-Tileset (statt eingefärbter Gras-Tiles) sowie einem prozeduralen
   Hintergrund im Stil des klassischen Untergrund-Levels 1-2 aus Super Mario Bros. (schwarzer
   Grund, grünliches Backstein-Raster); Schwierigkeit ist bewusst thematisch statt als
-  Steigerung gedacht (ähnlich komfortabel wie Level 1/3). Die Frage, ob/wie mehrere Level auch
-  im Turniermodus (`docs/09`) eingesetzt werden, bleibt weiterhin offen.
+  Steigerung gedacht (ähnlich komfortabel wie Level 1/3). Im Turniermodus kann der Betreiber
+  vor Aufstellen pro Runde («Stage») ein Level wählen; Runden ohne eigene Stage verwenden
+  automatisch das Level der letzten konfigurierten Stage. Siehe
+  `.features/tournament-stage-levels/` und `docs/09-bot-artefakt-und-turnier.md`.
+  - Wie wird das Level technisch erstellt (Tiled-Editor-Export als JSON, oder handgeschriebene
+  Tilemap-Daten für den MVP)?
 - Wie wird das Level technisch erstellt (Tiled-Editor-Export als JSON, oder handgeschriebene
   Tilemap-Daten für den MVP)?
 - Reicht ein einziges Level für die ganze Konferenz, oder braucht es eine "Schwierigkeitskurve"
   über den Tag hinweg?
+  **Update:** Durch Stage-Level wird die Schwierigkeitskurve manuell konfigurierbar; der
+  Betreiber wählt je Runde ein Level. Es gibt keine automatische Empfehlung.

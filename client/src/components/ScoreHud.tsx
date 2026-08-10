@@ -8,7 +8,7 @@
  */
 import type { RacerRuntimeState } from "../game/rules/racerState";
 import { RUN_TIME_LIMIT_MS } from "../game/rules/racerState";
-import { SCORING, computeTimeBonus, computeTimeMultiplier } from "../game/scoring";
+import { computeTimeBonus, computeTimeMultiplier, SCORING } from "../game/scoring";
 
 function formatLives(livesRemaining: number): string {
   return Number.isFinite(livesRemaining) ? String(livesRemaining) : "∞";

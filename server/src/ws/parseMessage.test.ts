@@ -97,33 +97,35 @@ describe("parseInboundMessage", () => {
     const raw = JSON.stringify({
       type: "tournament-configure",
       mode: "single-elimination",
-      levelId: "level-one",
+      stageLevelIds: ["level-one"],
       botIds: ["b1", "b2"],
     });
 
     expect(parseInboundMessage(raw)).toEqual({
       type: "tournament-configure",
       mode: "single-elimination",
-      levelId: "level-one",
+      stageLevelIds: ["level-one"],
       botIds: ["b1", "b2"],
     });
   });
 
-  it("parses a valid tournament-configure payload with livesPerRun", () => {
+  it("parses a valid tournament-configure payload with livesPerRun and groupSize", () => {
     const raw = JSON.stringify({
       type: "tournament-configure",
       mode: "single-elimination",
-      levelId: "level-one",
+      stageLevelIds: ["level-one", "level-two"],
       botIds: ["b1", "b2"],
       livesPerRun: 5,
+      groupSize: 2,
     });
 
     expect(parseInboundMessage(raw)).toEqual({
       type: "tournament-configure",
       mode: "single-elimination",
-      levelId: "level-one",
+      stageLevelIds: ["level-one", "level-two"],
       botIds: ["b1", "b2"],
       livesPerRun: 5,
+      groupSize: 2,
     });
   });
 
@@ -131,7 +133,7 @@ describe("parseInboundMessage", () => {
     const raw = JSON.stringify({
       type: "tournament-configure",
       mode: "round-robin",
-      levelId: "level-one",
+      stageLevelIds: ["level-one"],
       botIds: ["b1"],
     });
 

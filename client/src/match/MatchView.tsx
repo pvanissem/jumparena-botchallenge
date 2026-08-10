@@ -1,8 +1,10 @@
 import type { MatchDef, MatchProgressMessage, MatchResult } from "@arena/shared";
 import Phaser from "phaser";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { RacerTileOverlay } from "../components/RacerTileOverlay";
 import { MatchBootScene } from "./MatchBootScene";
-import { MatchRunner } from "./MatchRunner";
+import { MatchRunner, type MatchTiles } from "./MatchRunner";
+import { computeTileOverlays } from "./tileOverlays";
 
 interface MatchViewProps {
   match: MatchDef;
@@ -32,6 +34,7 @@ export function MatchView({
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const runnerRef = useRef<MatchRunner | null>(null);
+  const [tiles, setTiles] = useState<MatchTiles | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -76,7 +79,9 @@ export function MatchView({
     if (!game) return;
 
     runnerRef.current?.stop();
-    const runner = new MatchRunner(game, onProgress, onFinished);
+    const runner = new MatchRunner(game, onProgress, onFinished, (nextTiles) => {
+      setTiles(nextTiles);
+    });
     runnerRef.current = runner;
     runner.start({ match, levelId, livesPerRun, sourceById });
 
@@ -85,5 +90,19 @@ export function MatchView({
     };
   }, [match, levelId, livesPerRun, sourceById, onProgress, onFinished]);
 
-  return <div ref={containerRef} className={className} style={{ width: "100%", height: "70vh" }} />;
+  const descriptors = tiles ? computeTileOverlays(tiles) : [];
+
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ position: "relative", width: "100%", height: "70vh" }}
+    >
+      <div className="match-view__overlays">
+        {descriptors.map((descriptor) => (
+          <RacerTileOverlay key={descriptor.botId} descriptor={descriptor} />
+        ))}
+      </div>
+    </div>
+  );
 }

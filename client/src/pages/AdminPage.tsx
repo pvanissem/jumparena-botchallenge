@@ -46,13 +46,14 @@ export function AdminPage() {
       {!tournament && (
         <TournamentSetup
           bots={bots}
-          onStart={(levelId, botIds, livesPerRun) =>
+          onStart={(stageLevelIds, botIds, livesPerRun, groupSize) =>
             send({
               type: "tournament-configure",
               mode: "single-elimination",
-              levelId,
+              stageLevelIds,
               botIds,
               livesPerRun,
+              groupSize,
             })
           }
         />

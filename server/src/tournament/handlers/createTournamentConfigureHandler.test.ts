@@ -14,16 +14,18 @@ describe("createTournamentConfigureHandler", () => {
   const message: TournamentConfigureMessage = {
     type: "tournament-configure",
     mode: "single-elimination",
-    levelId: "level-one",
+    stageLevelIds: ["level-one"],
     livesPerRun: 3,
+    groupSize: 4,
     botIds: ["b1", "b2"],
   };
 
   it("calls configure and broadcasts on success", () => {
     const state: TournamentState = {
       mode: "single-elimination",
-      levelId: "level-one",
+      stageLevelIds: ["level-one"],
       livesPerRun: 3,
+      groupSize: 4,
       rounds: [],
       status: "idle",
       championBotId: null,

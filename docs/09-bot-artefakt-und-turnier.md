@@ -90,16 +90,23 @@ Der harte Kill ist der Grund, warum echter Fremd-Code zwingend im Worker läuft
 
 ## Turniermodus
 
-- **Single-Elimination**, Gruppen à **max. 4 Bots** gleichzeitig.
+- **Single-Elimination**, Gruppengröße im Admin-Setup wählbar zwischen **2 oder 4
+  Bots** pro Match (Default: 4).
 - Pro Match laufen alle Bots im **selben Level** gleichzeitig; jeder hat ein
   eigenes Sprite + eine eigene **Kamera** (Grid 1×1 / 1×2 / 2×2). Keine
   Bot-zu-Bot-Kollision.
+- **Level je Runde (Stage):** Vor dem Aufstellen des Turniers konfiguriert der
+  Betreiber in `/admin` eine geordnete Liste von Levels (`stageLevelIds`). Die
+  erste Runde spielt auf `stageLevelIds[0]`, die zweite auf `stageLevelIds[1]`
+  usw. Überschreitet die tatsächliche Rundenzahl die konfigurierte Stages,
+  werden Runden jenseits der Liste auf dem Level der letzten Stage gespielt.
 - **Wertung pro Match** (`game/scoring.ts`, aus `docs/05`): Frucht-Score +
   Zeitbonus − Tode − DNF-Abzug. Nur der/die **Erstplatzierte** kommt weiter
   (Zeit als Tie-Breaker).
 - Bei zu wenigen Bots einfach kleinere/weniger Gruppen (kein Auffüllen).
 - Am Ende: **Champion-Screen**. Bracket-Anzeige zeigt Runden → Matches →
-  Gewinner live.
+  Gewinner live, ergänzt um den Levelnamen und den aktuellen Rundenstatus
+  (ausstehend / läuft / abgeschlossen) je Runde.
 
 ### Multi-Racer-Architektur (getrennte Welten)
 
@@ -128,7 +135,11 @@ und leitet Bracket, Match-Result und Match-Progress weiter.
 - `client/src/match/MatchView.tsx` – Phaser-Host für `/present`
 - `client/src/game/scenes/RaceScene.ts` – parametrisierbarer Key, Viewport, Audio
 - `client/src/pages/AdminPage.tsx` – Turnier-Konfiguration & Steuerung
+  (inklusive Stage-Level-Editor)
 - `client/src/pages/PresentPage.tsx` – Bracket / Match / Ergebnis / Champion
+- `client/src/components/StageLevelEditor.tsx` – Konfiguration der Stage-Levels
+- `client/src/components/BracketView.tsx` – Bracket mit Level + Rundenstatus
+  pro Runde
 
 ## Testmodus (`/dev`)
 

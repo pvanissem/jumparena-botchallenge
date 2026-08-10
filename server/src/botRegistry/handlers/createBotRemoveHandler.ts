@@ -1,4 +1,4 @@
-import { type BotRemoveMessage, type OutboundMessage } from "@arena/shared";
+import type { BotRemoveMessage, OutboundMessage } from "@arena/shared";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
 import type { BotRegistry } from "../BotRegistry";
 import type { BotRegistryStore } from "../BotRegistryStore";

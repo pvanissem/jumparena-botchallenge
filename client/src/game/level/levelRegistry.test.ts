@@ -1,3 +1,4 @@
+import { LEVEL_IDS } from "@arena/shared";
 import { describe, expect, it } from "vitest";
 import { LEVEL_FOUR } from "./levelFour";
 import { LEVEL_ONE } from "./levelOne";
@@ -18,6 +19,19 @@ describe("LEVEL_REGISTRY", () => {
 
   it("has level-one as the default level id", () => {
     expect(DEFAULT_LEVEL_ID).toBe("level-one");
+  });
+
+  it("enthält zu jeder ID aus LEVEL_IDS einen Registry-Eintrag", () => {
+    for (const id of LEVEL_IDS) {
+      expect(() => getLevelById(id)).not.toThrow();
+    }
+  });
+
+  it("enthält keine ID, die nicht in LEVEL_IDS enthalten ist", () => {
+    const levelIdSet = new Set(LEVEL_IDS as readonly string[]);
+    for (const entry of LEVEL_REGISTRY) {
+      expect(levelIdSet.has(entry.id)).toBe(true);
+    }
   });
 });
 

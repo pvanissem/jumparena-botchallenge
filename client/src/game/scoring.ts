@@ -59,7 +59,5 @@ export function computeScore(input: ScoreInput): number {
   const fruitWithMultiplier = input.fruitScore * computeTimeMultiplier(input.timeElapsedMs);
   const flatBonus = computeTimeBonus(input.timeElapsedMs);
 
-  return Math.round(
-    fruitWithMultiplier + flatBonus - input.deaths * SCORING.DEATH_PENALTY
-  );
+  return Math.round(fruitWithMultiplier + flatBonus - input.deaths * SCORING.DEATH_PENALTY);
 }

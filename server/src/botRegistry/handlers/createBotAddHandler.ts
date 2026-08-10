@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { type BotAddMessage, MAX_BOT_SOURCE_BYTES, type OutboundMessage } from "@arena/shared";
 import { checkStaticGuard } from "@arena/bot-contract";
+import { type BotAddMessage, MAX_BOT_SOURCE_BYTES, type OutboundMessage } from "@arena/shared";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
 import type { BotRegistry } from "../BotRegistry";
 import type { BotRegistryStore } from "../BotRegistryStore";

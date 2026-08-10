@@ -6,9 +6,7 @@ import type {
   MatchResultEntry,
   TournamentState,
 } from "@arena/shared";
-import type { TournamentStrategy } from "./TournamentStrategy";
-
-export const MAX_GROUP_SIZE = 4;
+import type { CreateRoundsOptions, TournamentStrategy } from "./TournamentStrategy";
 
 export function createMatchId(): string {
   // Kurze, URL-sichere IDs (Server-only, daher Node-Crypto).
@@ -55,9 +53,10 @@ export class SingleEliminationStrategy implements TournamentStrategy {
     private readonly createId: () => string = createMatchId
   ) {}
 
-  createRounds(participants: MatchParticipant[], _levelId: string): MatchDef[][] {
+  createRounds(participants: MatchParticipant[], options: CreateRoundsOptions): MatchDef[][] {
+    const { groupSize } = options;
     const shuffled = this.shuffle(participants);
-    const groups = chunk(shuffled, MAX_GROUP_SIZE);
+    const groups = chunk(shuffled, groupSize);
     const matches: MatchDef[] = groups.map((group) => {
       const id = this.createId();
       if (group.length === 1) {
@@ -116,14 +115,17 @@ export class SingleEliminationStrategy implements TournamentStrategy {
       };
     }
 
-    const nextRound = this.createRoundFromParticipants(winners);
+    const nextRound = this.createRoundFromParticipants(winners, state.groupSize);
     rounds.push(nextRound);
 
     return { ...state, rounds, status: "running" };
   }
 
-  private createRoundFromParticipants(participants: MatchParticipant[]): MatchDef[] {
-    const groups = chunk(participants, MAX_GROUP_SIZE);
+  private createRoundFromParticipants(
+    participants: MatchParticipant[],
+    groupSize: number
+  ): MatchDef[] {
+    const groups = chunk(participants, groupSize);
     return groups.map((group) => ({
       id: this.createId(),
       participants: group,

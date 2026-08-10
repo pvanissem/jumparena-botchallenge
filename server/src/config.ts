@@ -23,7 +23,8 @@ export function loadConfig(): ServerConfig {
   const staticDir = process.env.STATIC_DIR ?? join(currentDir, "../../client/dist");
   const isDev = process.env.NODE_ENV === "development";
   const clientRoot = join(currentDir, "../../client");
-  const botRegistryFile = process.env.BOT_REGISTRY_FILE ?? join(currentDir, "../../data/bot-registry.json");
+  const botRegistryFile =
+    process.env.BOT_REGISTRY_FILE ?? join(currentDir, "../../data/bot-registry.json");
 
   return { port, staticDir, isDev, clientRoot, botRegistryFile };
 }

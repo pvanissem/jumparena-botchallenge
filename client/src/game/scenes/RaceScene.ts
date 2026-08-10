@@ -386,31 +386,20 @@ export class RaceScene extends Phaser.Scene {
     this.cameras.main.stopFollow();
 
     if (this.racer.didNotFinish) {
-      this.markRacerAsOut();
+      this.dimRacerSprite();
     }
 
     this.notifyStatus();
   }
 
-  /** Visuelle Kennzeichnung eines ausgeschiedenen Racers: abgedunkeltes
-   *  Sprite plus "AUS"-Label mittig im Kamera-Ausschnitt (US-2). */
-  private markRacerAsOut(): void {
+  /** Visuelle Abdunklung eines ausgeschiedenen Racers. Das Ergebnis-Fenster
+   *  wird in `/present` als React-Overlay über der Kachel gerendert; hier
+   *  bleibt nur die sprite-basierte Rückmeldung, damit der Bot nicht
+   *  scheinbar weiterläuft (US-1 Regressions-Schutz). */
+  private dimRacerSprite(): void {
     this.player.setTint(0x555566);
     this.player.setAlpha(0.55);
     this.player.anims.stop();
-
-    const camera = this.cameras.main;
-    this.add
-      .text(camera.width / 2, camera.height / 2, "AUS", {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: "24px",
-        color: "#ff5a5a",
-        backgroundColor: "#00000099",
-        padding: { x: 10, y: 6 },
-      })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(1000);
   }
 
   /**

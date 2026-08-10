@@ -35,8 +35,9 @@ function validResult(): MatchResult {
 function validState(): TournamentState {
   return {
     mode: "single-elimination",
-    levelId: "level-one",
+    stageLevelIds: ["level-one"],
     livesPerRun: 3,
+    groupSize: 4,
     rounds: [
       [
         {
@@ -58,7 +59,7 @@ describe("isTournamentConfigureMessage", () => {
       isTournamentConfigureMessage({
         type: "tournament-configure",
         mode: "single-elimination",
-        levelId: "level-one",
+        stageLevelIds: ["level-one"],
         botIds: ["b1", "b2"],
       })
     ).toBe(true);
@@ -69,7 +70,7 @@ describe("isTournamentConfigureMessage", () => {
       isTournamentConfigureMessage({
         type: "tournament-configure",
         mode: "single-elimination",
-        levelId: "level-one",
+        stageLevelIds: ["level-one"],
         botIds: ["b1", "b2"],
         livesPerRun: 5,
       })
@@ -81,9 +82,65 @@ describe("isTournamentConfigureMessage", () => {
       isTournamentConfigureMessage({
         type: "tournament-configure",
         mode: "single-elimination",
-        levelId: "level-one",
+        stageLevelIds: ["level-one"],
         botIds: ["b1", "b2"],
         livesPerRun: "5",
+      })
+    ).toBe(false);
+  });
+
+  it("accepts an explicit groupSize", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        stageLevelIds: ["level-one"],
+        botIds: ["b1", "b2"],
+        groupSize: 2,
+      })
+    ).toBe(true);
+  });
+
+  it("rejects a non-numeric groupSize", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        stageLevelIds: ["level-one"],
+        botIds: ["b1", "b2"],
+        groupSize: "2",
+      })
+    ).toBe(false);
+  });
+
+  it("rejects multiple stage level ids", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        stageLevelIds: ["level-one", "level-two"],
+        botIds: ["b1"],
+      })
+    ).toBe(true);
+  });
+
+  it("rejects non-string stageLevelIds entries", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        stageLevelIds: [1, 2],
+        botIds: ["b1"],
+      })
+    ).toBe(false);
+  });
+
+  it("rejects missing stageLevelIds", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        botIds: ["b1"],
       })
     ).toBe(false);
   });
@@ -93,7 +150,7 @@ describe("isTournamentConfigureMessage", () => {
       isTournamentConfigureMessage({
         type: "tournament-configure",
         mode: "round-robin" as never,
-        levelId: "level-one",
+        stageLevelIds: ["level-one"],
         botIds: ["b1"],
       })
     ).toBe(false);
@@ -104,7 +161,7 @@ describe("isTournamentConfigureMessage", () => {
       isTournamentConfigureMessage({
         type: "tournament-configure",
         mode: "single-elimination",
-        levelId: "level-one",
+        stageLevelIds: ["level-one"],
         botIds: [1],
       })
     ).toBe(false);
@@ -230,6 +287,24 @@ describe("isTournamentStateMessage", () => {
   it("rejects a state without livesPerRun", () => {
     const state = validState() as Partial<TournamentState>;
     state.livesPerRun = undefined;
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
+  });
+
+  it("rejects a state without groupSize", () => {
+    const state = validState() as Partial<TournamentState>;
+    state.groupSize = undefined;
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
+  });
+
+  it("rejects a state without stageLevelIds", () => {
+    const state = validState() as Partial<TournamentState>;
+    state.stageLevelIds = undefined;
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
+  });
+
+  it("rejects a state with non-string stageLevelIds entries", () => {
+    const state = validState() as Partial<TournamentState>;
+    state.stageLevelIds = [1, 2] as never;
     expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
   });
 });

@@ -4,12 +4,18 @@ import { getLevelById } from "../game/level/levelRegistry";
 import type { RacerRuntimeState } from "../game/rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "../game/scenes/RaceScene";
 import type { BotRunnerPauseReasonKind } from "../sandbox/BotRunner";
+import type { ViewportRect } from "./gridViewports";
 import { computeGridViewports } from "./gridViewports";
 import { MATCH_ASSETS_READY, MATCH_BOOT_SCENE_KEY, type MatchBootScene } from "./MatchBootScene";
 import { computeMatchProgress } from "./matchProgress";
 import { rankMatchResults } from "./rankMatchResults";
+import type { TileOverlaySlot } from "./tileOverlays";
 
 const PROGRESS_INTERVAL_MS = 500;
+/** Wie lange das Grid mit Ergebnis-Fenstern und goldener Sieger-Umrandung
+ *  stehen bleibt, bevor das Match-Ergebnis gemeldet wird und `/present` zur
+ *  Ergebnisliste wechselt. */
+export const WINNER_SHOWCASE_MS = 10_000;
 
 /** Alles, was ein Match zum Starten braucht. Options-Objekt statt vieler
  *  Positions-Parameter, damit weitere Turnier-Einstellungen ergänzt werden
@@ -22,25 +28,37 @@ export interface MatchStartOptions {
   sourceById: ReadonlyMap<string, string>;
 }
 
+export interface MatchTiles {
+  slots: TileOverlaySlot[];
+  winnerBotId: string | null;
+}
+
 interface RacerSlot {
   botId: string;
+  name: string;
+  viewport: ViewportRect;
   sceneKey: string;
   status: {
     racer: RacerRuntimeState;
     pausedReasonKind: BotRunnerPauseReasonKind | null;
   } | null;
+  /** Letzter bekannter Endzustand, um `onTilesChange` nur bei Änderungen zu
+   *  emittieren (siehe `emitTilesIfChanged`). */
+  hadOutcome: boolean;
 }
 
 export class MatchRunner {
   private slots: RacerSlot[] = [];
   private progressTimer: ReturnType<typeof setInterval> | null = null;
+  private showcaseTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
   private reportedFinished = false;
 
   constructor(
     private readonly game: Phaser.Game,
     private readonly onProgress: (entries: MatchProgressMessage["entries"]) => void,
-    private readonly onFinished: (result: MatchResult) => void
+    private readonly onFinished: (result: MatchResult) => void,
+    private readonly onTilesChange?: (tiles: MatchTiles) => void
   ) {}
 
   start(options: MatchStartOptions): void {
@@ -87,11 +105,19 @@ export class MatchRunner {
               pausedReasonKind: status.pausedReasonKind,
             };
           }
+          this.emitTilesIfChanged();
           this.checkFinished();
         },
       } as RaceSceneInitData);
 
-      return { botId: participant.botId, sceneKey, status: null };
+      return {
+        botId: participant.botId,
+        name: participant.name,
+        viewport,
+        sceneKey,
+        status: null,
+        hadOutcome: false,
+      };
     });
 
     this.progressTimer = setInterval(() => this.emitProgress(level), PROGRESS_INTERVAL_MS);
@@ -101,6 +127,11 @@ export class MatchRunner {
     if (this.progressTimer) {
       clearInterval(this.progressTimer);
       this.progressTimer = null;
+    }
+
+    if (this.showcaseTimer) {
+      clearTimeout(this.showcaseTimer);
+      this.showcaseTimer = null;
     }
 
     for (const slot of this.slots) {
@@ -135,6 +166,29 @@ export class MatchRunner {
     this.onProgress(entries);
   }
 
+  /** Emittiert `onTilesChange` nur, wenn sich der Endzustands-Status eines
+   *  Slots geändert hat – nicht bei jedem `onStatusChange` (das feuert alle
+   *  100 ms je Racer). */
+  private emitTilesIfChanged(): void {
+    if (!this.onTilesChange) return;
+
+    let changed = false;
+    for (const slot of this.slots) {
+      const status = slot.status;
+      const hasOutcome =
+        !!status &&
+        (status.racer.finished || status.racer.didNotFinish || status.pausedReasonKind !== null);
+      if (hasOutcome !== slot.hadOutcome) {
+        slot.hadOutcome = hasOutcome;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.onTilesChange(this.buildTiles(null));
+    }
+  }
+
   private checkFinished(): void {
     if (this.reportedFinished) return;
 
@@ -156,17 +210,34 @@ export class MatchRunner {
       this.progressTimer = null;
     }
 
-    // Give the renderer one more frame, then rank and report.
-    requestAnimationFrame(() => {
-      const ranked = rankMatchResults(
-        this.slots.map((slot) => ({
-          botId: slot.botId,
-          state: slot.status?.racer ?? this.defaultDnfState(),
-          disabled: slot.status?.pausedReasonKind !== null,
-        }))
-      );
+    const ranked = rankMatchResults(
+      this.slots.map((slot) => ({
+        botId: slot.botId,
+        state: slot.status?.racer ?? this.defaultDnfState(),
+        disabled: slot.status?.pausedReasonKind !== null,
+      }))
+    );
+
+    const winnerBotId = ranked.find((entry) => entry.rank === 1)?.botId ?? null;
+    this.onTilesChange?.(this.buildTiles(winnerBotId));
+
+    // Siegerehrung sichtbar halten, bevor `/present` zur Ergebnisliste schaltet.
+    this.showcaseTimer = setTimeout(() => {
       this.onFinished({ entries: ranked });
-    });
+    }, WINNER_SHOWCASE_MS);
+  }
+
+  private buildTiles(winnerBotId: string | null): MatchTiles {
+    return {
+      slots: this.slots.map((slot) => ({
+        botId: slot.botId,
+        name: slot.name,
+        viewport: slot.viewport,
+        racer: slot.status?.racer ?? null,
+        pausedReasonKind: slot.status?.pausedReasonKind ?? null,
+      })),
+      winnerBotId,
+    };
   }
 
   private defaultDnfState(): RacerRuntimeState {

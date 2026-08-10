@@ -20,7 +20,11 @@ dem eigentlichen Umsetzungsstart geklärt/entschieden werden sollten.
       während der Session eine Live-Diagnose (ungültiges Modul,
       Laufzeitfehler, Timeout/harter Kill), damit Probleme sichtbar werden,
       bevor die Datei den Stationsrechner verlässt.
-- [ ] **Ein Level für alle Heats** oder mehrere Level-Varianten über den Tag verteilt?
+- [x] **Ein Level für alle Heats** oder mehrere Level-Varianten über den Tag verteilt?
+      Entschieden und umgesetzt: Pro Runde kann ein eigenes Level konfiguriert
+      werden (`stageLevelIds` im `TournamentState`, konfigurierbar in `/admin`).
+      Runden ohne eigene Stage verwenden das Level der letzten Stage.
+      Siehe `.features/tournament-stage-levels/`.
 - [ ] **Level-Erstellung:** Tiled-Editor-Export vs. handgeschriebene Tilemap für den MVP?
 - [ ] **Finale/Show-Runde:** Sollen die Top-Bots am Ende nochmal gegeneinander antreten?
 - [x] **Tie-Breaker-Regel** bei Score-Gleichstand im Leaderboard – entschieden

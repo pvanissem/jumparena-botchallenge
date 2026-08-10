@@ -12,8 +12,9 @@ function makeService(state: TournamentState | null): TournamentService {
 function state(): TournamentState {
   return {
     mode: "single-elimination",
-    levelId: "level-one",
+    stageLevelIds: ["level-one"],
     livesPerRun: 3,
+    groupSize: 4,
     rounds: [],
     status: "idle",
     championBotId: null,

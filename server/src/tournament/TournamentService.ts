@@ -7,7 +7,11 @@ import type {
   TournamentState,
 } from "@arena/shared";
 import {
+  ALLOWED_GROUP_SIZES,
+  DEFAULT_GROUP_SIZE,
   DEFAULT_LIVES_PER_RUN,
+  isValidGroupSize,
+  isValidLevelId,
   isValidLivesPerRun,
   MAX_LIVES_PER_RUN,
   MIN_LIVES_PER_RUN,
@@ -55,13 +59,35 @@ export class TournamentService {
       return null;
     }
 
+    const groupSize = message.groupSize ?? DEFAULT_GROUP_SIZE;
+    if (!isValidGroupSize(groupSize)) {
+      console.warn(
+        `Turnier-Konfiguration abgelehnt: ungültige Gruppengröße (${String(message.groupSize)}), erlaubt ${ALLOWED_GROUP_SIZES.join(" oder ")}`
+      );
+      return null;
+    }
+
+    const stageLevelIds = message.stageLevelIds;
+    if (stageLevelIds.length === 0) {
+      console.warn("Turnier-Konfiguration abgelehnt: stageLevelIds darf nicht leer sein");
+      return null;
+    }
+    const unknownLevelIds = stageLevelIds.filter((id) => !isValidLevelId(id));
+    if (unknownLevelIds.length > 0) {
+      console.warn(
+        `Turnier-Konfiguration abgelehnt: unbekannte Level-IDs (${unknownLevelIds.join(", ")})`
+      );
+      return null;
+    }
+
     const strategy = this.strategies[message.mode];
-    const rounds = strategy.createRounds(participants, message.levelId);
+    const rounds = strategy.createRounds(participants, { groupSize });
 
     this.state = {
       mode: message.mode,
-      levelId: message.levelId,
+      stageLevelIds,
       livesPerRun,
+      groupSize,
       rounds,
       status: "idle",
       championBotId: null,

@@ -194,6 +194,14 @@ canvas {
   background: #ffe27a;
 }
 
+.pixel-btn--active {
+  background: var(--neon-green);
+  color: var(--bg-0);
+}
+.pixel-btn--active:hover {
+  background: #7affa5;
+}
+
 /* ---------- Segmented Toggle (Selbst / Bot) ---------- */
 
 .pixel-toggle {
@@ -649,4 +657,265 @@ canvas {
 
 .pixel-overlay__card .pixel-btn {
   margin-top: 4px;
+}
+
+/* ---------- Stage-Level-Editor ---------- */
+
+.stage-level-editor {
+  margin-bottom: 12px;
+}
+
+.stage-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--panel-hi);
+  box-shadow: 0 0 0 3px var(--border-dark);
+}
+
+.stage-label {
+  font-size: 9px;
+  color: var(--neon-yellow);
+  min-width: 70px;
+}
+
+.stage-row select {
+  font-family: inherit;
+  font-size: 9px;
+  color: var(--ink);
+  background: var(--panel);
+  border: none;
+  padding: 6px 8px;
+  box-shadow: 0 0 0 2px var(--border-dark);
+  flex: 1;
+}
+
+.stage-row button {
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--bg-0);
+  background: var(--neon-cyan);
+  border: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--border-dark);
+}
+
+.stage-row button:disabled {
+  background: var(--panel);
+  color: var(--ink-dim);
+  cursor: not-allowed;
+}
+
+.stage-hint {
+  margin-top: 10px;
+  font-size: 8px;
+  color: var(--ink-dim);
+}
+
+/* ---------- PresentPage HUD ---------- */
+
+.present-page {
+  min-height: 100vh;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.present-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 4px var(--border-dark),
+    0 0 0 8px var(--panel-hi);
+}
+
+.present-title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--neon-yellow);
+  text-shadow: 3px 3px 0 var(--border-dark);
+}
+
+.present-match-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.present-hud {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--panel);
+  box-shadow:
+    0 0 0 4px var(--border-dark),
+    0 0 0 8px var(--panel-hi);
+}
+
+.present-hud__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.present-hud__level {
+  color: var(--neon-cyan);
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+.present-hud__round {
+  color: var(--neon-pink);
+}
+
+.present-hud__racers {
+  display: grid;
+  gap: 6px;
+}
+
+.present-hud__racer {
+  display: grid;
+  grid-template-columns: 28px minmax(80px, 1fr) repeat(4, auto) 54px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-0);
+  box-shadow: 0 0 0 3px var(--border-dark);
+  font-size: 9px;
+}
+
+.present-hud__racer--leader {
+  background: rgba(87, 255, 143, 0.12);
+  box-shadow: 0 0 0 3px var(--neon-green);
+}
+
+.present-hud__rank {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg-0);
+  background: var(--neon-yellow);
+  box-shadow: 0 0 0 2px var(--border-dark);
+  font-size: 10px;
+}
+
+.present-hud__name {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.present-hud__fruit {
+  color: var(--neon-pink);
+}
+
+.present-hud__lives {
+  color: var(--danger);
+}
+
+.present-hud__time {
+  color: var(--neon-cyan);
+}
+
+.present-hud__multiplier {
+  color: var(--neon-yellow);
+}
+
+.present-hud__score {
+  justify-self: end;
+  font-size: 12px;
+  color: var(--neon-green);
+  text-shadow: 2px 2px 0 var(--border-dark);
+}
+
+/* ---------- Tile Overlay (pro Racer-Kachel in /present) ---------- */
+
+.match-view__overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.match-view__overlays > * {
+  pointer-events: auto;
+}
+
+.pixel-overlay--tile {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.pixel-overlay--tile .pixel-overlay__card {
+  width: min(560px, 92%);
+  padding: 20px 24px;
+  pointer-events: auto;
+}
+
+.pixel-overlay--tile .pixel-overlay__title {
+  font-size: 18px;
+  margin: 0 0 14px;
+}
+
+.pixel-overlay--tile .pixel-overlay__score {
+  font-size: 42px;
+}
+
+.pixel-overlay--tile .pixel-overlay__score-label {
+  font-size: 10px;
+}
+
+.pixel-overlay--tile .pixel-overlay__rows {
+  margin: 18px 0 0;
+  gap: 8px;
+  padding: 14px;
+}
+
+.pixel-overlay--tile .pixel-overlay__row {
+  font-size: 12px;
+}
+
+.pixel-overlay__bot-name {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: var(--ink-dim);
+  letter-spacing: 1px;
+}
+
+.pixel-overlay__winner-badge {
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: var(--neon-yellow);
+
+  text-shadow:
+    2px 2px 0 var(--border-dark),
+    0 0 10px rgba(255, 210, 63, 0.5);
 }

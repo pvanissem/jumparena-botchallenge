@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { HostToWorkerMessage, WorkerLike, WorkerToHostMessage } from "./workerLike";
 import { validateBotArtifact } from "./validateBotArtifact";
+import type { HostToWorkerMessage, WorkerLike, WorkerToHostMessage } from "./workerLike";
 
 function createControllableWorker(): {
   worker: WorkerLike;

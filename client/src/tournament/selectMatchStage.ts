@@ -8,8 +8,8 @@ import type { MatchDef, TournamentState } from "@arena/shared";
 export type MatchStage =
   | { kind: "no-tournament" }
   | { kind: "champion" }
-  | { kind: "running"; match: MatchDef }
-  | { kind: "result"; match: MatchDef }
+  | { kind: "running"; match: MatchDef; roundIndex: number }
+  | { kind: "result"; match: MatchDef; roundIndex: number }
   | { kind: "bracket" };
 
 /** Freilose sind Matches mit genau einem Teilnehmer – für sie gibt es kein
@@ -18,22 +18,45 @@ function isContested(match: MatchDef): boolean {
   return match.participants.length > 1;
 }
 
+function findRunningRoundIndex(state: TournamentState): number | null {
+  for (const [roundIndex, round] of state.rounds.entries()) {
+    if (round.some((match) => match.status === "running")) {
+      return roundIndex;
+    }
+  }
+  return null;
+}
+
+function findLastFinishedResult(
+  state: TournamentState
+): { match: MatchDef; roundIndex: number } | null {
+  let latest: { match: MatchDef; roundIndex: number } | null = null;
+  for (const [roundIndex, round] of state.rounds.entries()) {
+    for (const match of round) {
+      if (match.status === "finished" && match.result !== null && isContested(match)) {
+        latest = { match, roundIndex };
+      }
+    }
+  }
+  return latest;
+}
+
 export function selectMatchStage(state: TournamentState | null): MatchStage {
   if (!state) return { kind: "no-tournament" };
   if (state.status === "finished") return { kind: "champion" };
 
-  const matches = state.rounds.flat();
-
-  const running = matches.find((match) => match.status === "running");
-  if (running) return { kind: "running", match: running };
+  const runningRoundIndex = findRunningRoundIndex(state);
+  if (runningRoundIndex !== null) {
+    const running = state.rounds[runningRoundIndex].find((match) => match.status === "running");
+    if (!running) return { kind: "bracket" };
+    return { kind: "running", match: running, roundIndex: runningRoundIndex };
+  }
 
   // Zuletzt beendetes, echtes Match: dessen Ergebnis wird gezeigt, bis der
-  // Standbetreuer das nächste Match startet (US-6).
-  const lastFinished = matches
-    .filter((match) => match.status === "finished" && match.result !== null && isContested(match))
-    .at(-1);
-
-  if (lastFinished) return { kind: "result", match: lastFinished };
+  // Standbetreuer das nächste Match startet.
+  const lastFinished = findLastFinishedResult(state);
+  if (lastFinished)
+    return { kind: "result", match: lastFinished.match, roundIndex: lastFinished.roundIndex };
 
   return { kind: "bracket" };
 }

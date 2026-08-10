@@ -82,13 +82,18 @@ import type {
 export interface TournamentConfigureMessage {
   type: "tournament-configure";
   mode: TournamentMode;
-  levelId: string;
+  /** Level je Runde, mindestens eines. Ersetzt das frühere `levelId`. */
+  stageLevelIds: string[];
   botIds: string[];
   /** Leben pro Racer. Fehlt der Wert, nutzt der Server
    *  `DEFAULT_LIVES_PER_RUN` (Rückwärtskompatibilität). Die Bereichsprüfung
    *  macht bewusst der `TournamentService`, nicht der Typguard – siehe
    *  `.features/tournament-lives/design.md`. */
   livesPerRun?: number;
+  /** Bots pro Match. Fehlt der Wert, nutzt der Server `DEFAULT_GROUP_SIZE`
+   *  (Rückwärtskompatibilität). Die Bereichsprüfung macht bewusst der
+   *  `TournamentService`, nicht der Typguard. */
+  groupSize?: number;
 }
 
 /** /admin -> Server: Ein konkretes Match starten. */
@@ -270,8 +275,10 @@ function isTournamentState(value: unknown): value is TournamentState {
   if (status !== "idle" && status !== "running" && status !== "finished") return false;
   return (
     value.mode === "single-elimination" &&
-    typeof value.levelId === "string" &&
+    Array.isArray(value.stageLevelIds) &&
+    value.stageLevelIds.every((id: unknown) => typeof id === "string") &&
     typeof value.livesPerRun === "number" &&
+    typeof value.groupSize === "number" &&
     Array.isArray(value.rounds) &&
     value.rounds.every((round: unknown) => Array.isArray(round) && round.every(isMatchDef)) &&
     (value.championBotId === null || typeof value.championBotId === "string")
@@ -283,10 +290,12 @@ export function isTournamentConfigureMessage(value: unknown): value is Tournamen
     isRecord(value) &&
     value.type === "tournament-configure" &&
     value.mode === "single-elimination" &&
-    typeof value.levelId === "string" &&
+    Array.isArray(value.stageLevelIds) &&
+    value.stageLevelIds.every((id: unknown) => typeof id === "string") &&
     Array.isArray(value.botIds) &&
     value.botIds.every((id: unknown) => typeof id === "string") &&
-    (value.livesPerRun === undefined || typeof value.livesPerRun === "number")
+    (value.livesPerRun === undefined || typeof value.livesPerRun === "number") &&
+    (value.groupSize === undefined || typeof value.groupSize === "number")
   );
 }
 

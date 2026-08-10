@@ -35,8 +35,9 @@ function finishedResult(botId: string) {
 function state(rounds: MatchDef[][], overrides: Partial<TournamentState> = {}): TournamentState {
   return {
     mode: "single-elimination",
-    levelId: "level-one",
+    stageLevelIds: ["level-one"],
     livesPerRun: 3,
+    groupSize: 4,
     rounds,
     status: "running",
     championBotId: null,
@@ -64,7 +65,7 @@ describe("selectMatchStage", () => {
       [match({ id: "m1", status: "finished", result: finishedResult("b1") }), running],
     ]);
 
-    expect(selectMatchStage(s)).toEqual({ kind: "running", match: running });
+    expect(selectMatchStage(s)).toEqual({ kind: "running", match: running, roundIndex: 0 });
   });
 
   it("prefers a running match in a later round over an earlier finished match", () => {
@@ -72,7 +73,7 @@ describe("selectMatchStage", () => {
     const running = match({ id: "m2", status: "running" });
     const s = state([[finished], [running]]);
 
-    expect(selectMatchStage(s)).toEqual({ kind: "running", match: running });
+    expect(selectMatchStage(s)).toEqual({ kind: "running", match: running, roundIndex: 1 });
   });
 
   it("returns the LAST finished match result when nothing is running", () => {
@@ -80,7 +81,7 @@ describe("selectMatchStage", () => {
     const second = match({ id: "m2", status: "finished", result: finishedResult("b2") });
     const s = state([[first, second], [match({ id: "m3" })]]);
 
-    expect(selectMatchStage(s)).toEqual({ kind: "result", match: second });
+    expect(selectMatchStage(s)).toEqual({ kind: "result", match: second, roundIndex: 0 });
   });
 
   it("ignores bye matches (single participant) when showing a result", () => {
@@ -99,5 +100,19 @@ describe("selectMatchStage", () => {
     const s = state([[match({ id: "m1" }), match({ id: "m2" })]], { status: "idle" });
 
     expect(selectMatchStage(s)).toEqual({ kind: "bracket" });
+  });
+
+  it("liefert für ein laufendes Match den korrekten roundIndex", () => {
+    const running = match({ id: "m2", status: "running" });
+    const s = state([[match({ id: "m1" })], [running]]);
+
+    expect(selectMatchStage(s)).toEqual({ kind: "running", match: running, roundIndex: 1 });
+  });
+
+  it("liefert für ein Ergebnis den roundIndex der neuesten beendeten Runde", () => {
+    const finished = match({ id: "m1", status: "finished", result: finishedResult("b1") });
+    const s = state([[match({ id: "p1" })], [finished, match({ id: "p2" })]]);
+
+    expect(selectMatchStage(s)).toEqual({ kind: "result", match: finished, roundIndex: 1 });
   });
 });

@@ -1,3 +1,4 @@
+export { isValidLevelId, LEVEL_IDS } from "./levels";
 export type {
   AudioSettingsMessage,
   BotAddedMessage,
@@ -32,7 +33,6 @@ export {
   isTournamentStateMessage,
   MAX_BOT_SOURCE_BYTES,
 } from "./messages";
-
 export type {
   MatchDef,
   MatchParticipant,
@@ -43,8 +43,13 @@ export type {
   TournamentState,
 } from "./tournament";
 export {
+  ALLOWED_GROUP_SIZES,
+  DEFAULT_GROUP_SIZE,
   DEFAULT_LIVES_PER_RUN,
+  estimateRoundCount,
+  isValidGroupSize,
   isValidLivesPerRun,
   MAX_LIVES_PER_RUN,
   MIN_LIVES_PER_RUN,
+  resolveStageLevelId,
 } from "./tournament";

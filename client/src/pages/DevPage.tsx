@@ -114,7 +114,10 @@ export function DevPage() {
 
           <AudioControls />
           {audioLocked && (
-            <span className="pixel-status" title="Browser-Autoplay-Policy: Ton startet mit der ersten Interaktion">
+            <span
+              className="pixel-status"
+              title="Browser-Autoplay-Policy: Ton startet mit der ersten Interaktion"
+            >
               🔈 Ton startet mit der ersten Interaktion
             </span>
           )}

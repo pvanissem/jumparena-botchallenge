@@ -48,7 +48,9 @@ Das Ziel:
 • Gegnern und Fallen ausweichen (jeder Sturz kostet Punkte).
 
 Die Regeln in Kürze:
-• Dein Bot hat 3 Leben. Berührt er eine Gefahr oder fällt in einen Abgrund,
+• Dein Bot hat begrenzte Leben, diese liegen irgendwo zwischen 1 und 99 und
+  werden beim Turnier später dynamisch ausgewählt.
+  Berührt er eine Gefahr oder fällt in einen Abgrund,
   verliert er ein Leben und startet am letzten Checkpoint neu.
 • Jeder Lauf hat ein Zeitlimit von 90 Sekunden.
 • Am Ende zählen: gesammelte Früchte + Zeitbonus − Abzüge für Tode.

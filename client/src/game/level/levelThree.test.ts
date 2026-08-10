@@ -19,9 +19,14 @@ describe("LEVEL_THREE structure", () => {
   it("only uses existing hazard kinds (no new hazard type)", () => {
     const kinds = new Set(LEVEL_THREE.hazards.map((h) => h.kind));
     for (const kind of kinds) {
-      expect(["schnetzler", "ninjafrog", "stachlinger", "loderix", "kugelblitz", "spikehead"]).toContain(
-        kind
-      );
+      expect([
+        "schnetzler",
+        "ninjafrog",
+        "stachlinger",
+        "loderix",
+        "kugelblitz",
+        "spikehead",
+      ]).toContain(kind);
     }
   });
 

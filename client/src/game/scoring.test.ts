@@ -40,8 +40,7 @@ describe("computeScore", () => {
       deaths: 0,
       reachedGoal: true,
     });
-    const expected =
-      100 * computeTimeMultiplier(timeElapsedMs) + computeTimeBonus(timeElapsedMs);
+    const expected = 100 * computeTimeMultiplier(timeElapsedMs) + computeTimeBonus(timeElapsedMs);
     expect(score).toBe(Math.round(expected));
   });
 
