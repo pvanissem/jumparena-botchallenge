@@ -16,9 +16,8 @@ describe("TERRAIN_STYLE_REGISTRY", () => {
     expect(DEFAULT_TERRAIN_STYLE_KEY).toBe("default");
   });
 
-  it("has 'underground' with a frame set (no tint)", () => {
+  it("has 'underground' with a frame set and a blue tint", () => {
     expect(TERRAIN_STYLE_REGISTRY.underground).toBeDefined();
-    expect(TERRAIN_STYLE_REGISTRY.underground.tint).toBeUndefined();
     const frames = TERRAIN_STYLE_REGISTRY.underground.frames;
     expect(frames).toBeDefined();
     const TILESET_TILE_COUNT = 22 * 11;
@@ -26,5 +25,16 @@ describe("TERRAIN_STYLE_REGISTRY", () => {
       expect(index).toBeGreaterThanOrEqual(0);
       expect(index).toBeLessThan(TILESET_TILE_COUNT);
     }
+
+    const tint = TERRAIN_STYLE_REGISTRY.underground.tint;
+    expect(typeof tint).toBe("number");
+    // Typecast ist hier sicher: wir haben oben typeof number geprüft.
+    const safeTint = tint as number;
+    // Sanity: vermeide versehentliche NaN/Infinity-Werte.
+    expect(Number.isFinite(safeTint)).toBe(true);
+    const r = (safeTint >> 16) & 0xff;
+    const g = (safeTint >> 8) & 0xff;
+    const b = safeTint & 0xff;
+    expect(b > r && b > g, `expected a blue-ish tint, got RGB(${r}, ${g}, ${b})`).toBe(true);
   });
 });
