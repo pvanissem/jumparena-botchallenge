@@ -102,6 +102,30 @@ describe("WebSocketClient", () => {
     expect(received).toEqual([{ type: "ping-broadcast", sentAt: "now", text: "hi" }]);
   });
 
+  it("does not reconnect after disconnect()", () => {
+    vi.useFakeTimers();
+    const created: FakeWebSocket[] = [];
+    const client = new WebSocketClient("ws://localhost/test", {
+      createSocket: () => {
+        const socket = new FakeWebSocket();
+        created.push(socket);
+        return socket;
+      },
+      retryIntervalMs: 1000,
+    });
+
+    client.connect();
+    created[0]?.onopen?.();
+    client.disconnect();
+
+    expect(created[0]?.closed).toBe(true);
+
+    vi.advanceTimersByTime(5000);
+    expect(created).toHaveLength(1);
+
+    vi.useRealTimers();
+  });
+
   it("serializes outgoing messages sent via send()", () => {
     let fakeSocket: FakeWebSocket | undefined;
     const client = new WebSocketClient("ws://localhost/test", {

@@ -60,7 +60,7 @@ export default {
 > "Zentraler Server für Multi-Stationen-Betrieb"). Dieser Server transportiert
 > aber (noch) **keine** Bot-Artefakte automatisch von `/dev` – `/dev` sendet
 > grundsätzlich nichts an den Server. Für `/admin` und `/present` ist stattdessen
-> eine **zentrale Bot-Sammelstelle** im Hub-Server vorgesehen (In-Memory-Registry,
+> eine **zentrale Bot-Sammelstelle** im Hub-Server vorgesehen (Registry mit JSON-Datei-Persistenz,
 > siehe `docs/03-architektur.md`, Abschnitt "Bot-Sammelstelle"), die beide
 > Ansichten mit demselben Stand versorgt. Eingespeist wird diese Sammelstelle
 > vorerst über einen **manuellen Datei-Upload in `/admin`** (Zwischenlösung).
@@ -101,12 +101,34 @@ Der harte Kill ist der Grund, warum echter Fremd-Code zwingend im Worker läuft
 - Am Ende: **Champion-Screen**. Bracket-Anzeige zeigt Runden → Matches →
   Gewinner live.
 
+### Multi-Racer-Architektur (getrennte Welten)
+
+Die naheliegende Idee – ein Level, mehrere Racer-Sprites, mehrere Kameras –
+hätte ein hartes Fairness-Problem: Sammelt Bot A eine Frucht oder löst einen
+Block, würde das Objekt zerstört und Bot B könnte es nicht mehr einsammeln.
+Das wäre vom Startzeitpunkt abhängig und unfair.
+
+Deswegen wird die bestehende `RaceScene` **pro Racer als separate Instanz**
+unter einem eindeutigen Scene-Key gestartet. Jede Instanz besitzt ihre eigene
+Physik-Welt und eigene Level-Objekte; die Kameras werden auf ein Grid von
+Viewports im selben Canvas beschränkt. So entfällt jegliches Objekt-Sharing
+strukturell, und "keine Bot-zu-Bot-Kollision" ergibt sich automatisch. Der
+Hub-Server kennt weiterhin keine Spiellogik; er hält nur den Turnierzustand
+und leitet Bracket, Match-Result und Match-Progress weiter.
+
 ### Ablauf-Komponenten
-- `store/botRegistry.ts` – alle importierten Bots (+ Runner, + Fehlerstatus)
-- `store/tournamentStore.ts` – Bracket-Struktur, Advance-Logik
-- `store/matchStore.ts` – Live-Zustand & Ranking des laufenden Matches
-- `services/tournamentRunner.ts` – verbindet Bracket ↔ RaceScene
-- `game/scenes/RaceScene.ts` – Multi-Racer-Simulation + Kamera-Grid
+- `server/src/botRegistry/BotRegistry.ts` – alle importierten Bots (+ Persistenz)
+- `server/src/tournament/TournamentService.ts` – Bracket-Struktur, Advance-Logik
+- `server/src/tournament/SingleEliminationStrategy.ts` – Single-Elimination-Strategie
+- `packages/shared/src/tournament.ts` – Turnier-Typen
+- `packages/shared/src/messages.ts` – Turnier- & Match-Nachrichten
+- `client/src/tournament/useTournamentState.ts` – Turnier-Zustand aus WebSocket
+- `client/src/tournament/useMatchProgress.ts` – Live-Progress pro Match
+- `client/src/match/MatchRunner.ts` – startet N × RaceScene im Grid
+- `client/src/match/MatchView.tsx` – Phaser-Host für `/present`
+- `client/src/game/scenes/RaceScene.ts` – parametrisierbarer Key, Viewport, Audio
+- `client/src/pages/AdminPage.tsx` – Turnier-Konfiguration & Steuerung
+- `client/src/pages/PresentPage.tsx` – Bracket / Match / Ergebnis / Champion
 
 ## Testmodus (`/dev`)
 

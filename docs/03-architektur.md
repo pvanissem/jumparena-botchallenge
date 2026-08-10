@@ -150,8 +150,8 @@ beschrieben.
   (Roundtrip-Nachweis), sind aber ansonsten unabhängige, isolierte Prozesse pro
   Stationsrechner – sie kennen den Präsentationsrechner nicht und haben (noch)
   keine Bot-Entwicklungslogik an den Server angebunden.
-- Persistenz: nur In-Memory für die Laufzeit des Serverprozesses, keine
-  Datenbank/Dateispeicherung.
+- Persistenz der Bot-Registry: JSON-Datei (`data/bot-registry.json`, konfigurierbar
+  via `BOT_REGISTRY_FILE`), die Server-Neustarts überlebt. Keine Datenbank.
 
 **Wichtige Klarstellung zu `/dev`:** Eine `/dev`-Station ist und bleibt ein
 rein lokaler, isolierter Vite-Client-Prozess (`npm run dev`, siehe oben) ohne
@@ -162,29 +162,37 @@ danach lokal (z.B. per USB-Stick) vom Rechner kopiert wird – siehe
 `.features/dev-station-mode/` und `docs/09-bot-artefakt-und-turnier.md`.
 `/dev` "weiß" nichts von `/admin`, `/present` oder anderen Stationen.
 
-### Bot-Sammelstelle (Konzept, Umsetzung als eigenes Feature)
+### Bot-Sammelstelle (`.features/bot-collection-point/`)
 
 Damit `/admin` und `/present` **denselben Stand an eingereichten Bot-Artefakten**
-sehen, braucht es eine zentrale Sammelstelle – naheliegenderweise beim ohnehin
-zentralen Hub-Server-Prozess:
+sehen, gibt es eine zentrale Sammelstelle im Hub-Server:
 
-- Der Hub-Server hält eine **In-Memory-Bot-Registry** (nur für die Laufzeit des
-  Serverprozesses, keine Persistenz) mit den eingereichten Bot-Artefakten
+- Der Hub-Server hält eine **Bot-Registry** (In-Memory + Persistenz als
+  `data/bot-registry.json`) mit den eingereichten Bot-Artefakten
   (Quellcode + Metadaten wie Name/Autor/Farbe).
 - `/admin` und `/present` lesen/abonnieren dieselbe Registry über den
   bestehenden WebSocket-Kanal – beide sehen also garantiert denselben Stand.
-- Der Server bleibt dabei reiner Relay/Speicher: Er **führt den Bot-Code nicht
-  aus** (keine Bot-Sandbox, keine Simulation auf dem Server) – das Ausführen
-  passiert weiterhin ausschließlich clientseitig (in `/present`, analog zur
-  Sandbox aus `docs/09-bot-artefakt-und-turnier.md`).
+  Neu verbundene Clients erhalten sofort einen vollständigen Snapshot.
+- Der Server bleibt reiner Relay/Speicher: Er **führt den Bot-Code nicht
+  aus** (keine Bot-Sandbox, keine Simulation auf dem Server).
 - Als Zwischenlösung für das **Einspeisen** in die Sammelstelle: `/admin` bietet
   einen manuellen Datei-Upload (Drag&Drop/File-Input) für `.js`-Bot-Artefakte an.
   `/dev` ist daran **nicht** angebunden.
 
-**Explizit weiterhin offen:** Wie das fertige Bot-Artefakt (`decide.js`) von
-einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
+**Validierung ist dreigeteilt:**
+
+1. `/admin` führt vor dem Upload `checkStaticGuard` aus und lädt den Quelltext
+   in der bestehenden Browser-Worker-Sandbox, um `name`/`author`/`color` zu
+   extrahieren (`validateBotArtifact`). Ungültige Dateien werden lokal abgelehnt
+   und gar nicht erst an den Server gesendet.
+2. Der Server prüft eingehende `bot-add`-Nachrichten erneut mit
+   `checkStaticGuard` (textuell, keine Code-Ausführung) und verwirft Verstöße.
+   Das ist reines Gatekeeping gegen Clients, die die UI umgehen.
+3. `/present` validiert jedes Bot-Modul beim tatsächlichen Laden erneut in
+   seiner eigenen Worker-Sandbox (letzte Verteidigungslinie).
+
+**Explizit weiterhin offen:** Wie das fertige Bot-Artefakt (`current-bot.js`)
+von einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
 manuelles Kopieren, künftig evtl. ein eigener Transportmechanismus), ist
 **nicht** Teil dieser Server-Infrastruktur und bewusst ungelöst – siehe
-`docs/09-bot-artefakt-und-turnier.md`. Die Sammelstelle selbst (Registry im
-Hub-Server + Admin-Upload + Anzeige in `/admin`/`/present`) ist als eigenes
-Feature-Spec umzusetzen (siehe `docs/07-offene-punkte.md`).
+`docs/09-bot-artefakt-und-turnier.md`.

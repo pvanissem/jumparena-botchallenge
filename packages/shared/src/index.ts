@@ -1,2 +1,50 @@
-export type { AudioSettingsMessage, InboundMessage, OutboundMessage, PingBroadcastMessage } from "./messages";
-export { isAudioSettingsMessage, isPingBroadcastMessage } from "./messages";
+export type {
+  AudioSettingsMessage,
+  BotAddedMessage,
+  BotAddMessage,
+  BotArtifact,
+  BotRegistrySnapshotMessage,
+  BotRemovedMessage,
+  BotRemoveMessage,
+  InboundMessage,
+  MatchProgressMessage,
+  MatchResultMessage,
+  MatchStartMessage,
+  OutboundMessage,
+  PingBroadcastMessage,
+  TournamentConfigureMessage,
+  TournamentResetMessage,
+  TournamentStateMessage,
+} from "./messages";
+export {
+  isAudioSettingsMessage,
+  isBotAddedMessage,
+  isBotAddMessage,
+  isBotRegistrySnapshotMessage,
+  isBotRemovedMessage,
+  isBotRemoveMessage,
+  isMatchProgressMessage,
+  isMatchResultMessage,
+  isMatchStartMessage,
+  isPingBroadcastMessage,
+  isTournamentConfigureMessage,
+  isTournamentResetMessage,
+  isTournamentStateMessage,
+  MAX_BOT_SOURCE_BYTES,
+} from "./messages";
+
+export type {
+  MatchDef,
+  MatchParticipant,
+  MatchResult,
+  MatchResultEntry,
+  MatchStatus,
+  TournamentMode,
+  TournamentState,
+} from "./tournament";
+export {
+  DEFAULT_LIVES_PER_RUN,
+  isValidLivesPerRun,
+  MAX_LIVES_PER_RUN,
+  MIN_LIVES_PER_RUN,
+} from "./tournament";

@@ -1,51 +1,235 @@
 import { describe, expect, it } from "vitest";
-import { isAudioSettingsMessage, isPingBroadcastMessage } from "./messages";
+import type {
+  MatchProgressMessage,
+  MatchResult,
+  MatchResultMessage,
+  TournamentState,
+} from "./index";
+import {
+  isMatchProgressMessage,
+  isMatchResultMessage,
+  isMatchStartMessage,
+  isTournamentConfigureMessage,
+  isTournamentResetMessage,
+  isTournamentStateMessage,
+} from "./messages";
 
-describe("isPingBroadcastMessage", () => {
-  it("returns true for a valid ping-broadcast payload", () => {
-    const candidate = {
-      type: "ping-broadcast",
-      sentAt: "2024-01-01T00:00:00.000Z",
-      text: "Ping von Admin",
-    };
+function validResult(): MatchResult {
+  return {
+    entries: [
+      {
+        botId: "b1",
+        rank: 1,
+        score: 100,
+        fruitScore: 50,
+        coinsCollected: 5,
+        deaths: 0,
+        timeElapsedMs: 10_000,
+        reachedGoal: true,
+        disabled: false,
+      },
+    ],
+  };
+}
 
-    expect(isPingBroadcastMessage(candidate)).toBe(true);
+function validState(): TournamentState {
+  return {
+    mode: "single-elimination",
+    levelId: "level-one",
+    livesPerRun: 3,
+    rounds: [
+      [
+        {
+          id: "m1",
+          participants: [{ botId: "b1", name: "Bot", author: "A", color: "#000" }],
+          status: "pending",
+          result: null,
+        },
+      ],
+    ],
+    status: "idle",
+    championBotId: null,
+  };
+}
+
+describe("isTournamentConfigureMessage", () => {
+  it("accepts a valid configure message", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        levelId: "level-one",
+        botIds: ["b1", "b2"],
+      })
+    ).toBe(true);
   });
 
-  it("returns false when type does not match", () => {
-    expect(isPingBroadcastMessage({ type: "something-else", sentAt: "x", text: "x" })).toBe(false);
+  it("accepts an explicit livesPerRun", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        levelId: "level-one",
+        botIds: ["b1", "b2"],
+        livesPerRun: 5,
+      })
+    ).toBe(true);
   });
 
-  it("returns false when required fields are missing", () => {
-    expect(isPingBroadcastMessage({ type: "ping-broadcast" })).toBe(false);
+  it("rejects a non-numeric livesPerRun", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        levelId: "level-one",
+        botIds: ["b1", "b2"],
+        livesPerRun: "5",
+      })
+    ).toBe(false);
   });
 
-  it("returns false for non-object values", () => {
-    expect(isPingBroadcastMessage(null)).toBe(false);
-    expect(isPingBroadcastMessage("ping-broadcast")).toBe(false);
-    expect(isPingBroadcastMessage(undefined)).toBe(false);
+  it("rejects a non-single-elimination mode", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "round-robin" as never,
+        levelId: "level-one",
+        botIds: ["b1"],
+      })
+    ).toBe(false);
+  });
+
+  it("rejects non-string botIds entries", () => {
+    expect(
+      isTournamentConfigureMessage({
+        type: "tournament-configure",
+        mode: "single-elimination",
+        levelId: "level-one",
+        botIds: [1],
+      })
+    ).toBe(false);
+  });
+
+  it("rejects missing fields", () => {
+    expect(isTournamentConfigureMessage({ type: "tournament-configure" })).toBe(false);
   });
 });
 
-describe("isAudioSettingsMessage", () => {
-  it("returns true for a valid audio-settings payload", () => {
-    const candidate = { type: "audio-settings", muted: false, volume: 0.6 };
-    expect(isAudioSettingsMessage(candidate)).toBe(true);
+describe("isMatchStartMessage", () => {
+  it("accepts a valid message", () => {
+    expect(isMatchStartMessage({ type: "match-start", matchId: "m1" })).toBe(true);
   });
 
-  it("returns false when type does not match", () => {
-    expect(isAudioSettingsMessage({ type: "something-else", muted: false, volume: 0.6 })).toBe(
-      false
-    );
+  it("rejects missing matchId", () => {
+    expect(isMatchStartMessage({ type: "match-start" })).toBe(false);
+  });
+});
+
+describe("isTournamentResetMessage", () => {
+  it("accepts a valid message", () => {
+    expect(isTournamentResetMessage({ type: "tournament-reset" })).toBe(true);
   });
 
-  it("returns false when required fields are missing", () => {
-    expect(isAudioSettingsMessage({ type: "audio-settings" })).toBe(false);
+  it("rejects extra required fields", () => {
+    expect(isTournamentResetMessage({ type: "tournament-reset", foo: "bar" })).toBe(true);
   });
 
-  it("returns false for non-object values", () => {
-    expect(isAudioSettingsMessage(null)).toBe(false);
-    expect(isAudioSettingsMessage("audio-settings")).toBe(false);
-    expect(isAudioSettingsMessage(undefined)).toBe(false);
+  it("rejects wrong type", () => {
+    expect(isTournamentResetMessage({ type: "match-start" })).toBe(false);
+  });
+});
+
+describe("isMatchResultMessage", () => {
+  it("accepts a valid message", () => {
+    const message: MatchResultMessage = {
+      type: "match-result",
+      matchId: "m1",
+      result: validResult(),
+    };
+    expect(isMatchResultMessage(message)).toBe(true);
+  });
+
+  it("rejects an invalid result entry", () => {
+    expect(
+      isMatchResultMessage({
+        type: "match-result",
+        matchId: "m1",
+        result: { entries: [{ botId: "b1" }] },
+      })
+    ).toBe(false);
+  });
+
+  it("rejects wrong type", () => {
+    expect(isMatchResultMessage({ type: "match-start", matchId: "m1" })).toBe(false);
+  });
+});
+
+describe("isMatchProgressMessage", () => {
+  it("accepts a valid message", () => {
+    const message: MatchProgressMessage = {
+      type: "match-progress",
+      matchId: "m1",
+      entries: [
+        {
+          botId: "b1",
+          fruitScore: 10,
+          livesRemaining: 2,
+          timeElapsedMs: 1000,
+          progress: 0.25,
+          finished: false,
+          didNotFinish: false,
+          disabled: false,
+        },
+      ],
+    };
+    expect(isMatchProgressMessage(message)).toBe(true);
+  });
+
+  it("rejects missing entry fields", () => {
+    expect(
+      isMatchProgressMessage({
+        type: "match-progress",
+        matchId: "m1",
+        entries: [{ botId: "b1" }],
+      })
+    ).toBe(false);
+  });
+
+  it("rejects non-array entries", () => {
+    expect(
+      isMatchProgressMessage({
+        type: "match-progress",
+        matchId: "m1",
+        entries: "nope",
+      })
+    ).toBe(false);
+  });
+});
+
+describe("isTournamentStateMessage", () => {
+  it("accepts a valid state", () => {
+    expect(isTournamentStateMessage({ type: "tournament-state", state: validState() })).toBe(true);
+  });
+
+  it("accepts null state", () => {
+    expect(isTournamentStateMessage({ type: "tournament-state", state: null })).toBe(true);
+  });
+
+  it("rejects invalid round shape", () => {
+    const state = validState();
+    state.rounds = [[{ id: "m1" } as never]];
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
+  });
+
+  it("rejects unknown status", () => {
+    const state = validState();
+    state.status = "cancelled" as never;
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
+  });
+
+  it("rejects a state without livesPerRun", () => {
+    const state = validState() as Partial<TournamentState>;
+    state.livesPerRun = undefined;
+    expect(isTournamentStateMessage({ type: "tournament-state", state })).toBe(false);
   });
 });

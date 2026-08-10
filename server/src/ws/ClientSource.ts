@@ -7,4 +7,5 @@ import type { ConnectedClient } from "./ConnectedClient";
  */
 export interface ClientSource {
   getOthers(senderId: string): ConnectedClient[];
+  getAll(): ConnectedClient[];
 }

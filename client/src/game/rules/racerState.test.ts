@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LevelDef } from "../level/types";
 import { LIVES_PER_RUN } from "./raceRules";
-import { createInitialRacerState } from "./racerState";
+import { createInitialRacerState, isRacerTerminal } from "./racerState";
 
 const LEVEL: LevelDef = {
   worldWidth: 100,
@@ -46,5 +46,21 @@ describe("createInitialRacerState", () => {
     expect(state.fruitScore).toBe(0);
     expect(state.deaths).toBe(0);
     expect(state.timeElapsedMs).toBe(0);
+  });
+});
+
+describe("isRacerTerminal", () => {
+  it("is false for a freshly started racer", () => {
+    expect(isRacerTerminal(createInitialRacerState(LEVEL))).toBe(false);
+  });
+
+  it("is true once the goal has been reached", () => {
+    const state = { ...createInitialRacerState(LEVEL), finished: true };
+    expect(isRacerTerminal(state)).toBe(true);
+  });
+
+  it("is true once the racer is out (no lives / time limit)", () => {
+    const state = { ...createInitialRacerState(LEVEL), didNotFinish: true };
+    expect(isRacerTerminal(state)).toBe(true);
   });
 });

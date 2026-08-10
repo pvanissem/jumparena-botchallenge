@@ -11,17 +11,9 @@ import Phaser from "phaser";
 import { BotRunner, type BotRunnerPauseReasonKind } from "../../sandbox/BotRunner";
 import { createBrowserWorker } from "../../sandbox/createBrowserWorker";
 import { createAnimations } from "../assets/animations";
-import { AUDIO_KEYS, AUDIO_SPECS, type AudioKey } from "../assets/audio";
-import {
-  BACKGROUND,
-  FRUIT_FRAME,
-  fruitSheetPath,
-  SHEET_SPECS,
-  SheetKeys,
-  STATIC_IMAGE_KEYS,
-  STATIC_IMAGE_SPECS,
-  spriteScale,
-} from "../assets/spriteSheets";
+import { AUDIO_KEYS, type AudioKey } from "../assets/audio";
+import { preloadArenaAssets } from "../assets/preloadArenaAssets";
+import { SheetKeys, STATIC_IMAGE_KEYS, spriteScale } from "../assets/spriteSheets";
 import { audioSettings } from "../audio/audioSettings";
 import { BotController } from "../control/BotController";
 import { KeyboardController } from "../control/KeyboardController";
@@ -52,6 +44,7 @@ import {
 } from "../rules/raceRules";
 import {
   createInitialRacerState,
+  isRacerTerminal,
   type RacerRuntimeState,
   RUN_TIME_LIMIT_MS,
 } from "../rules/racerState";
@@ -93,6 +86,11 @@ export interface RaceSceneInitData {
    *  aufzurufen (siehe dort: Vermeidung einer Race Condition mit dem noch
    *  laufenden `preload()`/`create()`-Lifecycle). */
   onReady?: () => void;
+  /** Kamera-Ausschnitt im Canvas. Default: ganzes Canvas (heutiges Verhalten). */
+  viewport?: { x: number; y: number; width: number; height: number };
+  /** Musik UND Soundeffekte dieser Szene. Default `true` (heutiges Verhalten).
+   *  Im Match für ALLE Racer-Szenen `false`. */
+  audio?: boolean;
 }
 
 export class RaceScene extends Phaser.Scene {
@@ -143,37 +141,23 @@ export class RaceScene extends Phaser.Scene {
   private activatedCheckpointIds = new Set<string>();
   private music: Phaser.Sound.BaseSound | null = null;
   private unsubscribeAudio: (() => void) | null = null;
+  private audioEnabled = true;
+  /** Stellt sicher, dass `haltRacer()` nur einmal wirkt (der Früh-Ausstieg in
+   *  `update()` würde es sonst jeden Frame erneut aufrufen). */
+  private terminalHandled = false;
 
-  constructor() {
-    super("RaceScene");
+  constructor(key = "RaceScene") {
+    super(key);
   }
 
   init(data: RaceSceneInitData): void {
     this.initData = data;
     this.level = getLevelById(data.levelId ?? DEFAULT_LEVEL_ID);
+    this.audioEnabled = data.audio ?? true;
   }
 
   preload(): void {
-    this.load.image(BACKGROUND.key, BACKGROUND.path);
-
-    for (const spec of SHEET_SPECS) {
-      this.load.spritesheet(spec.key, spec.path, {
-        frameWidth: spec.frameWidth,
-        frameHeight: spec.frameHeight,
-      });
-    }
-    for (const spec of STATIC_IMAGE_SPECS) {
-      this.load.image(spec.key, spec.path);
-    }
-    for (const fruit of Object.keys(FRUIT_VALUES) as FruitKind[]) {
-      this.load.spritesheet(`fruit-${fruit}`, fruitSheetPath(fruit), {
-        frameWidth: FRUIT_FRAME.width,
-        frameHeight: FRUIT_FRAME.height,
-      });
-    }
-    for (const spec of AUDIO_SPECS) {
-      this.load.audio(spec.key, spec.path);
-    }
+    preloadArenaAssets(this);
   }
 
   create(): void {
@@ -186,6 +170,7 @@ export class RaceScene extends Phaser.Scene {
     this.pendingJustRespawned = false;
     this.sprintHoldMs = 0;
     this.jumpStartMs = null;
+    this.terminalHandled = false;
     this.activatedCheckpointIds = new Set<string>();
 
     createAnimations(this);
@@ -202,7 +187,7 @@ export class RaceScene extends Phaser.Scene {
     // Skalierungsfaktor multiplizieren (das würde doppelt skalieren und die
     // Hitbox aus dem Zentrum schieben, siehe hazards/factory.ts).
     this.player.setScale(spriteScale(SheetKeys.PLAYER_IDLE));
-    this.player.body.setSize(
+    this.player.body?.setSize(
       MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
       MOVEMENT_TUNING.PLAYER_BODY_SIZE.height
     );
@@ -240,13 +225,22 @@ export class RaceScene extends Phaser.Scene {
     // zurückgesetzt. Der zusätzliche `applyAudioVolume()`-Aufruf NACH `play()`
     // fängt nur noch den seltenen Fall ab, dass sich die Einstellung zwischen
     // `add()` und `play()` geändert hat.
-    this.music = this.sound.add(AUDIO_KEYS.THEME, {
-      loop: true,
-      volume: audioSettings.getEffectiveVolume(),
-    });
-    this.music.play();
-    this.applyAudioVolume();
-    this.unsubscribeAudio = audioSettings.subscribe(() => this.applyAudioVolume());
+    if (this.audioEnabled) {
+      this.music = this.sound.add(AUDIO_KEYS.THEME, {
+        loop: true,
+        volume: audioSettings.getEffectiveVolume(),
+      });
+      this.music.play();
+      this.applyAudioVolume();
+      this.unsubscribeAudio = audioSettings.subscribe(() => this.applyAudioVolume());
+    }
+
+    // Kamera-Ausschnitt für den Turniermodus (Grid mehrerer Racer-Szenen im
+    // selben Canvas). Ohne `viewport` bleibt es beim Vollbild-Default.
+    if (this.initData.viewport) {
+      const { x, y, width, height } = this.initData.viewport;
+      this.cameras.main.setViewport(x, y, width, height);
+    }
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, this.level.worldWidth, this.level.worldHeight);
@@ -266,6 +260,7 @@ export class RaceScene extends Phaser.Scene {
   /** Spielt einen kurzen Soundeffekt einmalig mit der aktuellen
    *  Master-Lautstärke ab (Sprung/Collect). */
   private playSfx(key: AudioKey): void {
+    if (!this.audioEnabled) return;
     this.sound.play(key, { volume: audioSettings.getEffectiveVolume() });
   }
 
@@ -303,7 +298,14 @@ export class RaceScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.racer.finished || this.racer.didNotFinish) return;
+    if (isRacerTerminal(this.racer)) {
+      // Einmalig aktiv stoppen: Ohne das behält der Arcade-Body seine letzte
+      // Geschwindigkeit und die Gravitation wirkt weiter – der Racer würde
+      // sichtbar weiterrutschen bzw. aus dem Level fallen, obwohl er raus ist
+      // (siehe `.features/tournament-lives/`, US-2).
+      this.haltRacer();
+      return;
+    }
 
     this.currentDelta = delta;
     this.elapsedMs += delta;
@@ -353,6 +355,62 @@ export class RaceScene extends Phaser.Scene {
       this.sinceLastStatusEmit = 0;
       this.notifyStatus();
     }
+  }
+
+  /**
+   * Hält den Racer endgültig an, sobald er das Ziel erreicht hat oder
+   * ausgeschieden ist. Läuft genau einmal pro Szene.
+   *
+   * Warum das nötig ist: `update()` steigt bei einem Endzustand früh aus, die
+   * Arcade-Physik läuft aber weiter. Ohne aktiven Stopp behält der Body seine
+   * Restgeschwindigkeit und fällt weiter – der ausgeschiedene Bot sieht für das
+   * Publikum aus, als würde er einfach weiterspielen.
+   */
+  private haltRacer(): void {
+    if (this.terminalHandled) return;
+    this.terminalHandled = true;
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body | null;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.setAcceleration(0, 0);
+      body.setAllowGravity(false);
+      body.moves = false;
+    }
+
+    // Bot-Worker freigeben: keine weiteren `decide`-Aufrufe (US-2).
+    this.controller?.dispose();
+    this.lastBotActions = [];
+
+    // Die Kamera soll nicht weiter einem stehenden Sprite folgen.
+    this.cameras.main.stopFollow();
+
+    if (this.racer.didNotFinish) {
+      this.markRacerAsOut();
+    }
+
+    this.notifyStatus();
+  }
+
+  /** Visuelle Kennzeichnung eines ausgeschiedenen Racers: abgedunkeltes
+   *  Sprite plus "AUS"-Label mittig im Kamera-Ausschnitt (US-2). */
+  private markRacerAsOut(): void {
+    this.player.setTint(0x555566);
+    this.player.setAlpha(0.55);
+    this.player.anims.stop();
+
+    const camera = this.cameras.main;
+    this.add
+      .text(camera.width / 2, camera.height / 2, "AUS", {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: "24px",
+        color: "#ff5a5a",
+        backgroundColor: "#00000099",
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
   }
 
   /**

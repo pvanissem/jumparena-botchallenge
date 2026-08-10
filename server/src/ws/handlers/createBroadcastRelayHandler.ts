@@ -1,4 +1,4 @@
-import type { InboundMessage } from "@arena/shared";
+import type { InboundMessage, OutboundMessage } from "@arena/shared";
 import type { BroadcastRouter } from "../BroadcastRouter";
 import type { MessageHandler } from "../MessageDispatcher";
 
@@ -8,7 +8,7 @@ import type { MessageHandler } from "../MessageDispatcher";
  * for both `ping-broadcast` and `audio-settings`, see
  * `.features/game-audio/design.md`, Abschnitt "Server-Wiring").
  */
-export function createBroadcastRelayHandler<T extends InboundMessage>(
+export function createBroadcastRelayHandler<T extends InboundMessage & OutboundMessage>(
   router: BroadcastRouter
 ): MessageHandler<T> {
   return (senderId, message) => router.route(senderId, message);

@@ -45,11 +45,17 @@ Score = (coinsCollected × POINTS_PER_COIN)
 
 ## Leben/Fehlversuche
 
-- Ein Bot hat z.B. **3 Leben** pro Heat-Lauf.
+- Ein Bot hat standardmäßig **3 Leben** pro Lauf.
+- Die Anzahl ist seit `.features/tournament-lives/` **pro Turnier in `/admin`
+  einstellbar** (ganzzahlig, **1–99**, Default 3). Der Wert ist Teil des
+  Turnierzustands (`TournamentState.livesPerRun`) und gilt für alle Matches des
+  Turniers; `/dev` läuft weiterhin bewusst mit unendlich vielen Leben.
 - Bei Kontakt mit einem Hazard (Gegner, Grube, Falle) verliert der Bot ein Leben und wird an
   einen definierten Checkpoint (letzter sicherer Punkt oder Level-Start) zurückgesetzt.
-- Nach Verbrauch aller Leben: Bot gilt als "ausgeschieden" für diesen Heat (`didNotFinish =
-  true`), Simulation läuft für die anderen Bots weiter.
+- Nach Verbrauch aller Leben: Bot gilt als "ausgeschieden" (`didNotFinish =
+  true`). Er wird **sofort gestoppt** (keine Bewegung, keine weiteren
+  Bot-Ticks) und in seiner Ansicht abgedunkelt mit "AUS" markiert; die
+  Simulation läuft für die anderen Bots weiter.
 
 ## Zielerreichung / Zeitlimit pro Heat
 

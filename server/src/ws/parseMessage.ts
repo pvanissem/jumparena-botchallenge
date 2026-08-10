@@ -1,4 +1,15 @@
-import { type InboundMessage, isAudioSettingsMessage, isPingBroadcastMessage } from "@arena/shared";
+import {
+  type InboundMessage,
+  isAudioSettingsMessage,
+  isBotAddMessage,
+  isBotRemoveMessage,
+  isMatchProgressMessage,
+  isMatchResultMessage,
+  isMatchStartMessage,
+  isPingBroadcastMessage,
+  isTournamentConfigureMessage,
+  isTournamentResetMessage,
+} from "@arena/shared";
 
 /**
  * Parses and validates a raw WebSocket payload into a typed InboundMessage.
@@ -19,6 +30,34 @@ export function parseInboundMessage(raw: string): InboundMessage | null {
   }
 
   if (isAudioSettingsMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isBotAddMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isBotRemoveMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isTournamentConfigureMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isMatchStartMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isTournamentResetMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isMatchResultMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isMatchProgressMessage(candidate)) {
     return candidate;
   }
 
