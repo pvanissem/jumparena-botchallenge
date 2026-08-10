@@ -83,13 +83,12 @@ export const LEVEL_TWO: LevelDef = {
 
   // --- Hazards (alle 5 Kinds, inkl. neuem Spikehead) --------------------
   hazards: [
-    // Schnetzler-Gauntlet: 3 Sägen mit eng aneinander anschließenden
+    // ninjafrog-Gauntlet: 3 Frogs mit eng aneinander anschließenden
     // Patrol-Bereichen, alle innerhalb P2 (464-688) - präzises Timen nötig,
-    // kein Durchlaufen ohne Reaktion. Sägen sind NICHT stompbar (siehe
-    // hazards/registry.ts), hier hilft nur Ausweichen/Überspringen.
+    // kein Durchlaufen ohne Reaktion.
     {
-      kind: "schnetzler",
-      id: "schnetzler-1",
+      kind: "ninjafrog",
+      id: "ninjafrog-1",
       x: 480,
       y: GROUND_Y - 16,
       minX: 480,
@@ -97,8 +96,8 @@ export const LEVEL_TWO: LevelDef = {
       speed: 70,
     },
     {
-      kind: "schnetzler",
-      id: "schnetzler-2",
+      kind: "ninjafrog",
+      id: "ninjafrog-2",
       x: 520,
       y: GROUND_Y - 16,
       minX: 520,
@@ -106,8 +105,8 @@ export const LEVEL_TWO: LevelDef = {
       speed: 80,
     },
     {
-      kind: "schnetzler",
-      id: "schnetzler-3",
+      kind: "ninjafrog",
+      id: "ninjafrog-3",
       x: 560,
       y: GROUND_Y - 16,
       minX: 560,

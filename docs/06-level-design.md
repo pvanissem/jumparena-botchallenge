@@ -57,17 +57,21 @@ Vergleiche im Leaderboard (schnellster Bot ≠ zwangsläufig Sieger).
   angelehnt, aber bewusst leichter (komfortablere Sprungdistanzen wie Level 1, keine
   Gegner-Gauntlets, entschärfte Hazard-Timings), zusätzlich mit dunklem, prozedural generiertem
   Höhlen-Hintergrund und per Tint eingefärbtem Terrain (siehe `world/backgroundRegistry.ts`,
-  `world/terrainStyleRegistry.ts`). Level 4 ("Underground") ist das erste Level mit einem
-  durchgehend geschlossenen Korridor (Boden UND Decke statt nur Boden), echten dunkelgrauen
-  Stein-Tiles aus dem Terrain-Tileset (statt eingefärbter Gras-Tiles) sowie einem prozeduralen
-  Hintergrund im Stil des klassischen Untergrund-Levels 1-2 aus Super Mario Bros. (schwarzer
-  Grund, grünliches Backstein-Raster); Schwierigkeit ist bewusst thematisch statt als
-  Steigerung gedacht (ähnlich komfortabel wie Level 1/3). Im Turniermodus kann der Betreiber
-  vor Aufstellen pro Runde («Stage») ein Level wählen; Runden ohne eigene Stage verwenden
-  automatisch das Level der letzten konfigurierten Stage. Siehe
-  `.features/tournament-stage-levels/` und `docs/09-bot-artefakt-und-turnier.md`.
-  - Wie wird das Level technisch erstellt (Tiled-Editor-Export als JSON, oder handgeschriebene
-  Tilemap-Daten für den MVP)?
+  `world/terrainStyleRegistry.ts`).
+
+  **Update Level 4 ("Underground", Redesign):** Das ursprünglich thematische Level wurde zu
+  einem eigenständigen Layout umgebaut (siehe `.features/level-four-redesign/`). Die Decke ist
+  jetzt ein echtes Spielelement mit drei unterschiedlichen Korridorhöhen: zwei Kriechgänge
+  (niedrige Decke, Springen physisch wirkungslos), reguläre Passagen mit genug Kopffreiheit
+  für Sprint-Sprünge, und ein hoher Boingo-Schacht mit einer schwer erreichbaren Alkove.
+  Das Farbschema ist nun SMB-1-2-treu: schwarzer Hintergrund ohne Muster und blau getönte
+  Stein-Tiles. Die Schwierigkeit liegt klar über Level 3 (mehr Hazards, variable Lückenbreiten)
+  und deutlich unter Level 2 (keine Kaizo-Lücken, kein Kugelblitz).
+
+  **Update Stage-Level:** Im Turniermodus kann der Betreiber vor Aufstellen pro Runde
+  («Stage») ein Level wählen; Runden ohne eigene Stage verwenden automatisch das Level der
+  letzten konfigurierten Stage. Siehe `.features/tournament-stage-levels/` und
+  `docs/09-bot-artefakt-und-turnier.md`.
 - Wie wird das Level technisch erstellt (Tiled-Editor-Export als JSON, oder handgeschriebene
   Tilemap-Daten für den MVP)?
 - Reicht ein einziges Level für die ganze Konferenz, oder braucht es eine "Schwierigkeitskurve"

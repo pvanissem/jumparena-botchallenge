@@ -30,7 +30,13 @@ export interface TerrainStyleSpec {
 export const TERRAIN_STYLE_REGISTRY: Record<string, TerrainStyleSpec> = {
   default: {}, // keine Einfärbung - bestehendes helles Terrain
   night: { tint: 0x4a4a63 }, // dunkles Blaugrau, höhlenartig
-  underground: { frames: STONE_TERRAIN_TILES }, // echte graue Stein-Tiles (siehe design.md)
+  underground: {
+    frames: STONE_TERRAIN_TILES,
+    /** SMB-1-2-Underground-Cyanblau. Phasers `setTint` wirkt multiplikativ;
+     *  die grauen STONE_TERRAIN_TILES sind farbneutral und nehmen den
+     *  Blau-Tint deshalb sauber an, ohne in Dunkelheit zu laufen. */
+    tint: 0x4a8cff,
+  },
 };
 
 export const DEFAULT_TERRAIN_STYLE_KEY = "default";
