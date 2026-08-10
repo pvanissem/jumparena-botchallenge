@@ -24,7 +24,6 @@ describe("LEVEL_FOUR structure", () => {
       expect([
         "schnetzler",
         "ninjafrog",
-        "stachlinger",
         "loderix",
         "kugelblitz",
         "spikehead",
@@ -173,7 +172,6 @@ describe("LEVEL_FOUR - hazards", () => {
     const allowed = new Set([
       "schnetzler",
       "ninjafrog",
-      "stachlinger",
       "loderix",
       "spikehead",
       "kugelblitz",

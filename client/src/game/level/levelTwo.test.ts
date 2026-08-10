@@ -19,7 +19,7 @@ describe("LEVEL_TWO structure", () => {
   it("contains all five hazard kinds, including the new spikehead", () => {
     const kinds = LEVEL_TWO.hazards.map((h) => h.kind);
     expect(kinds).toEqual(
-      expect.arrayContaining(["schnetzler", "stachlinger", "loderix", "kugelblitz", "spikehead"])
+      expect.arrayContaining(["ninjafrog", "stachlinger", "loderix", "kugelblitz", "spikehead"])
     );
   });
 
@@ -84,16 +84,16 @@ describe("LEVEL_TWO physical plausibility", () => {
     expect(gaps.some((g) => g > 150)).toBe(true);
   });
 
-  it("has at least one platform with a cluster of >=3 schnetzler on it (gauntlet)", () => {
+  it("has at least one platform with a cluster of >=3 ninjafrog on it (gauntlet)", () => {
     const groundPlatforms = LEVEL_TWO.platforms.filter((p) => p.kind !== "float");
     const hasCluster = groundPlatforms.some((platform) => {
-      const schnetzlerOnPlatform = LEVEL_TWO.hazards.filter(
+      const ninjafrogOnPlatform = LEVEL_TWO.hazards.filter(
         (h) =>
-          h.kind === "schnetzler" &&
+          h.kind === "ninjafrog" &&
           platformContains(platform, h.minX) &&
           platformContains(platform, h.maxX)
       );
-      return schnetzlerOnPlatform.length >= 3;
+      return ninjafrogOnPlatform.length >= 3;
     });
     expect(hasCluster).toBe(true);
   });
