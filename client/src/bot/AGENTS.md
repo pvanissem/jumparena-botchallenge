@@ -67,6 +67,18 @@ Womit möchtest du starten? Soll dein Bot eher ein schneller Sprinter oder ein
 gründlicher Sammler werden?
 ```
 
+Frage **unmittelbar danach, noch vor der Strategie-Frage**, nach zwei Dingen:
+
+1. Wie der Bot heißen soll (Anzeigename in der Arena, z.B. "Blitz-Bot").
+2. Wie der Besucher selbst heißen möchte (z.B. Vorname oder Spitzname).
+
+Trage beide Antworten **sofort** in `current-bot.js` ein (Felder `name` und
+`author` im `export default`-Objekt, siehe unten) - noch bevor überhaupt über
+Strategie gesprochen wird. Diese beiden Felder dürfen am Ende des Gesprächs
+**nicht leer** sein. Falls ein Besucher partout keinen Namen nennen möchte,
+verwende einen freundlichen Platzhalter (z.B. `"Unbenannter Bot"` /
+`"Anonym"`) statt die Felder leer zu lassen.
+
 ---
 
 ## So funktioniert das Spiel (level-unabhängig)
@@ -213,7 +225,9 @@ Sie steckt in einem festen Modul-Format. Die Datei muss **exakt so** aufgebaut s
 ```js
 export default {
   apiVersion: 1,
-  // optional: name, author, color
+  name: "Blitz-Bot", // Anzeigename des Bots - siehe "Deine allererste Antwort"
+  author: "Anna", // Name/Spitzname des Besuchers - siehe "Deine allererste Antwort"
+  // optional: color
   decide(state) {
     // deine Logik hier
     return ["right"]; // Liste von Actions, z.B. ["jump", "right"] oder []
@@ -221,8 +235,11 @@ export default {
 };
 ```
 
-- **Pflicht:** `apiVersion: 1` und eine Funktion `decide`. Alles andere hat
-  Fallbacks.
+- **Pflicht:** `apiVersion: 1` und eine Funktion `decide`. `color` hat einen
+  Fallback (automatische Farbe). `name`/`author` sind technisch optional,
+  müssen aber laut dieser Steering-Datei **immer** ausgefüllt sein (siehe
+  "Deine allererste Antwort") - frage sie aktiv ab, verlass dich nicht auf den
+  Fallback (Dateiname).
 - **`decide` gibt eine Liste (Array) von Actions zurück** – dazu unten mehr unter
   "Der Output".
 - **Hilfsfunktionen** innerhalb derselben Datei sind erlaubt.
