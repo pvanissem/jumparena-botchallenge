@@ -28,7 +28,14 @@ async function handleInit(code: string): Promise<void> {
       self.postMessage({ type: "module-invalid", reason: validation.reason });
       return;
     }
-    decide = (validation.module as BotModule).decide;
+    const botModule = validation.module as BotModule;
+    decide = botModule.decide;
+    self.postMessage({
+      type: "module-ready",
+      name: botModule.name,
+      author: botModule.author,
+      color: botModule.color,
+    });
   } catch (err) {
     decide = null;
     self.postMessage({ type: "module-invalid", reason: String(err) });

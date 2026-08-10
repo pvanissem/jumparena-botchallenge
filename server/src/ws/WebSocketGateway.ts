@@ -18,7 +18,8 @@ export class WebSocketGateway {
 
   constructor(
     private readonly registry: ClientRegistry,
-    private readonly dispatcher: MessageDispatcher
+    private readonly dispatcher: MessageDispatcher,
+    private readonly onClientConnected?: (client: ConnectedClient) => void
   ) {
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (socket) => this.handleConnection(socket));
@@ -39,6 +40,7 @@ export class WebSocketGateway {
     };
 
     this.registry.add(client);
+    this.onClientConnected?.(client);
 
     socket.on("message", (raw) => {
       const message = parseInboundMessage(raw.toString());

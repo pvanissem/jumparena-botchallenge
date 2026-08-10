@@ -9,6 +9,30 @@ function createFakeClient(id: string): ConnectedClient {
 }
 
 describe("BroadcastRouter", () => {
+  it("routeToAll delivers the message to every connected client including the sender", () => {
+    const a = createFakeClient("a");
+    const b = createFakeClient("b");
+    const c = createFakeClient("c");
+
+    const clients: ClientSource = {
+      getOthers: (senderId) => [a, b, c].filter((client) => client.id !== senderId),
+      getAll: () => [a, b, c],
+    };
+
+    const router = new BroadcastRouter(clients);
+    const message: PingBroadcastMessage = {
+      type: "ping-broadcast",
+      sentAt: "2024-01-01T00:00:00.000Z",
+      text: "Ping",
+    };
+
+    router.routeToAll(message);
+
+    expect(a.send).toHaveBeenCalledWith(message);
+    expect(b.send).toHaveBeenCalledWith(message);
+    expect(c.send).toHaveBeenCalledWith(message);
+  });
+
   it("delivers the message to all other clients but not to the sender", () => {
     const a = createFakeClient("a");
     const b = createFakeClient("b");
@@ -16,6 +40,7 @@ describe("BroadcastRouter", () => {
 
     const clients: ClientSource = {
       getOthers: (senderId) => [a, b, c].filter((client) => client.id !== senderId),
+      getAll: () => [a, b, c],
     };
 
     const router = new BroadcastRouter(clients);

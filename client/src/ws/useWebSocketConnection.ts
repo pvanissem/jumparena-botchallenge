@@ -26,11 +26,15 @@ export function useWebSocketConnection(): UseWebSocketConnectionResult {
   useEffect(() => {
     const client = new WebSocketClient(resolveSocketUrl());
     clientRef.current = client;
-    client.onStatusChange(setStatus);
-    client.onMessage(setLastMessage);
+    const unsubscribeStatus = client.onStatusChange(setStatus);
+    const unsubscribeMessage = client.onMessage(setLastMessage);
     client.connect();
 
-    return () => client.disconnect();
+    return () => {
+      unsubscribeStatus();
+      unsubscribeMessage();
+      client.disconnect();
+    };
   }, []);
 
   return {

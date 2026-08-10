@@ -38,6 +38,8 @@ export class WebSocketClient {
   private socket: WebSocketLike | null = null;
   private statusListeners: Array<(status: ConnectionStatus) => void> = [];
   private messageListeners: Array<(message: OutboundMessage) => void> = [];
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private explicitlyDisconnected = false;
 
   constructor(
     private readonly url: string,
@@ -47,15 +49,22 @@ export class WebSocketClient {
     this.retryIntervalMs = options.retryIntervalMs ?? DEFAULT_RETRY_INTERVAL_MS;
   }
 
-  onStatusChange(callback: (status: ConnectionStatus) => void): void {
+  onStatusChange(callback: (status: ConnectionStatus) => void): () => void {
     this.statusListeners.push(callback);
+    return () => {
+      this.statusListeners = this.statusListeners.filter((listener) => listener !== callback);
+    };
   }
 
-  onMessage(callback: (message: OutboundMessage) => void): void {
+  onMessage(callback: (message: OutboundMessage) => void): () => void {
     this.messageListeners.push(callback);
+    return () => {
+      this.messageListeners = this.messageListeners.filter((listener) => listener !== callback);
+    };
   }
 
   connect(): void {
+    this.explicitlyDisconnected = false;
     this.emitStatus("connecting");
     const socket = this.createSocket(this.url);
     this.socket = socket;
@@ -71,7 +80,8 @@ export class WebSocketClient {
 
     socket.onclose = () => {
       this.emitStatus("disconnected");
-      setTimeout(() => this.connect(), this.retryIntervalMs);
+      if (this.explicitlyDisconnected) return;
+      this.reconnectTimeout = setTimeout(() => this.connect(), this.retryIntervalMs);
     };
 
     socket.onerror = () => {
@@ -80,7 +90,13 @@ export class WebSocketClient {
   }
 
   disconnect(): void {
+    this.explicitlyDisconnected = true;
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     this.socket?.close();
+    this.socket = null;
   }
 
   send(message: InboundMessage): void {

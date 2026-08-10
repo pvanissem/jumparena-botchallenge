@@ -90,6 +90,24 @@ const SAMPLE_STATE: BotState = {
   timeElapsedMs: 0,
 };
 
+describe("BotRunner module-ready handling", () => {
+  it("ignores module-ready without affecting status, pausedReasonKind or pending ticks", () => {
+    const worker = new FakeWorker();
+    const runner = new BotRunner(worker);
+    runner.init(VALID_CODE);
+
+    worker.emit({ type: "module-ready", name: "Racer", author: "Max", color: "#ff0000" });
+
+    expect(runner.status).toBe("running");
+    expect(runner.pausedReasonKind).toBeNull();
+
+    const promise = runner.tick(SAMPLE_STATE);
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
+
+    return expect(promise).resolves.toEqual(["left"]);
+  });
+});
+
 describe("BotRunner module-invalid handling", () => {
   it("pauses with pausedReasonKind 'invalid-module' when the worker reports an invalid module", () => {
     const worker = new FakeWorker();

@@ -137,6 +137,12 @@ export class BotRunner {
       return;
     }
 
+    if (message.type === "module-ready") {
+      // Metadaten-Mitteilung nach erfolgreicher Validierung - der Runner
+      // interessiert sich nicht für name/author/color, sondern nur für Ticks.
+      return;
+    }
+
     if (!this.pendingTick || message.tick !== this.pendingTick.tick) {
       // Verspätete oder nicht mehr erwartete Antwort – verwerfen (siehe Design,
       // Fehlerbehandlung "verspätete Antwort").

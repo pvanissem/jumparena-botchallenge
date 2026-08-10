@@ -611,6 +611,11 @@ export function pathHits(path, dx, dy, radius) {
 
 export default {
   apiVersion: 1,
+  // Name des Bots und Name des Besuchers - werden ganz am Anfang des
+  // Gesprächs erfragt und hier eingetragen (siehe AGENTS.md, Abschnitt
+  // "Deine allererste Antwort"). Bitte NICHT leer lassen.
+  name: "",
+  author: "",
   decide(state) {
     return [];
   },

@@ -19,4 +19,8 @@ export class ClientRegistry implements ClientSource {
   getOthers(senderId: string): ConnectedClient[] {
     return [...this.clients.values()].filter((client) => client.id !== senderId);
   }
+
+  getAll(): ConnectedClient[] {
+    return [...this.clients.values()];
+  }
 }

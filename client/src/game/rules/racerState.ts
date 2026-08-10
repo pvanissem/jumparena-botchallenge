@@ -2,10 +2,14 @@
  * Racer-Laufzeitzustand – siehe `.features/level-one-arena/design.md`,
  * Abschnitt "rules/racerState.ts". Rein, kein Phaser-Import.
  */
+import { DEFAULT_LIVES_PER_RUN } from "@arena/shared";
 import type { LevelDef } from "../level/types";
 
-/** Leben pro Lauf (docs/05-Vorschlagswert). */
-export const LIVES_PER_RUN = 3;
+/** Leben pro Lauf (Default). Der Wert lebt in `@arena/shared`, weil ihn auch
+ *  Server-Validierung und `/admin`-UI brauchen – siehe
+ *  `.features/tournament-lives/design.md`. Im Turnier kann er pro Turnier
+ *  überschrieben werden (`TournamentState.livesPerRun`). */
+export const LIVES_PER_RUN = DEFAULT_LIVES_PER_RUN;
 /** Zeitlimit pro Lauf, ab dem ein noch nicht fertiger Racer als DNF gilt (docs/05, "Zeitlimit pro Heat"). */
 export const RUN_TIME_LIMIT_MS = 90_000;
 
@@ -56,4 +60,14 @@ export function createInitialRacerState(
     resolvedBlockIds: new Set<string>(),
     hazardTriggeredAtMs: new Map<string, number>(),
   };
+}
+
+/**
+ * Endzustand erreicht: Ziel erreicht ODER ausgeschieden (keine Leben mehr bzw.
+ * Zeitlimit). Als pure Funktion herausgezogen, damit die Stopp-Bedingung der
+ * Szene testbar ist, ohne Phaser zu starten (siehe
+ * `.features/tournament-lives/`, US-2).
+ */
+export function isRacerTerminal(state: RacerRuntimeState): boolean {
+  return state.finished || state.didNotFinish;
 }

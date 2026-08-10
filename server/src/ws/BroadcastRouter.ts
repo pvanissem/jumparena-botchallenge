@@ -14,4 +14,10 @@ export class BroadcastRouter {
       client.send(message);
     }
   }
+
+  routeToAll(message: OutboundMessage): void {
+    for (const client of this.clients.getAll()) {
+      client.send(message);
+    }
+  }
 }
