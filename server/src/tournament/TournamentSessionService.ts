@@ -8,6 +8,7 @@ import type {
   TournamentStateMessage,
 } from "@arena/shared";
 import type { ConnectedClient } from "../ws/ConnectedClient";
+import { selectNextPendingMatch } from "./selectNextPendingMatch";
 import {
   addShowHold,
   canAdvance,
@@ -16,7 +17,6 @@ import {
   removeShowHold,
 } from "./showPhaseMachine";
 import { SHOW_PHASE_DURATIONS_MS } from "./showTiming";
-import { selectNextPendingMatch } from "./selectNextPendingMatch";
 import type { TournamentService } from "./TournamentService";
 
 export interface Clock {
@@ -83,24 +83,27 @@ export class TournamentSessionService {
   }
 
   acceptProgress(_senderId: string, message: MatchProgressMessage): boolean {
-    return (
-      this.show?.phase === "match-running" && this.show.activeMatchId === message.matchId
-    );
+    return this.hasCurrentAttempt(_senderId, message.matchId, message.matchAttemptId);
   }
 
-  acceptResult(_senderId: string, message: MatchResultMessage): boolean {
-    if (this.show?.phase !== "match-running" || this.show.activeMatchId !== message.matchId) {
+  acceptResult(senderId: string, message: MatchResultMessage): boolean {
+    const show = this.show;
+    if (!show || !this.hasCurrentAttempt(senderId, message.matchId, message.matchAttemptId)) {
       return false;
     }
     if (!this.dependencies.tournament.submitResult(message.matchId, message.result)) return false;
 
     this.cancelSchedule();
-    this.show = enterTimedPhase(
-      this.show,
-      "match-result",
-      this.dependencies.clock.now(),
-      SHOW_PHASE_DURATIONS_MS.matchResult
-    );
+    this.show = {
+      ...enterTimedPhase(
+        show,
+        "match-result",
+        this.dependencies.clock.now(),
+        SHOW_PHASE_DURATIONS_MS.matchResult
+      ),
+      matchAttemptId: null,
+      executorClientId: null,
+    };
     this.scheduleCurrentPhase();
     this.publish();
     return true;
@@ -108,9 +111,36 @@ export class TournamentSessionService {
 
   onPresentAvailabilityChanged(): void {
     if (!this.show) return;
-    const presentReady = this.hasReadyPresentClient();
-    if (this.show.presentReady === presentReady) return;
-    this.show = { ...this.show, presentReady };
+    const readyClients = this.dependencies.readyPresentClients.getReadyPresentClients();
+    const presentReady = readyClients.length > 0;
+    let next = this.show;
+
+    if (this.show.phase === "match-running") {
+      const executorStillReady = readyClients.some(
+        (client) => client.id === this.show?.executorClientId
+      );
+      if (!executorStillReady) {
+        const executor = readyClients[0] ?? null;
+        next = {
+          ...next,
+          executorClientId: executor?.id ?? null,
+          matchAttemptId: executor ? this.dependencies.createAttemptId() : null,
+        };
+      }
+    } else if (canAdvance(this.show)) {
+      if (presentReady) {
+        next = removeShowHold(next, "present-unavailable", this.dependencies.clock.now());
+      } else {
+        next = addShowHold(next, "present-unavailable", this.dependencies.clock.now());
+      }
+    }
+
+    if (next.presentReady !== presentReady) next = { ...next, presentReady };
+    if (next === this.show) return;
+
+    if (next.holds.length > 0) this.cancelSchedule();
+    this.show = next;
+    this.scheduleCurrentPhase();
     this.publish();
   }
 
@@ -186,13 +216,29 @@ export class TournamentSessionService {
         SHOW_PHASE_DURATIONS_MS.countdown
       );
     } else if (this.show.phase === "countdown") {
+      const executor = this.dependencies.readyPresentClients.getReadyPresentClients()[0];
+      if (!executor) {
+        this.show = {
+          ...addShowHold(this.show, "present-unavailable", this.dependencies.clock.now()),
+          executorClientId: null,
+          matchAttemptId: null,
+          presentReady: false,
+        };
+        this.publish();
+        return false;
+      }
       if (
         !this.show.activeMatchId ||
         !this.dependencies.tournament.startMatch(this.show.activeMatchId)
       ) {
         return false;
       }
-      this.show = enterUntimedPhase(this.show, "match-running");
+      this.show = {
+        ...enterUntimedPhase(this.show, "match-running"),
+        executorClientId: executor.id,
+        matchAttemptId: this.dependencies.createAttemptId(),
+        presentReady: true,
+      };
     } else if (this.show.phase === "match-result") {
       this.show = enterTimedPhase(
         this.show,
@@ -270,6 +316,20 @@ export class TournamentSessionService {
 
   private hasReadyPresentClient(): boolean {
     return this.dependencies.readyPresentClients.getReadyPresentClients().length > 0;
+  }
+
+  private hasCurrentAttempt(
+    senderId: string,
+    matchId: string,
+    matchAttemptId: string | undefined
+  ): boolean {
+    return (
+      this.show?.phase === "match-running" &&
+      this.show.activeMatchId === matchId &&
+      this.show.executorClientId === senderId &&
+      this.show.matchAttemptId !== null &&
+      this.show.matchAttemptId === matchAttemptId
+    );
   }
 
   private publish(): void {
