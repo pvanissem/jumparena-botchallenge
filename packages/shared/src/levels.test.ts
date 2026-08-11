@@ -9,6 +9,7 @@ describe("LEVEL_IDS", () => {
       "level-three",
       "level-four",
       "level-five",
+      "level-six",
       "toolkit-test",
     ]);
   });

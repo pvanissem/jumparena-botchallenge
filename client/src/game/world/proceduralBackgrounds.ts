@@ -385,3 +385,127 @@ export function buildUndergroundStyleBackgroundTexture(
 
   return textureKey;
 }
+
+// --- Level 6: Eis-/Schnee-Hintergrund "Frost" ------------------------------
+
+const ICE_TEXTURE_KEY_PREFIX = "bg-ice";
+const ICE_SKY_TOP = 0x6fb7e0;
+const ICE_SKY_BOTTOM = 0xeffbff;
+const PALE_SUN_COLOR = 0xf3fbff;
+const MOUNTAIN_FAR_COLOR = 0xdceffa;
+const MOUNTAIN_MID_COLOR = 0xc7e3f2;
+const MOUNTAIN_NEAR_COLOR = 0xb2d6ed;
+const SNOW_DOT_COLOR = 0xffffff;
+
+/**
+ * Liefert den Textur-Key eines prozeduralen Eis-/Schnee-Hintergrunds für die
+ * angegebene Welt-Höhe (Level 6 "Frost"), erzeugt ihn bei Bedarf einmalig
+ * (idempotent pro Höhe). Analog zu `buildDesertStyleBackgroundTexture`:
+ * Textur-Höhe = `worldHeight`, damit Phasers `tileSprite` die Textur nicht
+ * auch vertikal kachelt (siehe Bugfix-Dokument zu treetops-and-clouds).
+ *
+ * Siehe `.features/level-six-frost/design.md`, Abschnitt "Theming".
+ */
+export function buildIceStyleBackgroundTexture(scene: Phaser.Scene, worldHeight: number): string {
+  const textureKey = `${ICE_TEXTURE_KEY_PREFIX}-${worldHeight}`;
+  if (scene.textures.exists(textureKey)) {
+    return textureKey;
+  }
+
+  const g = scene.add.graphics();
+
+  drawIceSkyGradient(g, worldHeight);
+  drawPaleSun(g, worldHeight);
+  drawMountains(g, worldHeight);
+  drawSnowflakes(g, worldHeight);
+
+  g.generateTexture(textureKey, TILE_W, worldHeight);
+  g.destroy();
+
+  return textureKey;
+}
+
+function drawIceSkyGradient(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const bandHeight = Math.ceil(worldHeight / 6);
+  for (let i = 0; i < 6; i++) {
+    const t = i / 5;
+    const hex = interpolateColor(ICE_SKY_TOP, ICE_SKY_BOTTOM, t);
+    g.fillStyle(hex, 1);
+    g.fillRect(0, i * bandHeight, TILE_W, bandHeight);
+  }
+}
+
+/** Blasse "Wintersonne" – deutlich blasser/haziger als die Desert-Sonne. */
+function drawPaleSun(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const centerX = 400;
+  const centerY = worldHeight * 0.2;
+  const radius = 30;
+  const haloRadius = 46;
+
+  g.fillStyle(PALE_SUN_COLOR, 0.2);
+  g.fillCircle(centerX, centerY, haloRadius);
+
+  g.fillStyle(PALE_SUN_COLOR, 1);
+  g.fillCircle(centerX, centerY, radius);
+}
+
+/**
+ * Drei gestaffelte, verschneite Berg-Silhouetten am unteren Rand
+ * (Dreieckszüge, an `baseY = worldHeight` verankert). Hinterste Ebene am
+ * hellsten (Lufttrübung), gleiche Konvention wie die Desert-Dünen.
+ */
+function drawMountains(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const baseY = worldHeight;
+
+  g.fillStyle(MOUNTAIN_FAR_COLOR, 1);
+  drawMountainRange(g, baseY, [
+    { peakX: 60, halfWidth: 110, height: 150 },
+    { peakX: 260, halfWidth: 130, height: 170 },
+    { peakX: 440, halfWidth: 100, height: 130 },
+  ]);
+
+  g.fillStyle(MOUNTAIN_MID_COLOR, 1);
+  drawMountainRange(g, baseY, [
+    { peakX: 140, halfWidth: 120, height: 120 },
+    { peakX: 340, halfWidth: 140, height: 140 },
+  ]);
+
+  g.fillStyle(MOUNTAIN_NEAR_COLOR, 1);
+  drawMountainRange(g, baseY, [
+    { peakX: 220, halfWidth: 150, height: 90 },
+    { peakX: 480, halfWidth: 110, height: 80 },
+  ]);
+}
+
+function drawMountainRange(
+  g: Phaser.GameObjects.Graphics,
+  baseY: number,
+  peaks: ReadonlyArray<{ peakX: number; halfWidth: number; height: number }>
+): void {
+  for (const peak of peaks) {
+    g.fillTriangle(
+      peak.peakX - peak.halfWidth,
+      baseY,
+      peak.peakX + peak.halfWidth,
+      baseY,
+      peak.peakX,
+      baseY - peak.height
+    );
+  }
+}
+
+/** Handvoll statischer Schneeflocken-Punkte als dezente Akzente. */
+function drawSnowflakes(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const spots = [
+    { x: 40, y: worldHeight * 0.15 },
+    { x: 150, y: worldHeight * 0.35 },
+    { x: 250, y: worldHeight * 0.12 },
+    { x: 330, y: worldHeight * 0.3 },
+    { x: 410, y: worldHeight * 0.45 },
+    { x: 470, y: worldHeight * 0.2 },
+  ];
+  g.fillStyle(SNOW_DOT_COLOR, 0.8);
+  for (const spot of spots) {
+    g.fillCircle(spot.x, spot.y, 3);
+  }
+}
