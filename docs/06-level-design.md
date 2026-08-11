@@ -74,6 +74,14 @@ Vergleiche im Leaderboard (schnellster Bot ≠ zwangsläufig Sieger).
   eine echte Routenwahl zwischen sicherer Bodenroute und ertragreicher, riskanter Hochroute.
   Siehe `.features/level-five-desert/`.
 
+  **Update Level 6 ("Frost"):** Ein neues, mittelschweres Level mit Eis-/Schnee-Theming
+  (prozeduraler Kaltverlauf, blasse Wintersonne, verschneite Berge, Eisblau-Terrain).
+  Strukturelle Neuheit: die "Frost-Gauntlet"-Zone, in der zwei Loderix-Hazards exakt
+  gegenphasig getaktet sind (zu jedem Zeitpunkt ist genau eine der beiden aktiv) und ein
+  direkt anschließender Spikehead ein zusammenhängendes Timing-Puzzle bildet – Bots müssen
+  beide Zeitfenster vorausschauend planen statt nur auf den nächsten Hazard zu reagieren.
+  Siehe `.features/level-six-frost/`.
+
   **Update Stage-Level:** Im Turniermodus kann der Betreiber vor Aufstellen pro Runde
   («Stage») ein Level wählen; Runden ohne eigene Stage verwenden automatisch das Level der
   letzten konfigurierten Stage. Siehe `.features/tournament-stage-levels/` und

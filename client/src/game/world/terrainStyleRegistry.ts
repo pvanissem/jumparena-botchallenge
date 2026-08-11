@@ -41,6 +41,14 @@ export const TERRAIN_STYLE_REGISTRY: Record<string, TerrainStyleSpec> = {
    *  das durch den multiplikativen Phaser-Tint ins Gelbliche verschoben
    *  wird (siehe `.features/level-five-desert/design.md`). */
   desert: { tint: 0xe8c27a },
+  /** Helles Eis-/Schnee-Weiß. Ein reiner Tint auf dem Gras/Erd-Set könnte das
+   *  satte Grün nicht wegdrücken (multiplikatives `setTint` kann nur
+   *  abdunkeln, nie neutralisieren) - deshalb wie `underground` das
+   *  neutral-graue `STONE_TERRAIN_TILES`-Set, das einen blassen Tint sauber
+   *  annimmt und wie schneebedeckter Stein statt eingefärbtem Gras wirkt
+   *  (siehe `.features/level-six-frost/design.md`, Korrektur nach
+   *  Nutzer-Feedback). */
+  ice: { frames: STONE_TERRAIN_TILES, tint: 0xeaf6ff },
 };
 
 export const DEFAULT_TERRAIN_STYLE_KEY = "default";
