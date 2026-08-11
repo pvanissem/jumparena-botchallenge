@@ -74,8 +74,8 @@ import type {
   MatchParticipant,
   MatchResult,
   MatchResultEntry,
-  TournamentShowState,
   TournamentMode,
+  TournamentShowState,
   TournamentState,
 } from "./tournament";
 
@@ -122,12 +122,6 @@ export interface TournamentConfigureMessage {
   groupSize?: number;
 }
 
-/** /admin -> Server: Ein konkretes Match starten. */
-export interface MatchStartMessage {
-  type: "match-start";
-  matchId: string;
-}
-
 /** /admin -> Server: Turnier abbrechen/zurücksetzen. */
 export interface TournamentResetMessage {
   type: "tournament-reset";
@@ -162,8 +156,8 @@ export interface MatchProgressMessage {
 export interface TournamentStateMessage {
   type: "tournament-state";
   state: TournamentState | null;
-  show?: TournamentShowState | null;
-  serverNowMs?: number;
+  show: TournamentShowState | null;
+  serverNowMs: number;
 }
 
 /**
@@ -178,7 +172,6 @@ export type InboundMessage =
   | PresentReadyMessage
   | TournamentConfigureMessage
   | TournamentShowControlMessage
-  | MatchStartMessage
   | TournamentResetMessage
   | MatchResultMessage
   | MatchProgressMessage;
@@ -368,10 +361,6 @@ export function isTournamentConfigureMessage(value: unknown): value is Tournamen
   );
 }
 
-export function isMatchStartMessage(value: unknown): value is MatchStartMessage {
-  return isRecord(value) && value.type === "match-start" && typeof value.matchId === "string";
-}
-
 export function isTournamentResetMessage(value: unknown): value is TournamentResetMessage {
   return isRecord(value) && value.type === "tournament-reset";
 }
@@ -451,8 +440,8 @@ export function isTournamentStateMessage(value: unknown): value is TournamentSta
     isRecord(value) &&
     value.type === "tournament-state" &&
     (value.state === null || isTournamentState(value.state)) &&
-    (value.show === undefined || value.show === null || isTournamentShowState(value.show)) &&
-    (value.serverNowMs === undefined ||
-      (typeof value.serverNowMs === "number" && Number.isFinite(value.serverNowMs)))
+    (value.show === null || isTournamentShowState(value.show)) &&
+    typeof value.serverNowMs === "number" &&
+    Number.isFinite(value.serverNowMs)
   );
 }

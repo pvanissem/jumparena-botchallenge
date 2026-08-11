@@ -1,15 +1,11 @@
 import type { MatchResultMessage } from "@arena/shared";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
-import type { TournamentService } from "../TournamentService";
+import type { TournamentSessionService } from "../TournamentSessionService";
 
 export function createMatchResultHandler(
-  service: TournamentService,
-  broadcastState: () => void
+  session: TournamentSessionService
 ): MessageHandler<MatchResultMessage> {
-  return (_senderId, message) => {
-    const accepted = service.submitResult(message.matchId, message.result);
-    if (accepted) {
-      broadcastState();
-    }
+  return (senderId, message) => {
+    session.acceptResult(senderId, message);
   };
 }

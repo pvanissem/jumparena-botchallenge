@@ -10,7 +10,6 @@ import {
   isClientRegisterMessage,
   isMatchProgressMessage,
   isMatchResultMessage,
-  isMatchStartMessage,
   isPresentReadyMessage,
   isTournamentConfigureMessage,
   isTournamentResetMessage,
@@ -173,16 +172,6 @@ describe("isTournamentConfigureMessage", () => {
 
   it("rejects missing fields", () => {
     expect(isTournamentConfigureMessage({ type: "tournament-configure" })).toBe(false);
-  });
-});
-
-describe("isMatchStartMessage", () => {
-  it("accepts a valid message", () => {
-    expect(isMatchStartMessage({ type: "match-start", matchId: "m1" })).toBe(true);
-  });
-
-  it("rejects missing matchId", () => {
-    expect(isMatchStartMessage({ type: "match-start" })).toBe(false);
   });
 });
 
@@ -356,14 +345,32 @@ describe("isTournamentShowControlMessage", () => {
 
 describe("isTournamentStateMessage", () => {
   it("accepts a valid state", () => {
-    expect(isTournamentStateMessage({ type: "tournament-state", state: validState() })).toBe(true);
+    expect(
+      isTournamentStateMessage({
+        type: "tournament-state",
+        state: validState(),
+        show: null,
+        serverNowMs: 1_000,
+      })
+    ).toBe(true);
   });
 
   it("accepts null state", () => {
-    expect(isTournamentStateMessage({ type: "tournament-state", state: null })).toBe(true);
+    expect(
+      isTournamentStateMessage({
+        type: "tournament-state",
+        state: null,
+        show: null,
+        serverNowMs: 1_000,
+      })
+    ).toBe(true);
   });
 
-  it("accepts a valid optional show snapshot during the expand migration", () => {
+  it("rejects a snapshot without show or server time", () => {
+    expect(isTournamentStateMessage({ type: "tournament-state", state: null })).toBe(false);
+  });
+
+  it("accepts a valid show snapshot", () => {
     expect(
       isTournamentStateMessage({
         type: "tournament-state",

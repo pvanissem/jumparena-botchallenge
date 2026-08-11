@@ -140,10 +140,18 @@ describe("parseInboundMessage", () => {
     expect(parseInboundMessage(raw)).toBeNull();
   });
 
-  it("parses a valid match-start payload", () => {
+  it("rejects the removed manual match-start payload", () => {
     const raw = JSON.stringify({ type: "match-start", matchId: "m1" });
 
-    expect(parseInboundMessage(raw)).toEqual({ type: "match-start", matchId: "m1" });
+    expect(parseInboundMessage(raw)).toBeNull();
+  });
+
+  it.each([
+    { type: "client-register", role: "present" },
+    { type: "present-ready", ready: true },
+    { type: "tournament-show-control", action: "advance" },
+  ])("parses the show command $type", (message) => {
+    expect(parseInboundMessage(JSON.stringify(message))).toEqual(message);
   });
 
   it("parses a valid tournament-reset payload", () => {
