@@ -666,7 +666,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Produces: `selectVisibleRoundRange`, `countRemainingBots`,
   `countCompletedMatches`, `selectActiveMatch`
 
-- [ ] **Step 1: Failing Graph-/Selector-Tests schreiben**
+- [x] **Step 1: Failing Graph-/Selector-Tests schreiben**
 
   Für Gruppengröße 4 und fünf Erstrunden-Matches müssen Slotzahlen
   `[5, 2, 1]` entstehen. Nach Sieg in erstem Match muss die Kante zum noch
@@ -679,26 +679,26 @@ Session-Service“ und „Gültige Übergänge“.
     .toMatchObject({ targetNodeId: "round-1-slot-0", highlighted: true });
   ```
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/tournament/bracketGraph.test.ts client/src/tournament/showSelectors.test.ts`
 
   Expected: FAIL, Module fehlen.
 
-- [ ] **Step 3: Pure Graph-/Selektorlogik implementieren**
+- [x] **Step 3: Pure Graph-/Selektorlogik implementieren**
 
   Slot-ID immer `round-<r>-slot-<i>`, unabhängig davon, ob ein reales Match
   existiert. Keine React-/DOM-/Phaser-Imports. Present-Rundenausschnitt enthält
   höchstens drei Spalten um die aktive Runde.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/tournament/bracketGraph.test.ts client/src/tournament/showSelectors.test.ts`
 
   Expected: PASS für Gruppengröße 2/4, Freilose, ungerade Gruppen und
   teilabgeschlossene Runden.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/tournament/bracketGraph.ts client/src/tournament/bracketGraph.test.ts client/src/tournament/showSelectors.ts client/src/tournament/showSelectors.test.ts .features/tournament-show-flow/tasks.md
