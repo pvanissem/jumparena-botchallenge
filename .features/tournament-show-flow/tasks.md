@@ -721,32 +721,32 @@ Session-Service“ und „Gültige Übergänge“.
 - Consumes: `buildBracketGraph`, `selectVisibleRoundRange`
 - Produces: `<TournamentBracket state show variant="admin" | "present" />`
 
-- [ ] **Step 1: Failing semantische Komponententests schreiben**
+- [x] **Step 1: Failing semantische Komponententests schreiben**
 
   Teste Round-/Level-Headings, pending/running/finished, Sieger,
   ausgeschiedene Teilnehmer, synthetische Slots, Next-Match-Markierung und
   Present-Ausschnitt. SVG ist `aria-hidden="true"`; Matchdaten bleiben als
   semantische Artikel lesbar.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/components/tournament/TournamentBracket.test.tsx`
 
   Expected: FAIL, Komponente fehlt.
 
-- [ ] **Step 3: React-/SVG-Rendering minimal implementieren**
+- [x] **Step 3: React-/SVG-Rendering minimal implementieren**
 
   Runde als Spalte, Match als Artikel. Ein `ResizeObserver` misst nur
   Knotenmittelpunkte; Kantenlogik bleibt in `bracketGraph.ts`. Keine externe
   Diagrammbibliothek und keine Start-Buttons in Knoten.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/components/tournament/TournamentBracket.test.tsx client/src/tournament/bracketGraph.test.ts`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/components/tournament .features/tournament-show-flow/tasks.md
