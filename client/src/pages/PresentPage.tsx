@@ -17,6 +17,7 @@ import { MatchupStage } from "../components/tournament/MatchupStage";
 import { TournamentBracket } from "../components/tournament/TournamentBracket";
 import { audioSettings } from "../game/audio/audioSettings";
 import { useShowAudioCue } from "../game/audio/useShowAudioCue";
+import { useTournamentMusic } from "../game/audio/useTournamentMusic";
 import { MatchView } from "../match/MatchView";
 import { buildLiveStandings } from "../tournament/liveStandings";
 import { selectActiveMatch } from "../tournament/showSelectors";
@@ -125,6 +126,7 @@ export function PresentPage() {
   const activeMatchId = active?.match.id ?? null;
 
   useShowAudioCue(show);
+  useTournamentMusic(tournament, show);
 
   useEffect(() => {
     if (lastMessage?.type !== "audio-settings") return;
