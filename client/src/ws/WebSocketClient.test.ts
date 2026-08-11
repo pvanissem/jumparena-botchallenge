@@ -142,4 +142,29 @@ describe("WebSocketClient", () => {
       JSON.stringify({ type: "ping-broadcast", sentAt: "now", text: "hi" }),
     ]);
   });
+
+  it("registers its role after every successful connection", () => {
+    vi.useFakeTimers();
+    const sockets: FakeWebSocket[] = [];
+    const client = new WebSocketClient("ws://localhost/test", {
+      createSocket: () => {
+        const socket = new FakeWebSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      retryIntervalMs: 100,
+      role: "present",
+    });
+
+    client.connect();
+    sockets[0].onopen?.();
+    sockets[0].onclose?.();
+    vi.advanceTimersByTime(100);
+    sockets[1].onopen?.();
+
+    const registration = JSON.stringify({ type: "client-register", role: "present" });
+    expect(sockets[0].sent).toContain(registration);
+    expect(sockets[1].sent).toContain(registration);
+    vi.useRealTimers();
+  });
 });

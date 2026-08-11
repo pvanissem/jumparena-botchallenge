@@ -1,5 +1,5 @@
-import type { InboundMessage, OutboundMessage } from "@arena/shared";
-import { useEffect, useRef, useState } from "react";
+import type { ArenaClientRole, InboundMessage, OutboundMessage } from "@arena/shared";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type ConnectionStatus, WebSocketClient } from "./WebSocketClient";
 
 function resolveSocketUrl(): string {
@@ -9,6 +9,7 @@ function resolveSocketUrl(): string {
 
 export interface UseWebSocketConnectionResult {
   status: ConnectionStatus;
+  clientId: string | null;
   lastMessage: OutboundMessage | null;
   send: (message: InboundMessage) => void;
 }
@@ -18,16 +19,25 @@ export interface UseWebSocketConnectionResult {
  * its own (already covered by WebSocketClient's tests), just wires it into
  * React state.
  */
-export function useWebSocketConnection(): UseWebSocketConnectionResult {
+export function useWebSocketConnection(role: ArenaClientRole): UseWebSocketConnectionResult {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const [clientId, setClientId] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<OutboundMessage | null>(null);
   const clientRef = useRef<WebSocketClient | null>(null);
 
   useEffect(() => {
-    const client = new WebSocketClient(resolveSocketUrl());
+    const client = new WebSocketClient(resolveSocketUrl(), { role });
     clientRef.current = client;
-    const unsubscribeStatus = client.onStatusChange(setStatus);
-    const unsubscribeMessage = client.onMessage(setLastMessage);
+    const unsubscribeStatus = client.onStatusChange((nextStatus) => {
+      setStatus(nextStatus);
+      if (nextStatus !== "connected") setClientId(null);
+    });
+    const unsubscribeMessage = client.onMessage((message) => {
+      if (message.type === "client-registered" && message.role === role) {
+        setClientId(message.clientId);
+      }
+      setLastMessage(message);
+    });
     client.connect();
 
     return () => {
@@ -35,11 +45,14 @@ export function useWebSocketConnection(): UseWebSocketConnectionResult {
       unsubscribeMessage();
       client.disconnect();
     };
-  }, []);
+  }, [role]);
+
+  const send = useCallback((message: InboundMessage) => clientRef.current?.send(message), []);
 
   return {
     status,
+    clientId,
     lastMessage,
-    send: (message) => clientRef.current?.send(message),
+    send,
   };
 }
