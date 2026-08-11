@@ -24,5 +24,5 @@ export interface TournamentStrategy {
   createRounds(participants: MatchParticipant[], options: CreateRoundsOptions): MatchDef[][];
 
   /** Baut den Zustand nach einem Match-Ergebnis fort (neue Runde, Champion, …). */
-  advance(state: TournamentState, result: MatchResult): TournamentState;
+  advance(state: TournamentState, matchId: string, result: MatchResult): TournamentState;
 }

@@ -258,7 +258,7 @@ client/src/styles/
 - Produces: `validateMatchResult(match: MatchDef, result: MatchResult): boolean`
 - Changes: `advance(state, matchId, result)` statt implizitem running Match
 
-- [ ] **Step 1: Failing Validator-Tests schreiben**
+- [x] **Step 1: Failing Validator-Tests schreiben**
 
   Prüfe gültige vollständige Resultate sowie leere Entries, fremde/fehlende/
   doppelte Bot-IDs, doppelte Ränge, Ranglücken, `NaN`, `Infinity`, negative
@@ -271,27 +271,27 @@ client/src/styles/
   expect(validateMatchResult(match, resultWithNaNScore)).toBe(false);
   ```
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/tournament/validateMatchResult.test.ts`
 
   Expected: FAIL, Modul fehlt.
 
-- [ ] **Step 3: Validator und explizite Match-ID minimal implementieren**
+- [x] **Step 3: Validator und explizite Match-ID minimal implementieren**
 
   Score darf negativ, muss aber endlich sein. `rank`, `fruitScore`,
   `coinsCollected`, `deaths` und `timeElapsedMs` sind nichtnegative ganze
   Zahlen; `rank` beginnt bei 1. `TournamentService.submitResult` validiert vor
   jeder Strategie-Mutation und liefert bei Fehler `false`.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run server/src/tournament/validateMatchResult.test.ts server/src/tournament/SingleEliminationStrategy.test.ts server/src/tournament/TournamentService.test.ts`
 
   Expected: PASS, inklusive Test „mehrere running Matches ändern nur
   `matchId`“.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src/tournament .features/tournament-show-flow/tasks.md

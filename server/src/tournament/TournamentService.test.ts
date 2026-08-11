@@ -59,6 +59,7 @@ function service(bots: BotArtifact[] = []): TournamentService {
 }
 
 function result(botId: string): MatchResult {
+  const loserBotId = botId === "b1" ? "b2" : "b1";
   return {
     entries: [
       {
@@ -70,6 +71,17 @@ function result(botId: string): MatchResult {
         deaths: 0,
         timeElapsedMs: 1000,
         reachedGoal: true,
+        disabled: false,
+      },
+      {
+        botId: loserBotId,
+        rank: 2,
+        score: 50,
+        fruitScore: 20,
+        coinsCollected: 2,
+        deaths: 1,
+        timeElapsedMs: 1200,
+        reachedGoal: false,
         disabled: false,
       },
     ],
@@ -294,6 +306,20 @@ describe("submitResult", () => {
     svc.submitResult(matchId, result("b1"));
 
     expect(svc.submitResult(matchId, result("b1"))).toBe(false);
+  });
+
+  it("rejects an invalid result without mutating the running match", () => {
+    const svc = service([bot("b1"), bot("b2")]);
+    svc.configure(configureCommand(["level-one"], ["b1", "b2"]));
+    const matchId = firstMatchId(svc);
+    svc.startMatch(matchId);
+    const before = svc.getState();
+
+    const accepted = svc.submitResult(matchId, { entries: [] });
+
+    expect(accepted).toBe(false);
+    expect(svc.getState()).toBe(before);
+    expect(svc.getState()?.rounds[0][0]).toMatchObject({ status: "running", result: null });
   });
 });
 
