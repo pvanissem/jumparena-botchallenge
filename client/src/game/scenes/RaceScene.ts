@@ -463,21 +463,23 @@ export class RaceScene extends Phaser.Scene {
       visibleCoins: this.level.coins
         .filter((c) => !this.racer.collectedCoinIds.has(c.id))
         .map((c) => ({ id: c.id, x: c.x, y: c.y, value: FRUIT_VALUES[c.fruit] })),
-      hazards: this.level.hazards.map((h) => {
-        const pos = h.kind === "kugelblitz" ? h.pivotX : h.x;
-        const y = h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y;
-        const velocity = velocities.get(h.id) ?? { vx: 0, vy: 0 };
-        return {
-          id: h.id,
-          kind: h.kind,
-          x: pos,
-          y,
-          active: dynamic.activeHazardIds.has(h.id),
-          warning: this.isHazardWarning(h),
-          vx: velocity.vx,
-          vy: velocity.vy,
-        };
-      }),
+      hazards: this.level.hazards
+        .filter((h) => !this.racer.destroyedHazardIds.has(h.id))
+        .map((h) => {
+          const pos = h.kind === "kugelblitz" ? h.pivotX : h.x;
+          const y = h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y;
+          const velocity = velocities.get(h.id) ?? { vx: 0, vy: 0 };
+          return {
+            id: h.id,
+            kind: h.kind,
+            x: pos,
+            y,
+            active: dynamic.activeHazardIds.has(h.id),
+            warning: this.isHazardWarning(h),
+            vx: velocity.vx,
+            vy: velocity.vy,
+          };
+        }),
       utilities: this.level.utilities.map((u) => ({ id: u.id, kind: u.kind, x: u.x, y: u.y })),
     };
   }
@@ -731,6 +733,9 @@ export class RaceScene extends Phaser.Scene {
     if (contact === "stomped") {
       body.setVelocityY(STOMP_BOUNCE_VELOCITY);
       this.playVanishEffect(hazard.x, hazard.y);
+      if (!this.racer.destroyedHazardIds.has(id)) {
+        this.racer = { ...this.racer, destroyedHazardIds: new Set(this.racer.destroyedHazardIds).add(id) };
+      }
       hazard.destroy();
       this.playSfx(AUDIO_KEYS.DAMAGED);
       return;

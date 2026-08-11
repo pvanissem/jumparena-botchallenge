@@ -19,6 +19,7 @@ function baseRacer(overrides: Partial<RacerRuntimeState> = {}): RacerRuntimeStat
     lastCheckpoint: { x: 0, y: 0 },
     collectedCoinIds: new Set(),
     resolvedBlockIds: new Set(),
+    destroyedHazardIds: new Set(),
     hazardTriggeredAtMs: new Map(),
     ...overrides,
   };

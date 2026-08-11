@@ -235,4 +235,15 @@ describe("buildBotState coin/hazard/utility lists", () => {
     expect(state.utilities).toEqual([{ dx: -40, dy: 10, kind: "boingo" }]);
     expect(state.nearestUtility).toEqual(state.utilities[0]);
   });
+
+  it("does not list hazards already removed from the snapshot", () => {
+    const r = racer({ x: 0, y: 0 });
+    const snap = snapshot({
+      hazards: [{ id: "alive-frog", kind: "ninjafrog", x: 20, y: 0, active: true, warning: false }],
+    });
+    const state = build(snap, r);
+    expect(state.hazards).toHaveLength(1);
+    expect(state.hazards[0].kind).toBe("ninjafrog");
+    expect(state.hazards[0].dx).toBe(20);
+  });
 });

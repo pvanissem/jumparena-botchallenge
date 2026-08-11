@@ -32,6 +32,9 @@ export interface RacerRuntimeState {
   collectedCoinIds: ReadonlySet<string>;
   /** IDs bereits ausgelöster versteckter Blöcke. */
   resolvedBlockIds: ReadonlySet<string>;
+  /** IDs bereits gestompter Hazards (z. B. ninjafrog) – siehe
+   *  `.features/hazard-destroyed-state-in-bot-vision/bugfix.md`. */
+  destroyedHazardIds: ReadonlySet<string>;
   /** Zeitpunkt (elapsedMs), zu dem ein Trigger-Hazard (z.B. Spikehead) zuletzt
    *  ausgelöst wurde, je Hazard-ID. Fehlt ein Eintrag -> nie ausgelöst / der
    *  vorige Zyklus ist bereits abgeklungen und der Hazard wieder scharf. */
@@ -58,6 +61,7 @@ export function createInitialRacerState(
     lastCheckpoint: { x: level.spawn.x, y: level.spawn.y },
     collectedCoinIds: new Set<string>(),
     resolvedBlockIds: new Set<string>(),
+    destroyedHazardIds: new Set<string>(),
     hazardTriggeredAtMs: new Map<string, number>(),
   };
 }
