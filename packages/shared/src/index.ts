@@ -1,5 +1,6 @@
 export { isValidLevelId, LEVEL_IDS } from "./levels";
 export type {
+  ArenaClientRole,
   AudioSettingsMessage,
   BotAddedMessage,
   BotAddMessage,
@@ -7,14 +8,19 @@ export type {
   BotRegistrySnapshotMessage,
   BotRemovedMessage,
   BotRemoveMessage,
+  ClientRegisteredMessage,
+  ClientRegisterMessage,
   InboundMessage,
   MatchProgressMessage,
   MatchResultMessage,
   MatchStartMessage,
   OutboundMessage,
   PingBroadcastMessage,
+  PresentReadyMessage,
   TournamentConfigureMessage,
   TournamentResetMessage,
+  TournamentShowAction,
+  TournamentShowControlMessage,
   TournamentStateMessage,
 } from "./messages";
 export {
@@ -24,12 +30,16 @@ export {
   isBotRegistrySnapshotMessage,
   isBotRemovedMessage,
   isBotRemoveMessage,
+  isClientRegisteredMessage,
+  isClientRegisterMessage,
   isMatchProgressMessage,
   isMatchResultMessage,
   isMatchStartMessage,
   isPingBroadcastMessage,
+  isPresentReadyMessage,
   isTournamentConfigureMessage,
   isTournamentResetMessage,
+  isTournamentShowControlMessage,
   isTournamentStateMessage,
   MAX_BOT_SOURCE_BYTES,
 } from "./messages";
@@ -39,7 +49,10 @@ export type {
   MatchResult,
   MatchResultEntry,
   MatchStatus,
+  ShowHoldReason,
   TournamentMode,
+  TournamentShowPhase,
+  TournamentShowState,
   TournamentState,
 } from "./tournament";
 export {
