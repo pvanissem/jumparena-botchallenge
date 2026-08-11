@@ -531,7 +531,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Produces: dünne `senderId + message → service`-Adapter
 - Produces: letzter Audio-Stand für Connection-Bootstrap
 
-- [ ] **Step 1: Failing Handler-/Wiring-Tests schreiben**
+- [x] **Step 1: Failing Handler-/Wiring-Tests schreiben**
 
   Prüfe konkret: Configure/Reset/Control nur Admin, PresentReady nur Present,
   Progress/Result nur validierter Executor, stale Progress wird nicht geroutet,
@@ -546,13 +546,13 @@ Session-Service“ und „Gültige Übergänge“.
   expect(routeToAll).toHaveBeenCalledWith(validProgress);
   ```
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/tournament/handlers server/src/ws/parseMessage.test.ts server/src/audio/AudioSettingsStore.test.ts`
 
   Expected: FAIL wegen fehlender Handler/Stores und altem `match-start`.
 
-- [ ] **Step 3: Handler und Composition Root minimal verdrahten**
+- [x] **Step 3: Handler und Composition Root minimal verdrahten**
 
   Keine Show-Logik in Handlern. `AudioSettingsStore` hält nur `{muted,
   volume}` in Memory. Entferne Registrierung, Parser und Imports von
@@ -563,14 +563,14 @@ Session-Service“ und „Gültige Übergänge“.
   Connection-Bootstrap sendet Registry-Snapshot,
   Audio-Stand und `{type:"tournament-state", state, show, serverNowMs}`.
 
-- [ ] **Step 4: Grün inklusive Integration verifizieren**
+- [x] **Step 4: Grün inklusive Integration verifizieren**
 
   Run: `npx vitest run server/src`
 
   Expected: PASS, inklusive Parser → Dispatcher → Policy → Session →
   Broadcast-Test.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src packages/shared/src/messages.ts packages/shared/src/messages.test.ts .features/tournament-show-flow/tasks.md

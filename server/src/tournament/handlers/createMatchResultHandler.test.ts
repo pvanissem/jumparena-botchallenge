@@ -1,52 +1,20 @@
-import type { MatchResult, MatchResultMessage } from "@arena/shared";
+import type { MatchResultMessage } from "@arena/shared";
 import { describe, expect, it, vi } from "vitest";
-import type { TournamentService } from "../TournamentService";
+import type { TournamentSessionService } from "../TournamentSessionService";
 import { createMatchResultHandler } from "./createMatchResultHandler";
 
-function makeService(submitResult: boolean): TournamentService {
-  return {
-    submitResult: vi.fn(() => submitResult),
-  } as unknown as TournamentService;
-}
-
-function result(): MatchResult {
-  return {
-    entries: [
-      {
-        botId: "b1",
-        rank: 1,
-        score: 100,
-        fruitScore: 50,
-        coinsCollected: 5,
-        deaths: 0,
-        timeElapsedMs: 1000,
-        reachedGoal: true,
-        disabled: false,
-      },
-    ],
-  };
-}
-
 describe("createMatchResultHandler", () => {
-  const message: MatchResultMessage = { type: "match-result", matchId: "m1", result: result() };
+  it("passes sender and result to the session lease validator", () => {
+    const session = { acceptResult: vi.fn() } as unknown as TournamentSessionService;
+    const message = {
+      type: "match-result",
+      matchId: "match-1",
+      matchAttemptId: "attempt-1",
+      result: { entries: [] },
+    } satisfies MatchResultMessage;
 
-  it("calls submitResult and broadcasts on success", () => {
-    const service = makeService(true);
-    const broadcast = vi.fn();
+    createMatchResultHandler(session)("present-1", message);
 
-    createMatchResultHandler(service, broadcast)("sender", message);
-
-    expect(service.submitResult).toHaveBeenCalledWith("m1", result());
-    expect(broadcast).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not broadcast when submitResult returns false", () => {
-    const service = makeService(false);
-    const broadcast = vi.fn();
-
-    createMatchResultHandler(service, broadcast)("sender", message);
-
-    expect(service.submitResult).toHaveBeenCalledWith("m1", result());
-    expect(broadcast).not.toHaveBeenCalled();
+    expect(session.acceptResult).toHaveBeenCalledWith("present-1", message);
   });
 });

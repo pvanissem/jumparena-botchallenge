@@ -1,59 +1,32 @@
-import type { OutboundMessage, TournamentConfigureMessage, TournamentState } from "@arena/shared";
+import type { TournamentConfigureMessage } from "@arena/shared";
 import { describe, expect, it, vi } from "vitest";
-import type { TournamentService } from "../TournamentService";
+import type { ClientRegistry } from "../../ws/ClientRegistry";
+import type { TournamentSessionService } from "../TournamentSessionService";
 import { createTournamentConfigureHandler } from "./createTournamentConfigureHandler";
 
-function makeService(state: TournamentState | null): TournamentService {
-  return {
-    getState: () => state,
-    configure: vi.fn(() => state),
-  } as unknown as TournamentService;
+const message: TournamentConfigureMessage = {
+  type: "tournament-configure",
+  mode: "single-elimination",
+  stageLevelIds: ["level-one"],
+  botIds: ["b1", "b2"],
+};
+
+function setup(role: "admin" | "present" | null) {
+  const session = { configure: vi.fn() } as unknown as TournamentSessionService;
+  const clients = { roleOf: vi.fn(() => role) } as unknown as ClientRegistry;
+  return { clients, session };
 }
 
 describe("createTournamentConfigureHandler", () => {
-  const message: TournamentConfigureMessage = {
-    type: "tournament-configure",
-    mode: "single-elimination",
-    stageLevelIds: ["level-one"],
-    livesPerRun: 3,
-    groupSize: 4,
-    botIds: ["b1", "b2"],
-  };
-
-  it("calls configure and broadcasts on success", () => {
-    const state: TournamentState = {
-      mode: "single-elimination",
-      stageLevelIds: ["level-one"],
-      livesPerRun: 3,
-      groupSize: 4,
-      rounds: [],
-      status: "idle",
-      championBotId: null,
-    };
-    const service = makeService(state);
-    const routed: OutboundMessage[] = [];
-    const broadcastAll = (message: OutboundMessage) => routed.push(message);
-
-    const handler = createTournamentConfigureHandler(service, () =>
-      broadcastAll({ type: "tournament-state", state: service.getState() })
-    );
-    handler("sender", message);
-
-    expect(service.configure).toHaveBeenCalledWith(message);
-    expect(routed).toEqual([{ type: "tournament-state", state }]);
+  it("lets an admin configure the session", () => {
+    const { clients, session } = setup("admin");
+    createTournamentConfigureHandler(session, clients)("admin-1", message);
+    expect(session.configure).toHaveBeenCalledWith(message);
   });
 
-  it("does not broadcast when configure returns null", () => {
-    const service = makeService(null);
-    const routed: OutboundMessage[] = [];
-    const broadcastAll = (message: OutboundMessage) => routed.push(message);
-
-    const handler = createTournamentConfigureHandler(service, () =>
-      broadcastAll({ type: "tournament-state", state: service.getState() })
-    );
-    handler("sender", message);
-
-    expect(service.configure).toHaveBeenCalledWith(message);
-    expect(routed).toEqual([]);
+  it("ignores non-admin senders", () => {
+    const { clients, session } = setup("present");
+    createTournamentConfigureHandler(session, clients)("present-1", message);
+    expect(session.configure).not.toHaveBeenCalled();
   });
 });

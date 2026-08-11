@@ -3,12 +3,14 @@ import {
   isAudioSettingsMessage,
   isBotAddMessage,
   isBotRemoveMessage,
+  isClientRegisterMessage,
   isMatchProgressMessage,
   isMatchResultMessage,
-  isMatchStartMessage,
   isPingBroadcastMessage,
+  isPresentReadyMessage,
   isTournamentConfigureMessage,
   isTournamentResetMessage,
+  isTournamentShowControlMessage,
 } from "@arena/shared";
 
 /**
@@ -41,11 +43,19 @@ export function parseInboundMessage(raw: string): InboundMessage | null {
     return candidate;
   }
 
+  if (isClientRegisterMessage(candidate)) {
+    return candidate;
+  }
+
+  if (isPresentReadyMessage(candidate)) {
+    return candidate;
+  }
+
   if (isTournamentConfigureMessage(candidate)) {
     return candidate;
   }
 
-  if (isMatchStartMessage(candidate)) {
+  if (isTournamentShowControlMessage(candidate)) {
     return candidate;
   }
 
