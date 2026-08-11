@@ -2,8 +2,8 @@ import type { OutboundMessage } from "@arena/shared";
 
 /**
  * Represents a single connected WebSocket client from the server's
- * perspective. Deliberately minimal: no role, no metadata beyond an id -
- * nothing here is needed by any current requirement (YAGNI).
+ * perspective. Connection metadata stays in ClientRegistry so this transport
+ * abstraction remains minimal.
  */
 export interface ConnectedClient {
   readonly id: string;
