@@ -37,6 +37,10 @@ export const TERRAIN_STYLE_REGISTRY: Record<string, TerrainStyleSpec> = {
      *  Blau-Tint deshalb sauber an, ohne in Dunkelheit zu laufen. */
     tint: 0x4a8cff,
   },
+  /** Warm-wüstiger Sandton. Angewendet auf das Standard-Gras/Erd-Set,
+   *  das durch den multiplikativen Phaser-Tint ins Gelbliche verschoben
+   *  wird (siehe `.features/level-five-desert/design.md`). */
+  desert: { tint: 0xe8c27a },
 };
 
 export const DEFAULT_TERRAIN_STYLE_KEY = "default";

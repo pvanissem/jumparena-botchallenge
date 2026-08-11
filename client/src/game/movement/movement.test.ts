@@ -14,6 +14,10 @@ describe("MOVEMENT_TUNING constants", () => {
   it("exposes PLAYER_BODY_SIZE matching the player's Arcade body", () => {
     expect(MOVEMENT_TUNING.PLAYER_BODY_SIZE).toEqual({ width: 24, height: 32 });
   });
+
+  it("exposes BOINGO_JUMP_VELOCITY for consistent trampoline geometry", () => {
+    expect(MOVEMENT_TUNING.BOINGO_JUMP_VELOCITY).toBe(-820);
+  });
 });
 
 describe("rampedSprintSpeed", () => {

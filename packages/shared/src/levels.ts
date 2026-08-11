@@ -8,6 +8,7 @@ export const LEVEL_IDS = [
   "level-two",
   "level-three",
   "level-four",
+  "level-five",
   "toolkit-test",
 ] as const;
 

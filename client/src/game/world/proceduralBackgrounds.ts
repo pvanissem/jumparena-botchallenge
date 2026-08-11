@@ -233,6 +233,127 @@ function drawCrystals(g: Phaser.GameObjects.Graphics, worldHeight: number): void
   }
 }
 
+// --- Level 5: Wüsten-Hintergrund -----------------------------------------
+
+const DESERT_TEXTURE_KEY_PREFIX = "bg-desert";
+const DESERT_SKY_TOP = 0xf2c14e;
+const DESERT_SKY_BOTTOM = 0xf7e1a0;
+const SUN_COLOR = 0xfff3c4;
+const DUNE_FAR_COLOR = 0xd9a441;
+const DUNE_MID_COLOR = 0xc98f35;
+const DUNE_NEAR_COLOR = 0xb87b2a;
+const CACTUS_COLOR = 0x8a6a2a;
+
+/**
+ * Liefert den Textur-Key eines prozeduralen Wüsten-Hintergrunds für die
+ * angegebene Welt-Höhe (Level 5 "Desert"), erzeugt ihn bei Bedarf
+ * einmalig (idempotent pro Höhe). Analog zu den anderen prozeduralen
+ * Hintergründen: Textur-Höhe = `worldHeight`, damit Phasers `tileSprite`
+ * die Textur nicht auch vertikal kachelt (siehe Bugfix-Dokument zu
+ * treetops-and-clouds).
+ *
+ * Siehe `.features/level-five-desert/design.md`, Abschnitt "Theming".
+ */
+export function buildDesertStyleBackgroundTexture(
+  scene: Phaser.Scene,
+  worldHeight: number
+): string {
+  const textureKey = `${DESERT_TEXTURE_KEY_PREFIX}-${worldHeight}`;
+  if (scene.textures.exists(textureKey)) {
+    return textureKey;
+  }
+
+  const g = scene.add.graphics();
+
+  drawDesertSkyGradient(g, worldHeight);
+  drawSun(g, worldHeight);
+  drawDunes(g, worldHeight);
+  drawCacti(g, worldHeight);
+
+  g.generateTexture(textureKey, TILE_W, worldHeight);
+  g.destroy();
+
+  return textureKey;
+}
+
+function drawDesertSkyGradient(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const bandHeight = Math.ceil(worldHeight / 6);
+  for (let i = 0; i < 6; i++) {
+    const t = i / 5;
+    const hex = interpolateColor(DESERT_SKY_TOP, DESERT_SKY_BOTTOM, t);
+    g.fillStyle(hex, 1);
+    g.fillRect(0, i * bandHeight, TILE_W, bandHeight);
+  }
+}
+
+function interpolateColor(from: number, to: number, t: number): number {
+  const r1 = (from >> 16) & 0xff;
+  const g1 = (from >> 8) & 0xff;
+  const b1 = from & 0xff;
+  const r2 = (to >> 16) & 0xff;
+  const g2 = (to >> 8) & 0xff;
+  const b2 = to & 0xff;
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return (r << 16) | (g << 8) | b;
+}
+
+function drawSun(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const centerX = 400;
+  const centerY = worldHeight * 0.22;
+  const radius = 34;
+  const haloRadius = 52;
+
+  g.fillStyle(SUN_COLOR, 0.25);
+  g.fillCircle(centerX, centerY, haloRadius);
+
+  g.fillStyle(SUN_COLOR, 1);
+  g.fillCircle(centerX, centerY, radius);
+}
+
+function drawDunes(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const baseY = worldHeight;
+
+  // Weit entfernte Dünen (heller durch Lufttrübung).
+  g.fillStyle(DUNE_FAR_COLOR, 1);
+  g.fillEllipse(180, baseY, 360, 110);
+  g.fillEllipse(430, baseY, 280, 90);
+
+  // Mittlere Ebene.
+  g.fillStyle(DUNE_MID_COLOR, 1);
+  g.fillEllipse(80, baseY, 260, 140);
+  g.fillEllipse(320, baseY, 300, 160);
+
+  // Nahe Ebene (dunkelste Silhouette).
+  g.fillStyle(DUNE_NEAR_COLOR, 1);
+  g.fillEllipse(220, baseY, 340, 130);
+}
+
+function drawCacti(g: Phaser.GameObjects.Graphics, worldHeight: number): void {
+  const baseY = worldHeight;
+  g.fillStyle(CACTUS_COLOR, 1);
+
+  // Kaktus 1
+  drawCactus(g, 80, baseY - 30, 1);
+  // Kaktus 2 (kleiner)
+  drawCactus(g, 460, baseY - 20, 0.7);
+}
+
+function drawCactus(g: Phaser.GameObjects.Graphics, x: number, baseY: number, scale: number): void {
+  const stemW = 10 * scale;
+  const stemH = 50 * scale;
+  const armW = 8 * scale;
+  const armH = 20 * scale;
+
+  // Stamm
+  g.fillRect(x - stemW / 2, baseY - stemH, stemW, stemH);
+  // Rechter Arm
+  g.fillRect(x, baseY - stemH * 0.55, armW, armH);
+  // Linker Arm
+  g.fillRect(x - armW, baseY - stemH * 0.4, armW, armH);
+}
+
 // --- Level 4: SMB-1-2-artiger "Underground"-Hintergrund -------------------
 
 const UNDERGROUND_TEXTURE_KEY_PREFIX = "bg-underground";
