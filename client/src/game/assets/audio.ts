@@ -8,6 +8,10 @@ const BASE = "assets/Audio";
 
 export const AUDIO_KEYS = {
   THEME: "theme",
+  THEME_2: "theme2",
+  THEME_3: "theme3",
+  EPIC: "epic",
+  END: "end",
   JUMP: "jump",
   COLLECT: "collect",
   DAMAGED: "damaged",
@@ -27,6 +31,10 @@ export interface AudioSpec {
 
 export const AUDIO_SPECS: readonly AudioSpec[] = [
   { key: AUDIO_KEYS.THEME, path: `${BASE}/theme.mp3` },
+  { key: AUDIO_KEYS.THEME_2, path: `${BASE}/theme2.mp3` },
+  { key: AUDIO_KEYS.THEME_3, path: `${BASE}/theme3.mp3` },
+  { key: AUDIO_KEYS.EPIC, path: `${BASE}/epic.mp3` },
+  { key: AUDIO_KEYS.END, path: `${BASE}/end.mp3` },
   { key: AUDIO_KEYS.JUMP, path: `${BASE}/jump.mp3` },
   { key: AUDIO_KEYS.COLLECT, path: `${BASE}/collect.mp3` },
   { key: AUDIO_KEYS.DAMAGED, path: `${BASE}/damaged.mp3` },
