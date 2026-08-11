@@ -12,13 +12,13 @@ import { TournamentSetup } from "../components/TournamentSetup";
 import { audioSettings } from "../game/audio/audioSettings";
 import { selectMatchStage } from "../tournament/selectMatchStage";
 import { useMatchProgress } from "../tournament/useMatchProgress";
-import { useTournamentState } from "../tournament/useTournamentState";
+import { useTournamentSession } from "../tournament/useTournamentSession";
 import { useWebSocketConnection } from "../ws/useWebSocketConnection";
 
 export function AdminPage() {
-  const { status, send, lastMessage } = useWebSocketConnection();
-  const bots = useBotRegistry(lastMessage);
-  const tournament = useTournamentState(lastMessage);
+  const { status, send, lastMessage } = useWebSocketConnection("admin");
+  const { bots } = useBotRegistry(lastMessage, status);
+  const { tournament } = useTournamentSession(lastMessage);
   const progressByMatch = useMatchProgress(lastMessage);
 
   useEffect(
@@ -67,10 +67,7 @@ export function AdminPage() {
         <>
           {/* Der Bracket bleibt immer sichtbar: Von hier aus wird jedes noch
               ausstehende Match gestartet – auch das der nächsten Runde. */}
-          <BracketView
-            state={tournament}
-            onStartMatch={(matchId) => send({ type: "match-start", matchId })}
-          />
+          <BracketView state={tournament} />
 
           {stage.kind === "running" && (
             <MatchLiveStandings

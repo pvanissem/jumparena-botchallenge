@@ -14,7 +14,7 @@ import { computeScore, computeTimeBonus, computeTimeMultiplier } from "../game/s
 import { MatchView } from "../match/MatchView";
 import { selectMatchStage } from "../tournament/selectMatchStage";
 import { useMatchProgress } from "../tournament/useMatchProgress";
-import { useTournamentState } from "../tournament/useTournamentState";
+import { useTournamentSession } from "../tournament/useTournamentSession";
 import { useWebSocketConnection } from "../ws/useWebSocketConnection";
 
 function formatScoreHudValue(value: number): string {
@@ -97,9 +97,9 @@ function PresentHudBar({
 }
 
 export function PresentPage() {
-  const { status, send, lastMessage } = useWebSocketConnection();
-  const bots = useBotRegistry(lastMessage);
-  const tournament = useTournamentState(lastMessage);
+  const { status, send, lastMessage } = useWebSocketConnection("present");
+  const { bots, initialized } = useBotRegistry(lastMessage, status);
+  const { tournament } = useTournamentSession(lastMessage);
   const progressByMatch = useMatchProgress(lastMessage);
 
   useEffect(() => {
@@ -107,6 +107,12 @@ export function PresentPage() {
     audioSettings.setMuted(lastMessage.muted);
     audioSettings.setVolume(lastMessage.volume);
   }, [lastMessage]);
+
+  useEffect(() => {
+    if (status === "connected" && initialized) {
+      send({ type: "present-ready", ready: true });
+    }
+  }, [initialized, send, status]);
 
   const sourceById = useMemo(() => {
     const map = new Map<string, string>();

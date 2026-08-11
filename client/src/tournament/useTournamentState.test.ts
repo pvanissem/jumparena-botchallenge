@@ -31,24 +31,39 @@ describe("useTournamentState", () => {
     const { result, rerender } = renderWithMessage(null);
 
     act(() => {
-      rerender({ type: "tournament-state", state: state() });
+      rerender({
+        type: "tournament-state",
+        state: state(),
+        show: null,
+        serverNowMs: 0,
+      });
     });
 
     expect(result.current).toEqual(state());
   });
 
   it("clears the state when state is null", () => {
-    const { result, rerender } = renderWithMessage({ type: "tournament-state", state: state() });
+    const { result, rerender } = renderWithMessage({
+      type: "tournament-state",
+      state: state(),
+      show: null,
+      serverNowMs: 0,
+    });
 
     act(() => {
-      rerender({ type: "tournament-state", state: null });
+      rerender({ type: "tournament-state", state: null, show: null, serverNowMs: 0 });
     });
 
     expect(result.current).toBeNull();
   });
 
   it("ignores unrelated message types", () => {
-    const { result, rerender } = renderWithMessage({ type: "tournament-state", state: state() });
+    const { result, rerender } = renderWithMessage({
+      type: "tournament-state",
+      state: state(),
+      show: null,
+      serverNowMs: 0,
+    });
 
     act(() => {
       rerender({ type: "ping-broadcast", sentAt: "x", text: "x" });

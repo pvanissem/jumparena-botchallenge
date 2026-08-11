@@ -605,7 +605,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Produces: Session `{ tournament, show, clockOffsetMs }`
 - Produces: `useShowCountdown(show, clockOffsetMs)`
 
-- [ ] **Step 1: Failing Hook-/Reconnect-Tests schreiben**
+- [x] **Step 1: Failing Hook-/Reconnect-Tests schreiben**
 
   ```ts
   receive({ type: "tournament-state", state, show, serverNowMs: 50_000 });
@@ -620,13 +620,13 @@ Session-Service“ und „Gültige Übergänge“.
   Countdown testet korrigierte Serverzeit, Hold/Null-Deadline und nie negative
   Sekunden.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/ws client/src/botRegistry client/src/tournament/useTournamentSession.test.ts client/src/tournament/useShowCountdown.test.ts`
 
   Expected: FAIL wegen neuer Hook-Verträge.
 
-- [ ] **Step 3: Minimale Hooks implementieren**
+- [x] **Step 3: Minimale Hooks implementieren**
 
   `clientId` wird separat von `lastMessage` gehalten. Jeder Connection-Zyklus
   setzt Registry-Readiness zurück. `/present` kann erst nach neuem
@@ -634,13 +634,13 @@ Session-Service“ und „Gültige Übergänge“.
   Seitenaufrufer im selben Schritt mechanisch auf `{ bots, initialized }` an,
   ohne ihre visuelle Phasenlogik vor Task 13/14 umzubauen.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/ws client/src/botRegistry client/src/tournament`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/ws client/src/botRegistry client/src/tournament client/src/pages/AdminPage.tsx client/src/pages/PresentPage.tsx .features/tournament-show-flow/tasks.md
