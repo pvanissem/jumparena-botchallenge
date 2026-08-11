@@ -11,6 +11,7 @@
 import type Phaser from "phaser";
 import {
   buildDesertStyleBackgroundTexture,
+  buildIceStyleBackgroundTexture,
   buildNightStyleBackgroundTexture,
   buildSmb1StyleBackgroundTexture,
   buildUndergroundStyleBackgroundTexture,
@@ -26,6 +27,7 @@ export const BACKGROUND_REGISTRY: Record<string, BackgroundSpec> = {
   night: { kind: "procedural", buildTexture: buildNightStyleBackgroundTexture },
   underground: { kind: "procedural", buildTexture: buildUndergroundStyleBackgroundTexture },
   desert: { kind: "procedural", buildTexture: buildDesertStyleBackgroundTexture },
+  ice: { kind: "procedural", buildTexture: buildIceStyleBackgroundTexture },
 };
 
 export const DEFAULT_BACKGROUND_KEY = "default";
