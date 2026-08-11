@@ -825,30 +825,30 @@ Ergebnisverzögerung“.
 
 - Removes: `WINNER_SHOWCASE_MS` und lokalen Showcase-Timer
 
-- [ ] **Step 1: Failing MatchRunner-Test schreiben**
+- [x] **Step 1: Failing MatchRunner-Test schreiben**
 
   Fake Racer-Endzustände auslösen und prüfen, dass `onFinished` genau einmal
   synchron/nächster Microtask gerufen wird, ohne 10-Sekunden-Timer. Einzelne
   Kachel-Outcomes bleiben vor Abschluss aller Racer erhalten.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/match/MatchRunner.test.ts client/src/match/tileOverlays.test.ts`
 
   Expected: FAIL wegen bestehendem `WINNER_SHOWCASE_MS`.
 
-- [ ] **Step 3: Lokale Verzögerung minimal entfernen**
+- [x] **Step 3: Lokale Verzögerung minimal entfernen**
 
   Progress-Timer bleibt 500 ms. `reportedFinished` verhindert weiterhin
   Doppelresultate. Keine Änderung an Ranking oder Phaser-Spielregeln.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/match`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/match .features/tournament-show-flow/tasks.md
