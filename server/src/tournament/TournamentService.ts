@@ -18,6 +18,7 @@ import {
 } from "@arena/shared";
 import type { BotRegistry } from "../botRegistry/BotRegistry";
 import type { TournamentStrategy } from "./TournamentStrategy";
+import { validateMatchResult } from "./validateMatchResult";
 
 /**
  * Hält den aktuellen Turnierzustand und delegiert Bracket-Erzeugung/-Fortschreiben
@@ -112,9 +113,10 @@ export class TournamentService {
 
     const match = this.state.rounds.flat().find((m) => m.id === matchId);
     if (match?.status !== "running") return false;
+    if (!validateMatchResult(match, result)) return false;
 
     const strategy = this.strategies[this.state.mode];
-    this.state = strategy.advance(this.state, result);
+    this.state = strategy.advance(this.state, matchId, result);
     return true;
   }
 

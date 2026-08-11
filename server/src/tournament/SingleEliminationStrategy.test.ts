@@ -178,7 +178,11 @@ describe("advance", () => {
     state.rounds[0][0].status = "running";
     const res = result([{ botId: "b1", rank: 1 }]);
 
-    const next = new SingleEliminationStrategy(noShuffle).advance(state, res);
+    const next = new SingleEliminationStrategy(noShuffle).advance(
+      state,
+      state.rounds[0][0].id,
+      res
+    );
 
     expect(next.rounds[0][0].status).toBe("finished");
     expect(next.rounds[0][0].result).toEqual(res);
@@ -193,6 +197,7 @@ describe("advance", () => {
 
     const afterFirst = new SingleEliminationStrategy(noShuffle).advance(
       state,
+      m1.id,
       result([{ botId: m1.participants[0].botId, rank: 1 }])
     );
 
@@ -209,6 +214,7 @@ describe("advance", () => {
 
     const next = new SingleEliminationStrategy(noShuffle).advance(
       state,
+      state.rounds[0][0].id,
       result([
         { botId: "b1", rank: 1 },
         { botId: "b2", rank: 2 },
@@ -228,6 +234,7 @@ describe("advance", () => {
 
     const next = new SingleEliminationStrategy(noShuffle).advance(
       state,
+      state.rounds[0][0].id,
       result([{ botId: "b1", rank: 1 }])
     );
 
@@ -245,6 +252,7 @@ describe("advance", () => {
 
     const afterSemi1 = new SingleEliminationStrategy(noShuffle).advance(
       state,
+      state.rounds[0][0].id,
       result([
         { botId: "b1", rank: 1 },
         { botId: "b2", rank: 2 },
@@ -255,6 +263,7 @@ describe("advance", () => {
 
     const afterSemi2 = new SingleEliminationStrategy(noShuffle).advance(
       afterSemi1,
+      afterSemi1.rounds[0][1].id,
       result([
         { botId: "b3", rank: 1 },
         { botId: "b4", rank: 2 },
@@ -265,6 +274,27 @@ describe("advance", () => {
     expect(afterSemi2.rounds[1]).toHaveLength(1);
     expect(afterSemi2.rounds[1][0].participants.map((p) => p.botId)).toEqual(["b1", "b3"]);
     expect(afterSemi2.rounds[1][0].participants).toHaveLength(2);
+  });
+
+  it("changes only the explicitly selected match when multiple matches are running", () => {
+    const state = freshState(participants(4), 2);
+    const firstMatch = state.rounds[0][0];
+    const secondMatch = state.rounds[0][1];
+    firstMatch.status = "running";
+    secondMatch.status = "running";
+
+    const next = new SingleEliminationStrategy(noShuffle).advance(
+      state,
+      secondMatch.id,
+      result([
+        { botId: "b3", rank: 1 },
+        { botId: "b4", rank: 2 },
+      ])
+    );
+
+    expect(next.rounds[0][0]).toMatchObject({ status: "running", result: null });
+    expect(next.rounds[0][1]).toMatchObject({ status: "finished" });
+    expect(next.rounds[0][1].result?.entries[0].botId).toBe("b3");
   });
 });
 

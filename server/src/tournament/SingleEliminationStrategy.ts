@@ -77,17 +77,21 @@ export class SingleEliminationStrategy implements TournamentStrategy {
     return [matches];
   }
 
-  advance(state: TournamentState, result: MatchResult): TournamentState {
+  advance(state: TournamentState, matchId: string, result: MatchResult): TournamentState {
     const rounds = state.rounds.map((round) => round.map((match) => ({ ...match })));
-    const runningMatch = rounds.flat().find((match) => match.status === "running");
+    const currentRoundIndex = rounds.findIndex((round) =>
+      round.some((match) => match.id === matchId)
+    );
+    if (currentRoundIndex < 0) return state;
+
+    const currentRound = rounds[currentRoundIndex];
+    const runningMatch = currentRound.find(
+      (match) => match.id === matchId && match.status === "running"
+    );
     if (!runningMatch) return state;
 
     runningMatch.result = result;
     runningMatch.status = "finished";
-
-    // Determine the active round: the round containing the match just finished.
-    const currentRoundIndex = rounds.findIndex((round) => round.includes(runningMatch));
-    const currentRound = rounds[currentRoundIndex];
 
     if (!currentRound.every((match) => match.status === "finished")) {
       return { ...state, rounds, status: state.status === "idle" ? "running" : state.status };
