@@ -154,6 +154,29 @@ Test-Kommandos:
       fallenden Kopf getroffen werden); Alkove per Boingo besuchen; Respawn an `checkpoint-2`
       bzw. `checkpoint-3` nach einem Fehlversuch prüfen.
 
-- [ ] **12. Abgleich gegen `requirements.md`**
+- [x] **12. Abgleich gegen `requirements.md`**
       Alle Akzeptanzkriterien aus US-1 bis US-4 einzeln durchgehen und die Erfüllung (Testname
       bzw. manuelle Prüfung aus Task 11) zuordnen. Abweichungen dokumentieren.
+
+      Ergebnis:
+      - **US-1 Frost-Look:** Hintergrund (`buildIceStyleBackgroundTexture`, manuell abgenommen)
+        und Terrain-Einfärbung erfüllt – mit der dokumentierten Korrektur auf
+        `STONE_TERRAIN_TILES` statt `TERRAIN_TILES` (siehe „Nachträgliche Korrektur" oben).
+        Fail-Fast/Default-Verhalten und Regressionsschutz für Level 1-5 unverändert (alle
+        bestehenden Level-Tests weiterhin grün).
+      - **US-2 Frost-Gauntlet:** alle Akzeptanzkriterien 1:1 durch `levelSix.test.ts`, Describe-
+        Block „frost gauntlet timing invariant" abgedeckt (Anti-Phasen-Beweis per Property-Test,
+        Distanz-/Timing-Fenster, Trigger-Zonen-Abstand, `fallToY`, Checkpoints, durchgehende
+        Trägerplattform).
+      - **US-3 Struktur-Vorgaben:** durch `levelSix.test.ts`, Describe-Blöcke „structure" und
+        „gaps" abgedeckt (12 Früchte, 4 Blöcke, 4 Checkpoints, eindeutige IDs, bekannte
+        Hazard-Kinds inkl. Pflicht-Kinds, Lücken ≤ 190 px – tatsächlich sogar ≤ 160 px). Die
+        optionale Boingo-Alkove ist durch Konstruktion nicht zielkritisch (kein Pflichtpfad
+        führt hindurch) und manuell bestätigt.
+      - **US-4 Auswählbarkeit:** durch `levelRegistry.test.ts` und `packages/shared/src/
+        levels.test.ts` abgedeckt (Registry-Eintrag, Zwei-Wege-Konsistenz mit `LEVEL_IDS`,
+        `isValidLevelId`). Dev-Station/Präsentation/Turnier-Stage-Editor speisen sich generisch
+        aus `LEVEL_REGISTRY`, keine weitere Codeänderung nötig (Muster wie bei Level 5).
+        `tournament/stageLevelList.ts` nicht angefasst – Level 6 keine Default-Stage.
+      - Keine offenen Abweichungen. Gesamt-Testlauf nach Merge mit Upstream (Tournament-Show-Flow):
+        840 Tests, 104 Dateien, alle grün.
