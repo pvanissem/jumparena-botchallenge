@@ -32,6 +32,7 @@ export interface MatchTiles {
 interface RacerSlot {
   botId: string;
   name: string;
+  color: string;
   viewport: ViewportRect;
   sceneKey: string;
   status: {
@@ -63,7 +64,7 @@ export class MatchRunner {
 
     // Racer-Szenen erst starten, wenn die Assets EINMAL geladen sind – sonst
     // laden alle vier parallel dieselben Keys (siehe `MatchBootScene`).
-    if (boot && !boot.assetsReady) {
+    if (!boot?.assetsReady) {
       this.game.events.once(MATCH_ASSETS_READY, () => {
         if (this.stopped) return;
         this.startRacerScenes(options);
@@ -92,6 +93,7 @@ export class MatchRunner {
         startingLives: livesPerRun,
         viewport,
         audio: false,
+        assetsPreloaded: true,
         onStatusChange: (status) => {
           const slot = this.slots.find((s) => s.botId === participant.botId);
           if (slot) {
@@ -108,6 +110,7 @@ export class MatchRunner {
       return {
         botId: participant.botId,
         name: participant.name,
+        color: participant.color,
         viewport,
         sceneKey,
         status: null,
@@ -115,6 +118,7 @@ export class MatchRunner {
       };
     });
 
+    this.onTilesChange?.(this.buildTiles(null));
     this.progressTimer = setInterval(() => this.emitProgress(level), PROGRESS_INTERVAL_MS);
   }
 
@@ -219,6 +223,7 @@ export class MatchRunner {
       slots: this.slots.map((slot) => ({
         botId: slot.botId,
         name: slot.name,
+        color: slot.color,
         viewport: slot.viewport,
         racer: slot.status?.racer ?? null,
         pausedReasonKind: slot.status?.pausedReasonKind ?? null,

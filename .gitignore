@@ -169,6 +169,5 @@ npm-debug.log*
 # .features/dev-station-mode/. Nur das Template ist versioniert.
 client/src/bot/current-bot.js
 
-### Coin Quest Arena: Bot-Registry-Persistenz ###
-# Sportanwärter-Uploads werden serverseitig in data/ gespeichert (US-5).
-data/
+### Lokaler Superpowers-Brainstorming-Begleiter ###
+.superpowers/

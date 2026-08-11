@@ -35,7 +35,7 @@ function show(phase: TournamentShowState["phase"]): TournamentShowState {
 describe("ShowControlPanel", () => {
   it("starts a ready show", () => {
     const onControl = vi.fn();
-    render(
+    const { container } = render(
       <ShowControlPanel
         show={show("ready")}
         match={null}
@@ -47,6 +47,7 @@ describe("ShowControlPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show starten" }));
     expect(onControl).toHaveBeenCalledWith("start");
+    expect(container.firstElementChild?.getAttribute("data-phase")).toBe("ready");
   });
 
   it("shows match, remaining time and timed-phase actions", () => {

@@ -3,7 +3,7 @@ import type { TileOverlayDescriptor } from "../match/tileOverlays";
 import { ScoreBreakdown } from "./ScoreBreakdown";
 
 const TITLES: Record<
-  TileOverlayDescriptor["outcome"]["kind"],
+  NonNullable<TileOverlayDescriptor["outcome"]>["kind"],
   { text: string; className: string }
 > = {
   goal: { text: "★ ZIEL ERREICHT ★", className: "is-win" },
@@ -13,18 +13,21 @@ const TITLES: Record<
 };
 
 export function RacerTileOverlay({ descriptor }: { descriptor: TileOverlayDescriptor }) {
-  const { name, outcome, racer, isWinner, viewport } = descriptor;
-  const title = TITLES[outcome.kind];
-  const finalScore = computeScore({
-    fruitScore: racer.fruitScore,
-    timeElapsedMs: racer.timeElapsedMs,
-    deaths: racer.deaths,
-    reachedGoal: outcome.reachedGoal,
-  });
+  const { name, color, playerNumber, outcome, racer, isWinner, viewport } = descriptor;
+  const title = outcome ? TITLES[outcome.kind] : null;
+  const finalScore =
+    racer && outcome
+      ? computeScore({
+          fruitScore: racer.fruitScore,
+          timeElapsedMs: racer.timeElapsedMs,
+          deaths: racer.deaths,
+          reachedGoal: outcome.reachedGoal,
+        })
+      : null;
 
   return (
     <div
-      className={`pixel-overlay pixel-overlay--tile ${isWinner ? "pixel-overlay--winner" : ""}`}
+      className={`pixel-overlay pixel-overlay--tile ${isWinner ? "pixel-overlay--winner" : ""} ${outcome ? "" : "pixel-overlay--running"}`}
       style={{
         left: viewport.x,
         top: viewport.y,
@@ -32,14 +35,19 @@ export function RacerTileOverlay({ descriptor }: { descriptor: TileOverlayDescri
         height: viewport.height,
       }}
     >
-      <div className={`pixel-overlay__card ${isWinner ? "pixel-overlay__card--winner" : ""}`}>
-        {isWinner && <div className="pixel-overlay__winner-badge">👑 SIEGER</div>}
-        <div className="pixel-overlay__bot-name">{name}</div>
-        <h2 className={`pixel-overlay__title ${title.className}`}>{title.text}</h2>
-        <div className="pixel-overlay__score">{finalScore}</div>
-        <div className="pixel-overlay__score-label">Punkte</div>
-        <ScoreBreakdown racer={racer} />
+      <div className="racer-tile-label" style={{ borderColor: color }}>
+        <span>Player {playerNumber}</span>
+        <strong>{name}</strong>
       </div>
+      {racer && outcome && title && (
+        <div className={`pixel-overlay__card ${isWinner ? "pixel-overlay__card--winner" : ""}`}>
+          {isWinner && <div className="pixel-overlay__winner-badge">👑 SIEGER</div>}
+          <h2 className={`pixel-overlay__title ${title.className}`}>{title.text}</h2>
+          <div className="pixel-overlay__score">{finalScore}</div>
+          <div className="pixel-overlay__score-label">Punkte</div>
+          <ScoreBreakdown racer={racer} />
+        </div>
+      )}
     </div>
   );
 }

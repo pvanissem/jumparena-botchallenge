@@ -53,7 +53,7 @@ export function AdminTournamentView({
     send({ type: "tournament-show-control", action });
 
   return (
-    <section className="admin-tournament-view">
+    <section className="admin-tournament-view" data-phase={show.phase}>
       <ShowControlPanel
         show={show}
         match={active?.match ?? null}
@@ -80,10 +80,10 @@ export function AdminTournamentView({
 }
 
 export function AdminPage() {
-  const { status, send, lastMessage } = useWebSocketConnection("admin");
-  const { bots } = useBotRegistry(lastMessage, status);
-  const { tournament, show, clockOffsetMs } = useTournamentSession(lastMessage);
-  const progressByMatch = useMatchProgress(lastMessage);
+  const { status, send, subscribe } = useWebSocketConnection("admin");
+  const { bots } = useBotRegistry(subscribe, status);
+  const { tournament, show, clockOffsetMs } = useTournamentSession(subscribe);
+  const progressByMatch = useMatchProgress(subscribe);
 
   useEffect(
     () =>

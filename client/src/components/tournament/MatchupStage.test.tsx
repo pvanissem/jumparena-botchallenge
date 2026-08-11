@@ -25,6 +25,7 @@ describe("MatchupStage", () => {
       <MatchupStage match={match(count)} roundLabel="Halbfinale" countdown={null} />
     );
     expect(screen.getAllByRole("article")).toHaveLength(count);
+    expect(screen.getByRole("region", { name: "Matchup" })).toBeTruthy();
     expect(container.firstElementChild?.getAttribute("data-participant-count")).toBe(String(count));
   });
 

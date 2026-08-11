@@ -84,7 +84,7 @@ export function PresentStage({
       if (!active) return <TournamentBracket state={tournament} show={show} variant="present" />;
       const isExecutor = clientId !== null && clientId === show.executorClientId;
       return (
-        <section className="present-live-stage">
+        <section className="present-live-stage" data-executor={isExecutor ? "true" : "false"}>
           <LiveScoreboard standings={standings} variant="present" />
           {isExecutor && show.matchAttemptId ? (
             <MatchView
@@ -117,11 +117,12 @@ export function PresentStage({
 }
 
 export function PresentPage() {
-  const { status, send, lastMessage, clientId } = useWebSocketConnection("present");
-  const { bots, initialized } = useBotRegistry(lastMessage, status);
-  const { tournament, show, clockOffsetMs } = useTournamentSession(lastMessage);
-  const progressByMatch = useMatchProgress(lastMessage);
+  const { status, send, lastMessage, clientId, subscribe } = useWebSocketConnection("present");
+  const { bots, initialized } = useBotRegistry(subscribe, status);
+  const { tournament, show, clockOffsetMs } = useTournamentSession(subscribe);
+  const progressByMatch = useMatchProgress(subscribe);
   const active = selectActiveMatch(tournament, show);
+  const activeMatchId = active?.match.id ?? null;
 
   useShowAudioCue(show);
 
@@ -139,28 +140,28 @@ export function PresentPage() {
 
   const handleProgress = useCallback(
     (entries: MatchProgressMessage["entries"]) => {
-      if (!active || !show?.matchAttemptId) return;
+      if (!activeMatchId || !show?.matchAttemptId) return;
       send({
         type: "match-progress",
-        matchId: active.match.id,
+        matchId: activeMatchId,
         matchAttemptId: show.matchAttemptId,
         entries,
       });
     },
-    [active, send, show?.matchAttemptId]
+    [activeMatchId, send, show?.matchAttemptId]
   );
 
   const handleFinished = useCallback(
     (result: MatchResult) => {
-      if (!active || !show?.matchAttemptId) return;
+      if (!activeMatchId || !show?.matchAttemptId) return;
       send({
         type: "match-result",
-        matchId: active.match.id,
+        matchId: activeMatchId,
         matchAttemptId: show.matchAttemptId,
         result,
       });
     },
-    [active, send, show?.matchAttemptId]
+    [activeMatchId, send, show?.matchAttemptId]
   );
 
   return (

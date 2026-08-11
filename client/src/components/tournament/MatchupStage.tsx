@@ -8,7 +8,11 @@ interface MatchupStageProps {
 
 export function MatchupStage({ match, roundLabel, countdown }: MatchupStageProps) {
   return (
-    <section className="matchup-stage" data-participant-count={match.participants.length}>
+    <section
+      className="matchup-stage"
+      data-participant-count={match.participants.length}
+      aria-label="Matchup"
+    >
       <header className="matchup-stage__header">
         <span>{roundLabel}</span>
         <h2>Bereit für das nächste Match?</h2>

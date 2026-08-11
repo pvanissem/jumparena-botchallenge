@@ -8,18 +8,23 @@ describe("useTournamentSession", () => {
     vi.spyOn(Date, "now").mockReturnValue(48_000);
     const state = { mode: "single-elimination" } as TournamentState;
     const show = { phase: "ready" } as TournamentShowState;
-    const { result, rerender } = renderHook(
-      (message: OutboundMessage | null) => useTournamentSession(message),
-      { initialProps: null as OutboundMessage | null }
-    );
+    const listeners = new Set<(message: OutboundMessage) => void>();
+    const subscribe = (listener: (message: OutboundMessage) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    };
+    const { result } = renderHook(() => useTournamentSession(subscribe));
 
     act(() => {
-      rerender({
+      const message: OutboundMessage = {
         type: "tournament-state",
         state,
         show,
         serverNowMs: 50_000,
-      });
+      };
+      for (const listener of listeners) listener(message);
     });
 
     expect(result.current).toEqual({ tournament: state, show, clockOffsetMs: 2_000 });

@@ -3,12 +3,10 @@ import { checkStaticGuard } from "@arena/bot-contract";
 import { type BotAddMessage, MAX_BOT_SOURCE_BYTES, type OutboundMessage } from "@arena/shared";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
 import type { BotRegistry } from "../BotRegistry";
-import type { BotRegistryStore } from "../BotRegistryStore";
 import { colorForId } from "../colorForId";
 
 export function createBotAddHandler(
   registry: BotRegistry,
-  store: BotRegistryStore,
   broadcastAll: (message: OutboundMessage) => void,
   createId: () => string = randomUUID,
   now: () => Date = () => new Date()
@@ -36,7 +34,6 @@ export function createBotAddHandler(
     };
 
     registry.add(bot);
-    store.save(registry.list());
     broadcastAll({ type: "bot-added", bot });
   };
 }

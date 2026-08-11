@@ -21,7 +21,7 @@ const standings: LiveStanding[] = [
 
 describe("LiveScoreboard", () => {
   it("renders all live metrics and status accessibly", () => {
-    render(<LiveScoreboard standings={standings} variant="present" />);
+    const { container } = render(<LiveScoreboard standings={standings} variant="present" />);
 
     const row = screen.getByRole("listitem", { name: /Platz 1.*Turbo Bot/ });
     expect(row.textContent).toContain("123");
@@ -30,5 +30,6 @@ describe("LiveScoreboard", () => {
     expect(row.textContent).toContain("88.5s");
     expect(row.textContent).toContain("Im Rennen");
     expect(row.getAttribute("data-leader")).toBe("true");
+    expect(container.firstElementChild?.getAttribute("data-variant")).toBe("present");
   });
 });

@@ -1,5 +1,6 @@
-import type { OutboundMessage, TournamentShowState, TournamentState } from "@arena/shared";
+import type { TournamentShowState, TournamentState } from "@arena/shared";
 import { useEffect, useState } from "react";
+import type { OutboundMessageSubscriber } from "../ws/useWebSocketConnection";
 
 export interface TournamentSession {
   tournament: TournamentState | null;
@@ -13,17 +14,21 @@ const EMPTY_SESSION: TournamentSession = {
   clockOffsetMs: 0,
 };
 
-export function useTournamentSession(lastMessage: OutboundMessage | null): TournamentSession {
+export function useTournamentSession(subscribe: OutboundMessageSubscriber): TournamentSession {
   const [session, setSession] = useState(EMPTY_SESSION);
 
-  useEffect(() => {
-    if (lastMessage?.type !== "tournament-state") return;
-    setSession({
-      tournament: lastMessage.state,
-      show: lastMessage.show,
-      clockOffsetMs: lastMessage.serverNowMs - Date.now(),
-    });
-  }, [lastMessage]);
+  useEffect(
+    () =>
+      subscribe((message) => {
+        if (message.type !== "tournament-state") return;
+        setSession({
+          tournament: message.state,
+          show: message.show,
+          clockOffsetMs: message.serverNowMs - Date.now(),
+        });
+      }),
+    [subscribe]
+  );
 
   return session;
 }

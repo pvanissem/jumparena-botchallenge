@@ -4,7 +4,6 @@ import { createAudioSettingsHandler } from "./audio/createAudioSettingsHandler";
 import { BotRegistry } from "./botRegistry/BotRegistry";
 import { createBotAddHandler } from "./botRegistry/handlers/createBotAddHandler";
 import { createBotRemoveHandler } from "./botRegistry/handlers/createBotRemoveHandler";
-import { JsonFileBotRegistryStore } from "./botRegistry/JsonFileBotRegistryStore";
 import { loadConfig } from "./config";
 import { createDevServer } from "./http/createDevServer";
 import { createStaticServer } from "./http/createStaticServer";
@@ -39,19 +38,14 @@ dispatcher.register(
   )
 );
 
-const botRegistryStore = new JsonFileBotRegistryStore(config.botRegistryFile);
-const botRegistry = new BotRegistry(botRegistryStore.load());
+const botRegistry = new BotRegistry();
 dispatcher.register(
   "bot-add",
-  createBotAddHandler(botRegistry, botRegistryStore, (message) =>
-    broadcastRouter.routeToAll(message)
-  )
+  createBotAddHandler(botRegistry, (message) => broadcastRouter.routeToAll(message))
 );
 dispatcher.register(
   "bot-remove",
-  createBotRemoveHandler(botRegistry, botRegistryStore, (message) =>
-    broadcastRouter.routeToAll(message)
-  )
+  createBotRemoveHandler(botRegistry, (message) => broadcastRouter.routeToAll(message))
 );
 
 const tournamentService = new TournamentService(botRegistry, new SingleEliminationStrategy());

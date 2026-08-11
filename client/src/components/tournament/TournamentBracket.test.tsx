@@ -50,7 +50,7 @@ describe("TournamentBracket", () => {
   it("renders round headings, statuses, winner and synthetic future slots", () => {
     const finished = match("m1", "finished", "m1-alpha");
     const running = match("m2", "running");
-    render(
+    const { container } = render(
       <TournamentBracket
         state={state([finished, running, match("m3", "pending"), match("m4", "pending")])}
         show={{ activeMatchId: "m2", activeRoundIndex: 0 } as TournamentShowState}
@@ -71,6 +71,15 @@ describe("TournamentBracket", () => {
     ).toBe(true);
     expect(screen.getByRole("article", { name: "Match m2" }).getAttribute("data-active")).toBe(
       "true"
+    );
+    expect(screen.getByRole("article", { name: "Match m2" }).getAttribute("aria-current")).toBe(
+      "step"
+    );
+    const nextMatch = screen.getByRole("article", { name: "Zukünftiges Match 2-1" });
+    expect(within(nextMatch).getByText("m1 alpha")).toBeTruthy();
+    expect(within(nextMatch).getByText("Wartet auf Sieger")).toBeTruthy();
+    expect(container.querySelector(".tournament-bracket")?.getAttribute("data-variant")).toBe(
+      "admin"
     );
     expect(screen.getAllByText("Wartet auf Sieger").length).toBeGreaterThan(0);
     expect(document.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");

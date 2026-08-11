@@ -32,6 +32,7 @@ function slot(overrides: Partial<TileOverlaySlot> = {}): TileOverlaySlot {
   return {
     botId: "bot-a",
     name: "Bot A",
+    color: "#00ffff",
     viewport,
     racer: racer(),
     pausedReasonKind: null,
@@ -40,13 +41,21 @@ function slot(overrides: Partial<TileOverlaySlot> = {}): TileOverlaySlot {
 }
 
 describe("computeTileOverlays", () => {
-  it("omits racers that are still running", () => {
+  it("includes running racers for a persistent name label", () => {
     const result = computeTileOverlays({
       slots: [slot()],
       winnerBotId: null,
     });
 
-    expect(result).toHaveLength(0);
+    expect(result).toEqual([
+      expect.objectContaining({
+        botId: "bot-a",
+        name: "Bot A",
+        color: "#00ffff",
+        playerNumber: 1,
+        outcome: null,
+      }),
+    ]);
   });
 
   it("includes a finished racer with 'goal' outcome", () => {
@@ -56,7 +65,7 @@ describe("computeTileOverlays", () => {
     });
 
     expect(result).toHaveLength(1);
-    expect(result[0].outcome.kind).toBe("goal");
+    expect(result[0].outcome?.kind).toBe("goal");
     expect(result[0].isWinner).toBe(false);
   });
 
@@ -76,16 +85,18 @@ describe("computeTileOverlays", () => {
     expect(result[0].botId).toBe("bot-a");
     expect(result[0].name).toBe("Alpha");
     expect(result[0].viewport).toEqual({ x: 10, y: 20, width: 30, height: 40 });
-    expect(result[0].racer.fruitScore).toBe(42);
+    expect(result[0].racer?.fruitScore).toBe(42);
   });
 
-  it("omits slots without a racer state", () => {
+  it("keeps the name label before the first racer state arrives", () => {
     const result = computeTileOverlays({
       slots: [slot({ racer: null })],
       winnerBotId: null,
     });
 
-    expect(result).toHaveLength(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].racer).toBeNull();
+    expect(result[0].outcome).toBeNull();
   });
 
   it("marks the winner only when winnerBotId is set", () => {

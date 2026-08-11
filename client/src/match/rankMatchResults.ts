@@ -14,9 +14,10 @@ export interface RankableRacer {
  */
 export function rankMatchResults(racers: readonly RankableRacer[]): MatchResultEntry[] {
   const scored = racers.map(({ botId, state, disabled }): MatchResultEntry => {
+    const timeElapsedMs = Math.round(state.timeElapsedMs);
     const score = computeScore({
       fruitScore: state.fruitScore,
-      timeElapsedMs: state.timeElapsedMs,
+      timeElapsedMs,
       deaths: state.deaths,
       reachedGoal: state.finished,
     });
@@ -28,7 +29,7 @@ export function rankMatchResults(racers: readonly RankableRacer[]): MatchResultE
       fruitScore: state.fruitScore,
       coinsCollected: state.coinsCollected,
       deaths: state.deaths,
-      timeElapsedMs: state.timeElapsedMs,
+      timeElapsedMs,
       reachedGoal: state.finished,
       disabled,
     };
