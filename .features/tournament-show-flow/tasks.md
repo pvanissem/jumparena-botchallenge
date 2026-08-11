@@ -771,7 +771,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Produces: `buildLiveStandings(match, entries, livesPerRun)`
 - Produces: `<LiveScoreboard standings variant="admin" | "present" />`
 
-- [ ] **Step 1: Failing Ranking-/Rendering-Tests schreiben**
+- [x] **Step 1: Failing Ranking-/Rendering-Tests schreiben**
 
   ```ts
   const standings = buildLiveStandings(match, entries, 3);
@@ -784,25 +784,25 @@ Session-Service“ und „Gültige Übergänge“.
   Teilnehmer. Rendering zeigt Rang, Farbe, Name, Score, Fortschritt, Leben,
   Restzeit und Status.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/tournament/liveStandings.test.ts client/src/components/tournament/LiveScoreboard.test.tsx`
 
   Expected: FAIL, Module fehlen.
 
-- [ ] **Step 3: Minimal implementieren und `computeScore` wiederverwenden**
+- [x] **Step 3: Minimal implementieren und `computeScore` wiederverwenden**
 
   Keine zweite Scoring-Formel. Status ist genau `racing | finished | dnf |
   disabled`. Führungswechsel werden nur über Klassen/Datenattribute
   vorbereitet; Animation folgt in Task 14.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/tournament/liveStandings.test.ts client/src/components/tournament/LiveScoreboard.test.tsx client/src/game/scoring.test.ts`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/tournament/liveStandings.ts client/src/tournament/liveStandings.test.ts client/src/components/tournament/LiveScoreboard.tsx client/src/components/tournament/LiveScoreboard.test.tsx .features/tournament-show-flow/tasks.md
