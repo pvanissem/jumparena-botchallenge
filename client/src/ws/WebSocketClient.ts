@@ -1,4 +1,4 @@
-import type { InboundMessage, OutboundMessage } from "@arena/shared";
+import type { ArenaClientRole, InboundMessage, OutboundMessage } from "@arena/shared";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -19,6 +19,7 @@ export interface WebSocketLike {
 export interface WebSocketClientOptions {
   createSocket?: (url: string) => WebSocketLike;
   retryIntervalMs?: number;
+  role?: ArenaClientRole;
 }
 
 const DEFAULT_RETRY_INTERVAL_MS = 2000;
@@ -35,6 +36,7 @@ function defaultCreateSocket(url: string): WebSocketLike {
 export class WebSocketClient {
   private readonly createSocket: (url: string) => WebSocketLike;
   private readonly retryIntervalMs: number;
+  private readonly role: ArenaClientRole | undefined;
   private socket: WebSocketLike | null = null;
   private statusListeners: Array<(status: ConnectionStatus) => void> = [];
   private messageListeners: Array<(message: OutboundMessage) => void> = [];
@@ -47,6 +49,7 @@ export class WebSocketClient {
   ) {
     this.createSocket = options.createSocket ?? defaultCreateSocket;
     this.retryIntervalMs = options.retryIntervalMs ?? DEFAULT_RETRY_INTERVAL_MS;
+    this.role = options.role;
   }
 
   onStatusChange(callback: (status: ConnectionStatus) => void): () => void {
@@ -69,7 +72,10 @@ export class WebSocketClient {
     const socket = this.createSocket(this.url);
     this.socket = socket;
 
-    socket.onopen = () => this.emitStatus("connected");
+    socket.onopen = () => {
+      this.emitStatus("connected");
+      if (this.role) socket.send(JSON.stringify({ type: "client-register", role: this.role }));
+    };
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data) as OutboundMessage;

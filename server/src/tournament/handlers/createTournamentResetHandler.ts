@@ -1,13 +1,13 @@
 import type { TournamentResetMessage } from "@arena/shared";
+import type { ClientRegistry } from "../../ws/ClientRegistry";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
-import type { TournamentService } from "../TournamentService";
+import type { TournamentSessionService } from "../TournamentSessionService";
 
 export function createTournamentResetHandler(
-  service: TournamentService,
-  broadcastState: () => void
+  session: TournamentSessionService,
+  clients: ClientRegistry
 ): MessageHandler<TournamentResetMessage> {
-  return (_senderId, _message) => {
-    service.reset();
-    broadcastState();
+  return (senderId) => {
+    if (clients.roleOf(senderId) === "admin") session.reset();
   };
 }

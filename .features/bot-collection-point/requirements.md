@@ -19,8 +19,9 @@ geht es nur um das, was passiert, **nachdem** die Datei bereits auf dem
 Admin-Rechner liegt.
 
 Der Hub-Server (`@arena/server`, siehe `.features/arena-hub-server/`) bleibt
-ein reiner Relay/Speicher: Er validiert und speichert Bot-Artefakte, führt sie
-aber **nicht aus** (keine Sandbox, keine Simulation auf dem Server).
+ein reiner Relay mit einer In-Memory-Registry: Er nimmt Bot-Artefakte für die
+laufende Session entgegen, führt sie aber **nicht aus** (keine Sandbox, keine
+Simulation auf dem Server).
 
 ## User Stories
 
@@ -98,25 +99,23 @@ Akzeptanzkriterien:
   DAS SYSTEM dies ignorieren (no-op), ohne Fehlerzustand für andere Clients
   auszulösen.
 
-### US-5: Registry übersteht einen Server-Neustart
+### US-5: Registry ist bewusst flüchtig
 
-Als Standbetreuer möchte ich, dass die gesammelten Bot-Artefakte einen
-Neustart des Hub-Servers überleben, damit ein versehentlicher Absturz oder
-Neustart am Konferenztag nicht die Arbeit aller bisherigen Besucher vernichtet.
+Als Standbetreuer möchte ich Bot-Dateien nach einem Server-Neustart bewusst
+erneut manuell auswählen, damit keine zweite persistierte Datenquelle neben
+den vorhandenen `.js`-Dateien gepflegt werden muss.
 
 Akzeptanzkriterien:
-- WHEN ein Bot der Registry hinzugefügt oder aus ihr entfernt wird SHALL DAS
-  SYSTEM den vollständigen Registry-Inhalt dauerhaft auf dem Dateisystem des
-  Hub-Servers ablegen.
-- WHEN der Hub-Server startet UND eine zuvor abgelegte Registry-Datei
-  existiert SHALL DAS SYSTEM deren Inhalt als Ausgangszustand der Registry
-  laden.
-- WHEN beim Laden der abgelegten Datei ein Fehler auftritt (Datei fehlt,
-  beschädigt, unlesbar) SHALL DAS SYSTEM mit einer leeren Registry starten und
-  eine Warnung protokollieren, statt den Serverstart abzubrechen.
-- WHEN das Schreiben der Datei fehlschlägt SHALL DAS SYSTEM den Upload
-  trotzdem im Speicher übernehmen und eine Warnung protokollieren (die
-  laufende Veranstaltung darf nicht an einem Schreibfehler scheitern).
+- WHEN der Hub-Server startet SHALL DAS SYSTEM immer mit einer leeren
+  Bot-Registry starten.
+- WHEN ein Bot hinzugefügt oder entfernt wird SHALL DAS SYSTEM ausschließlich
+  die In-Memory-Registry des laufenden Serverprozesses ändern.
+- WHEN `/admin` oder `/present` innerhalb derselben Server-Session neu lädt
+  SHALL DAS SYSTEM weiterhin den aktuellen In-Memory-Stand als Snapshot
+  liefern.
+- WHEN der Server neu gestartet wurde SHALL DAS SYSTEM keine frühere
+  Registry-Datei laden und die erneute manuelle Auswahl der `.js`-Dateien in
+  `/admin` verlangen.
 
 ### US-6 (NFR): Konsistent mit bestehender Server-/Client-Architektur
 
@@ -158,8 +157,9 @@ Akzeptanzkriterien:
   Server. Der Server prüft Quelltext nur textuell (Static Guard) und speichert
   ihn – das Laden/Ausführen des Moduls passiert ausschließlich clientseitig in
   der vorhandenen Worker-Sandbox.
-- Keine Datenbank – die Persistenz aus US-5 ist bewusst eine einfache
-  JSON-Datei, kein DBMS, kein Migrationskonzept.
+- Keine Datei- oder Datenbank-Persistenz der Bot-Registry. Die vorhandenen
+  `.js`-Dateien bleiben die einzige dauerhafte Quelle und werden nach einem
+  Server-Neustart erneut manuell ausgewählt.
 - Kein manuelles Formular zur Eingabe/Überschreibung von Name/Autor/Farbe.
 - Keine Authentifizierung/Autorisierung des Uploads.
 - Keine Bearbeitung eines bereits hochgeladenen Bot-Artefakts (nur

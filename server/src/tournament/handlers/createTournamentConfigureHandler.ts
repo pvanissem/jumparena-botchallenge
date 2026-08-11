@@ -1,15 +1,13 @@
 import type { TournamentConfigureMessage } from "@arena/shared";
+import type { ClientRegistry } from "../../ws/ClientRegistry";
 import type { MessageHandler } from "../../ws/MessageDispatcher";
-import type { TournamentService } from "../TournamentService";
+import type { TournamentSessionService } from "../TournamentSessionService";
 
 export function createTournamentConfigureHandler(
-  service: TournamentService,
-  broadcastState: () => void
+  session: TournamentSessionService,
+  clients: ClientRegistry
 ): MessageHandler<TournamentConfigureMessage> {
-  return (_senderId, message) => {
-    const state = service.configure(message);
-    if (state) {
-      broadcastState();
-    }
+  return (senderId, message) => {
+    if (clients.roleOf(senderId) === "admin") session.configure(message);
   };
 }

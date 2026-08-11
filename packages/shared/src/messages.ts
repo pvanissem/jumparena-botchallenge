@@ -75,8 +75,34 @@ import type {
   MatchResult,
   MatchResultEntry,
   TournamentMode,
+  TournamentShowState,
   TournamentState,
 } from "./tournament";
+
+export type ArenaClientRole = "admin" | "present";
+
+export interface ClientRegisterMessage {
+  type: "client-register";
+  role: ArenaClientRole;
+}
+
+export interface ClientRegisteredMessage {
+  type: "client-registered";
+  clientId: string;
+  role: ArenaClientRole;
+}
+
+export interface PresentReadyMessage {
+  type: "present-ready";
+  ready: boolean;
+}
+
+export type TournamentShowAction = "start" | "pause" | "resume" | "advance";
+
+export interface TournamentShowControlMessage {
+  type: "tournament-show-control";
+  action: TournamentShowAction;
+}
 
 /** /admin -> Server: Turnier konfigurieren und Bracket erzeugen. */
 export interface TournamentConfigureMessage {
@@ -96,12 +122,6 @@ export interface TournamentConfigureMessage {
   groupSize?: number;
 }
 
-/** /admin -> Server: Ein konkretes Match starten. */
-export interface MatchStartMessage {
-  type: "match-start";
-  matchId: string;
-}
-
 /** /admin -> Server: Turnier abbrechen/zurücksetzen. */
 export interface TournamentResetMessage {
   type: "tournament-reset";
@@ -111,6 +131,7 @@ export interface TournamentResetMessage {
 export interface MatchResultMessage {
   type: "match-result";
   matchId: string;
+  matchAttemptId: string;
   result: MatchResult;
 }
 
@@ -118,6 +139,7 @@ export interface MatchResultMessage {
 export interface MatchProgressMessage {
   type: "match-progress";
   matchId: string;
+  matchAttemptId: string;
   entries: {
     botId: string;
     fruitScore: number;
@@ -134,6 +156,8 @@ export interface MatchProgressMessage {
 export interface TournamentStateMessage {
   type: "tournament-state";
   state: TournamentState | null;
+  show: TournamentShowState | null;
+  serverNowMs: number;
 }
 
 /**
@@ -144,8 +168,10 @@ export type InboundMessage =
   | AudioSettingsMessage
   | BotAddMessage
   | BotRemoveMessage
+  | ClientRegisterMessage
+  | PresentReadyMessage
   | TournamentConfigureMessage
-  | MatchStartMessage
+  | TournamentShowControlMessage
   | TournamentResetMessage
   | MatchResultMessage
   | MatchProgressMessage;
@@ -159,11 +185,47 @@ export type OutboundMessage =
   | BotAddedMessage
   | BotRemovedMessage
   | BotRegistrySnapshotMessage
+  | ClientRegisteredMessage
   | TournamentStateMessage
   | MatchProgressMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isArenaClientRole(value: unknown): value is ArenaClientRole {
+  return value === "admin" || value === "present";
+}
+
+export function isClientRegisterMessage(value: unknown): value is ClientRegisterMessage {
+  return isRecord(value) && value.type === "client-register" && isArenaClientRole(value.role);
+}
+
+export function isClientRegisteredMessage(value: unknown): value is ClientRegisteredMessage {
+  return (
+    isRecord(value) &&
+    value.type === "client-registered" &&
+    typeof value.clientId === "string" &&
+    value.clientId.length > 0 &&
+    isArenaClientRole(value.role)
+  );
+}
+
+export function isPresentReadyMessage(value: unknown): value is PresentReadyMessage {
+  return isRecord(value) && value.type === "present-ready" && typeof value.ready === "boolean";
+}
+
+export function isTournamentShowControlMessage(
+  value: unknown
+): value is TournamentShowControlMessage {
+  return (
+    isRecord(value) &&
+    value.type === "tournament-show-control" &&
+    (value.action === "start" ||
+      value.action === "pause" ||
+      value.action === "resume" ||
+      value.action === "advance")
+  );
 }
 
 export function isPingBroadcastMessage(value: unknown): value is PingBroadcastMessage {
@@ -299,10 +361,6 @@ export function isTournamentConfigureMessage(value: unknown): value is Tournamen
   );
 }
 
-export function isMatchStartMessage(value: unknown): value is MatchStartMessage {
-  return isRecord(value) && value.type === "match-start" && typeof value.matchId === "string";
-}
-
 export function isTournamentResetMessage(value: unknown): value is TournamentResetMessage {
   return isRecord(value) && value.type === "tournament-reset";
 }
@@ -312,6 +370,8 @@ export function isMatchResultMessage(value: unknown): value is MatchResultMessag
     isRecord(value) &&
     value.type === "match-result" &&
     typeof value.matchId === "string" &&
+    typeof value.matchAttemptId === "string" &&
+    value.matchAttemptId.length > 0 &&
     isMatchResult(value.result)
   );
 }
@@ -335,8 +395,43 @@ export function isMatchProgressMessage(value: unknown): value is MatchProgressMe
     isRecord(value) &&
     value.type === "match-progress" &&
     typeof value.matchId === "string" &&
+    typeof value.matchAttemptId === "string" &&
+    value.matchAttemptId.length > 0 &&
     Array.isArray(value.entries) &&
     value.entries.every(isMatchProgressEntry)
+  );
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isTournamentShowState(value: unknown): value is TournamentShowState {
+  if (!isRecord(value)) return false;
+  const validPhase =
+    value.phase === "ready" ||
+    value.phase === "matchup-intro" ||
+    value.phase === "countdown" ||
+    value.phase === "match-running" ||
+    value.phase === "match-result" ||
+    value.phase === "bracket-update" ||
+    value.phase === "champion";
+  return (
+    validPhase &&
+    isNullableString(value.activeMatchId) &&
+    (value.activeRoundIndex === null ||
+      (typeof value.activeRoundIndex === "number" && Number.isInteger(value.activeRoundIndex))) &&
+    isNullableString(value.matchAttemptId) &&
+    isNullableString(value.executorClientId) &&
+    isNullableFiniteNumber(value.phaseEndsAtMs) &&
+    isNullableFiniteNumber(value.heldRemainingMs) &&
+    Array.isArray(value.holds) &&
+    value.holds.every((hold) => hold === "operator" || hold === "present-unavailable") &&
+    typeof value.presentReady === "boolean"
   );
 }
 
@@ -344,6 +439,9 @@ export function isTournamentStateMessage(value: unknown): value is TournamentSta
   return (
     isRecord(value) &&
     value.type === "tournament-state" &&
-    (value.state === null || isTournamentState(value.state))
+    (value.state === null || isTournamentState(value.state)) &&
+    (value.show === null || isTournamentShowState(value.show)) &&
+    typeof value.serverNowMs === "number" &&
+    Number.isFinite(value.serverNowMs)
   );
 }

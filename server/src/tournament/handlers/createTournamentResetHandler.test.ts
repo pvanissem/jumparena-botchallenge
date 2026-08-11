@@ -1,21 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TournamentService } from "../TournamentService";
+import type { ClientRegistry } from "../../ws/ClientRegistry";
+import type { TournamentSessionService } from "../TournamentSessionService";
 import { createTournamentResetHandler } from "./createTournamentResetHandler";
 
-function makeService(): TournamentService {
-  return {
-    reset: vi.fn(),
-  } as unknown as TournamentService;
-}
-
 describe("createTournamentResetHandler", () => {
-  it("resets the service and broadcasts the cleared state", () => {
-    const service = makeService();
-    const broadcast = vi.fn();
+  it("resets only for an admin sender", () => {
+    const session = { reset: vi.fn() } as unknown as TournamentSessionService;
+    const clients = {
+      roleOf: vi.fn((id) => (id === "admin" ? "admin" : "present")),
+    } as unknown as ClientRegistry;
+    const handler = createTournamentResetHandler(session, clients);
 
-    createTournamentResetHandler(service, broadcast)("sender", { type: "tournament-reset" });
+    handler("present", { type: "tournament-reset" });
+    handler("admin", { type: "tournament-reset" });
 
-    expect(service.reset).toHaveBeenCalled();
-    expect(broadcast).toHaveBeenCalledTimes(1);
+    expect(session.reset).toHaveBeenCalledTimes(1);
   });
 });

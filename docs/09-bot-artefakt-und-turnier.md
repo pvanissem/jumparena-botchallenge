@@ -60,7 +60,7 @@ export default {
 > "Zentraler Server für Multi-Stationen-Betrieb"). Dieser Server transportiert
 > aber (noch) **keine** Bot-Artefakte automatisch von `/dev` – `/dev` sendet
 > grundsätzlich nichts an den Server. Für `/admin` und `/present` ist stattdessen
-> eine **zentrale Bot-Sammelstelle** im Hub-Server vorgesehen (Registry mit JSON-Datei-Persistenz,
+> eine **zentrale Bot-Sammelstelle** im Hub-Server vorgesehen (flüchtige In-Memory-Registry,
 > siehe `docs/03-architektur.md`, Abschnitt "Bot-Sammelstelle"), die beide
 > Ansichten mit demselben Stand versorgt. Eingespeist wird diese Sammelstelle
 > vorerst über einen **manuellen Datei-Upload in `/admin`** (Zwischenlösung).
@@ -124,7 +124,7 @@ Hub-Server kennt weiterhin keine Spiellogik; er hält nur den Turnierzustand
 und leitet Bracket, Match-Result und Match-Progress weiter.
 
 ### Ablauf-Komponenten
-- `server/src/botRegistry/BotRegistry.ts` – alle importierten Bots (+ Persistenz)
+- `server/src/botRegistry/BotRegistry.ts` – alle importierten Bots der laufenden Server-Session
 - `server/src/tournament/TournamentService.ts` – Bracket-Struktur, Advance-Logik
 - `server/src/tournament/SingleEliminationStrategy.ts` – Single-Elimination-Strategie
 - `packages/shared/src/tournament.ts` – Turnier-Typen

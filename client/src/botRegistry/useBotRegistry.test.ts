@@ -1,6 +1,7 @@
 import type { BotArtifact, OutboundMessage } from "@arena/shared";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { ConnectionStatus } from "../ws/WebSocketClient";
 import { useBotRegistry } from "./useBotRegistry";
 
 function sampleBot(id: string): BotArtifact {
@@ -14,78 +15,97 @@ function sampleBot(id: string): BotArtifact {
   };
 }
 
-function renderWithMessage(initial: OutboundMessage | null = null) {
-  return renderHook((message: OutboundMessage | null) => useBotRegistry(message), {
-    initialProps: initial,
-  });
+function renderRegistry(initial: OutboundMessage | null = null) {
+  const listeners = new Set<(message: OutboundMessage) => void>();
+  const subscribe = (listener: (message: OutboundMessage) => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  };
+  const rendered = renderHook(
+    ({ status }: { status: ConnectionStatus }) => useBotRegistry(subscribe, status),
+    { initialProps: { status: "connected" as ConnectionStatus } }
+  );
+  const emit = (message: OutboundMessage) => {
+    act(() => {
+      for (const listener of listeners) listener(message);
+    });
+  };
+  if (initial) emit(initial);
+  return { ...rendered, emit };
 }
 
 describe("useBotRegistry", () => {
   it("starts empty", () => {
-    const { result } = renderWithMessage(null);
+    const { result } = renderRegistry();
 
-    expect(result.current).toEqual([]);
+    expect(result.current).toEqual({ bots: [], initialized: false });
   });
 
   it("replaces the list on bot-registry-snapshot", () => {
-    const { result, rerender } = renderWithMessage(null);
+    const { result, emit } = renderRegistry();
+    emit({ type: "bot-registry-snapshot", bots: [sampleBot("b1"), sampleBot("b2")] });
 
-    act(() => {
-      rerender({ type: "bot-registry-snapshot", bots: [sampleBot("b1"), sampleBot("b2")] });
+    expect(result.current).toEqual({
+      bots: [sampleBot("b1"), sampleBot("b2")],
+      initialized: true,
     });
-
-    expect(result.current).toEqual([sampleBot("b1"), sampleBot("b2")]);
   });
 
   it("appends a bot on bot-added", () => {
-    const { result, rerender } = renderWithMessage({
+    const { result, emit } = renderRegistry({
       type: "bot-registry-snapshot",
       bots: [sampleBot("b1")],
     });
 
-    act(() => {
-      rerender({ type: "bot-added", bot: sampleBot("b2") });
-    });
+    emit({ type: "bot-added", bot: sampleBot("b2") });
 
-    expect(result.current).toEqual([sampleBot("b1"), sampleBot("b2")]);
+    expect(result.current.bots).toEqual([sampleBot("b1"), sampleBot("b2")]);
   });
 
   it("filters out a bot on bot-removed", () => {
-    const { result, rerender } = renderWithMessage({
+    const { result, emit } = renderRegistry({
       type: "bot-registry-snapshot",
       bots: [sampleBot("b1"), sampleBot("b2")],
     });
 
-    act(() => {
-      rerender({ type: "bot-removed", id: "b1" });
-    });
+    emit({ type: "bot-removed", id: "b1" });
 
-    expect(result.current).toEqual([sampleBot("b2")]);
+    expect(result.current.bots).toEqual([sampleBot("b2")]);
   });
 
   it("ignores unrelated message types", () => {
-    const { result, rerender } = renderWithMessage({
+    const { result, emit } = renderRegistry({
       type: "bot-registry-snapshot",
       bots: [sampleBot("b1")],
     });
 
-    act(() => {
-      rerender({ type: "ping-broadcast", sentAt: "x", text: "x" });
-    });
+    emit({ type: "ping-broadcast", sentAt: "x", text: "x" });
 
-    expect(result.current).toEqual([sampleBot("b1")]);
+    expect(result.current.bots).toEqual([sampleBot("b1")]);
   });
 
   it("does not add a bot twice", () => {
-    const { result, rerender } = renderWithMessage({
+    const { result, emit } = renderRegistry({
       type: "bot-registry-snapshot",
       bots: [sampleBot("b1")],
     });
 
-    act(() => {
-      rerender({ type: "bot-added", bot: sampleBot("b1") });
-    });
+    emit({ type: "bot-added", bot: sampleBot("b1") });
 
-    expect(result.current).toEqual([sampleBot("b1")]);
+    expect(result.current.bots).toEqual([sampleBot("b1")]);
+  });
+
+  it("clears initialization for every reconnect cycle", () => {
+    const { result, rerender } = renderRegistry({
+      type: "bot-registry-snapshot",
+      bots: [sampleBot("b1")],
+    });
+    expect(result.current.initialized).toBe(true);
+
+    rerender({ status: "connecting" });
+
+    expect(result.current).toEqual({ bots: [], initialized: false });
   });
 });

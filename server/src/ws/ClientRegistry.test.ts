@@ -41,4 +41,50 @@ describe("ClientRegistry", () => {
 
     expect(registry.getOthers("a")).toEqual([]);
   });
+
+  it("returns only ready present clients in stable insertion order", () => {
+    const registry = new ClientRegistry();
+    const presentA = createFakeClient("present-a");
+    const presentB = createFakeClient("present-b");
+    const admin = createFakeClient("admin");
+    registry.add(presentA);
+    registry.add(presentB);
+    registry.add(admin);
+    registry.registerRole("present-a", "present");
+    registry.registerRole("present-b", "present");
+    registry.registerRole("admin", "admin");
+
+    registry.setPresentReady("present-b", true);
+    registry.setPresentReady("present-a", true);
+
+    expect(registry.getReadyPresentClients().map((client) => client.id)).toEqual([
+      "present-a",
+      "present-b",
+    ]);
+    expect(registry.roleOf("admin")).toBe("admin");
+  });
+
+  it("removes role and readiness metadata together with the client", () => {
+    const registry = new ClientRegistry();
+    const present = createFakeClient("present");
+    registry.add(present);
+    registry.registerRole("present", "present");
+    registry.setPresentReady("present", true);
+
+    registry.remove("present");
+    registry.remove("present");
+
+    expect(registry.roleOf("present")).toBeNull();
+    expect(registry.getReadyPresentClients()).toEqual([]);
+  });
+
+  it("ignores metadata updates for unknown clients", () => {
+    const registry = new ClientRegistry();
+
+    registry.registerRole("missing", "present");
+    registry.setPresentReady("missing", true);
+
+    expect(registry.roleOf("missing")).toBeNull();
+    expect(registry.getReadyPresentClients()).toEqual([]);
+  });
 });

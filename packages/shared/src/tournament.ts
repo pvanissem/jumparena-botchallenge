@@ -1,5 +1,28 @@
 export type TournamentMode = "single-elimination";
 
+export type TournamentShowPhase =
+  | "ready"
+  | "matchup-intro"
+  | "countdown"
+  | "match-running"
+  | "match-result"
+  | "bracket-update"
+  | "champion";
+
+export type ShowHoldReason = "operator" | "present-unavailable";
+
+export interface TournamentShowState {
+  phase: TournamentShowPhase;
+  activeMatchId: string | null;
+  activeRoundIndex: number | null;
+  matchAttemptId: string | null;
+  executorClientId: string | null;
+  phaseEndsAtMs: number | null;
+  heldRemainingMs: number | null;
+  holds: ShowHoldReason[];
+  presentReady: boolean;
+}
+
 /** Bots, die gleichzeitig in einem Match gegeneinander antreten. */
 export const DEFAULT_GROUP_SIZE = 4;
 

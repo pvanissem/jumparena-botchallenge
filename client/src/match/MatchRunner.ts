@@ -12,10 +12,6 @@ import { rankMatchResults } from "./rankMatchResults";
 import type { TileOverlaySlot } from "./tileOverlays";
 
 const PROGRESS_INTERVAL_MS = 500;
-/** Wie lange das Grid mit Ergebnis-Fenstern und goldener Sieger-Umrandung
- *  stehen bleibt, bevor das Match-Ergebnis gemeldet wird und `/present` zur
- *  Ergebnisliste wechselt. */
-export const WINNER_SHOWCASE_MS = 10_000;
 
 /** Alles, was ein Match zum Starten braucht. Options-Objekt statt vieler
  *  Positions-Parameter, damit weitere Turnier-Einstellungen ergänzt werden
@@ -36,6 +32,7 @@ export interface MatchTiles {
 interface RacerSlot {
   botId: string;
   name: string;
+  color: string;
   viewport: ViewportRect;
   sceneKey: string;
   status: {
@@ -50,7 +47,6 @@ interface RacerSlot {
 export class MatchRunner {
   private slots: RacerSlot[] = [];
   private progressTimer: ReturnType<typeof setInterval> | null = null;
-  private showcaseTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
   private reportedFinished = false;
 
@@ -68,7 +64,7 @@ export class MatchRunner {
 
     // Racer-Szenen erst starten, wenn die Assets EINMAL geladen sind – sonst
     // laden alle vier parallel dieselben Keys (siehe `MatchBootScene`).
-    if (boot && !boot.assetsReady) {
+    if (!boot?.assetsReady) {
       this.game.events.once(MATCH_ASSETS_READY, () => {
         if (this.stopped) return;
         this.startRacerScenes(options);
@@ -97,6 +93,7 @@ export class MatchRunner {
         startingLives: livesPerRun,
         viewport,
         audio: false,
+        assetsPreloaded: true,
         onStatusChange: (status) => {
           const slot = this.slots.find((s) => s.botId === participant.botId);
           if (slot) {
@@ -113,6 +110,7 @@ export class MatchRunner {
       return {
         botId: participant.botId,
         name: participant.name,
+        color: participant.color,
         viewport,
         sceneKey,
         status: null,
@@ -120,6 +118,7 @@ export class MatchRunner {
       };
     });
 
+    this.onTilesChange?.(this.buildTiles(null));
     this.progressTimer = setInterval(() => this.emitProgress(level), PROGRESS_INTERVAL_MS);
   }
 
@@ -127,11 +126,6 @@ export class MatchRunner {
     if (this.progressTimer) {
       clearInterval(this.progressTimer);
       this.progressTimer = null;
-    }
-
-    if (this.showcaseTimer) {
-      clearTimeout(this.showcaseTimer);
-      this.showcaseTimer = null;
     }
 
     for (const slot of this.slots) {
@@ -221,10 +215,7 @@ export class MatchRunner {
     const winnerBotId = ranked.find((entry) => entry.rank === 1)?.botId ?? null;
     this.onTilesChange?.(this.buildTiles(winnerBotId));
 
-    // Siegerehrung sichtbar halten, bevor `/present` zur Ergebnisliste schaltet.
-    this.showcaseTimer = setTimeout(() => {
-      this.onFinished({ entries: ranked });
-    }, WINNER_SHOWCASE_MS);
+    this.onFinished({ entries: ranked });
   }
 
   private buildTiles(winnerBotId: string | null): MatchTiles {
@@ -232,6 +223,7 @@ export class MatchRunner {
       slots: this.slots.map((slot) => ({
         botId: slot.botId,
         name: slot.name,
+        color: slot.color,
         viewport: slot.viewport,
         racer: slot.status?.racer ?? null,
         pausedReasonKind: slot.status?.pausedReasonKind ?? null,

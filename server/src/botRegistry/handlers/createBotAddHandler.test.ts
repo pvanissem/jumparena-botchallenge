@@ -1,17 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BotRegistry } from "../BotRegistry";
-import type { BotRegistryStore } from "../BotRegistryStore";
 import { createBotAddHandler } from "./createBotAddHandler";
 
 function createFakes() {
   const registry = new BotRegistry();
-  const store: BotRegistryStore = {
-    save: vi.fn(),
-    load: vi.fn(() => []),
-  };
   const broadcasts: unknown[] = [];
   const broadcastAll = (message: unknown) => broadcasts.push(message);
-  return { registry, store, broadcasts, broadcastAll };
+  return { registry, broadcasts, broadcastAll };
 }
 
 const VALID_SOURCE = "export default { apiVersion: 1, decide() { return []; } };";
@@ -29,12 +24,12 @@ describe("createBotAddHandler", () => {
     vi.restoreAllMocks();
   });
 
-  it("adds a valid bot, persists, and broadcasts it including server-assigned fields", () => {
-    const { registry, store, broadcasts, broadcastAll } = createFakes();
+  it("adds a valid bot in memory and broadcasts it without persisting", () => {
+    const { registry, broadcasts, broadcastAll } = createFakes();
     const createId = () => "id-1";
     const now = () => new Date("2024-06-15T12:00:00.000Z");
 
-    const handler = createBotAddHandler(registry, store, broadcastAll, createId, now);
+    const handler = createBotAddHandler(registry, broadcastAll, createId, now);
     handler("sender-1", {
       type: "bot-add",
       name: "Racer",
@@ -52,8 +47,6 @@ describe("createBotAddHandler", () => {
         uploadedAt: "2024-06-15T12:00:00.000Z",
       },
     ]);
-    expect(store.save).toHaveBeenCalledTimes(1);
-    expect(store.save).toHaveBeenCalledWith(registry.list());
     expect(broadcasts).toEqual([
       {
         type: "bot-added",
@@ -63,8 +56,8 @@ describe("createBotAddHandler", () => {
   });
 
   it("keeps the color provided by the client", () => {
-    const { registry, store, broadcasts, broadcastAll } = createFakes();
-    const handler = createBotAddHandler(registry, store, broadcastAll);
+    const { registry, broadcasts, broadcastAll } = createFakes();
+    const handler = createBotAddHandler(registry, broadcastAll);
 
     handler("sender-1", {
       type: "bot-add",
@@ -80,8 +73,8 @@ describe("createBotAddHandler", () => {
   });
 
   it("does nothing for source code that violates the static guard", () => {
-    const { registry, store, broadcasts, broadcastAll } = createFakes();
-    const handler = createBotAddHandler(registry, store, broadcastAll);
+    const { registry, broadcasts, broadcastAll } = createFakes();
+    const handler = createBotAddHandler(registry, broadcastAll);
 
     handler("sender-1", {
       type: "bot-add",
@@ -91,14 +84,13 @@ describe("createBotAddHandler", () => {
     });
 
     expect(registry.list()).toEqual([]);
-    expect(store.save).not.toHaveBeenCalled();
     expect(broadcasts).toEqual([]);
     expect(console.warn).toHaveBeenCalled();
   });
 
   it("does nothing when source code exceeds the size limit", () => {
-    const { registry, store, broadcasts, broadcastAll } = createFakes();
-    const handler = createBotAddHandler(registry, store, broadcastAll);
+    const { registry, broadcasts, broadcastAll } = createFakes();
+    const handler = createBotAddHandler(registry, broadcastAll);
 
     handler("sender-1", {
       type: "bot-add",
@@ -108,7 +100,6 @@ describe("createBotAddHandler", () => {
     });
 
     expect(registry.list()).toEqual([]);
-    expect(store.save).not.toHaveBeenCalled();
     expect(broadcasts).toEqual([]);
     expect(console.warn).toHaveBeenCalled();
   });

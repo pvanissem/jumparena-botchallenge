@@ -55,7 +55,7 @@ export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
   };
 
   return (
-    <section>
+    <section className="tournament-setup">
       <h2>Turnier starten</h2>
 
       <StageLevelEditor
