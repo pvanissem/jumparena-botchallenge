@@ -131,7 +131,7 @@ export interface TournamentResetMessage {
 export interface MatchResultMessage {
   type: "match-result";
   matchId: string;
-  matchAttemptId?: string;
+  matchAttemptId: string;
   result: MatchResult;
 }
 
@@ -139,7 +139,7 @@ export interface MatchResultMessage {
 export interface MatchProgressMessage {
   type: "match-progress";
   matchId: string;
-  matchAttemptId?: string;
+  matchAttemptId: string;
   entries: {
     botId: string;
     fruitScore: number;
@@ -370,8 +370,8 @@ export function isMatchResultMessage(value: unknown): value is MatchResultMessag
     isRecord(value) &&
     value.type === "match-result" &&
     typeof value.matchId === "string" &&
-    (value.matchAttemptId === undefined ||
-      (typeof value.matchAttemptId === "string" && value.matchAttemptId.length > 0)) &&
+    typeof value.matchAttemptId === "string" &&
+    value.matchAttemptId.length > 0 &&
     isMatchResult(value.result)
   );
 }
@@ -395,8 +395,8 @@ export function isMatchProgressMessage(value: unknown): value is MatchProgressMe
     isRecord(value) &&
     value.type === "match-progress" &&
     typeof value.matchId === "string" &&
-    (value.matchAttemptId === undefined ||
-      (typeof value.matchAttemptId === "string" && value.matchAttemptId.length > 0)) &&
+    typeof value.matchAttemptId === "string" &&
+    value.matchAttemptId.length > 0 &&
     Array.isArray(value.entries) &&
     value.entries.every(isMatchProgressEntry)
   );

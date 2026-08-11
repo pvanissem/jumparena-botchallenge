@@ -7,6 +7,7 @@ function progress(matchId: string): MatchProgressMessage {
   return {
     type: "match-progress",
     matchId,
+    matchAttemptId: "attempt-1",
     entries: [
       {
         botId: "b1",

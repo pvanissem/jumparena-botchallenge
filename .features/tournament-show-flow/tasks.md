@@ -887,7 +887,7 @@ Ergebnisverzögerung“.
 - Produces: genau eine Stage je `TournamentShowPhase`
 - Produces: Phaser-Mount nur bei lokalem Executor
 
-- [ ] **Step 1: Failing Stage-/Page-Tests schreiben**
+- [x] **Step 1: Failing Stage-/Page-Tests schreiben**
 
   Prüfe 2/3/4 Teilnehmer, Countdown, Result, Bracket, Champion und Roster.
   Zentraler Executor-Test:
@@ -904,13 +904,13 @@ Ergebnisverzögerung“.
   senden, Nachrichten ohne Attempt-ID nach der Contract-Phase abgelehnt
   werden und `present-ready` erst nach Registry-Bootstrap gesendet wird.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/pages/PresentPage.test.tsx client/src/components/tournament client/src/game/audio/useShowAudioCue.test.ts`
 
   Expected: FAIL wegen fehlender Stages/Executor-Abgleich.
 
-- [ ] **Step 3: Present-Komposition minimal implementieren**
+- [x] **Step 3: Present-Komposition minimal implementieren**
 
   `PresentPage` switcht ausschließlich auf `show.phase`; keine parallele
   `selectMatchStage`-Logik. `MatchView`-Key enthält Match- und Attempt-ID.
@@ -919,13 +919,13 @@ Ergebnisverzögerung“.
   Härte anschließend `matchAttemptId` in Progress-/Result-Contract und Guard
   von optional auf required; alle Sender sind in diesem Schritt migriert.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/pages/PresentPage.test.tsx client/src/components client/src/game/audio client/src/tournament`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/pages/PresentPage.tsx client/src/pages/PresentPage.test.tsx client/src/components client/src/game/audio client/src/tournament packages/shared/src/messages.ts packages/shared/src/messages.test.ts server/src/ws/parseMessage.test.ts .features/tournament-show-flow/tasks.md
