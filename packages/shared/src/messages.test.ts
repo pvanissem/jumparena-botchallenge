@@ -194,6 +194,7 @@ describe("isMatchResultMessage", () => {
     const message: MatchResultMessage = {
       type: "match-result",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       result: validResult(),
     };
     expect(isMatchResultMessage(message)).toBe(true);
@@ -204,6 +205,7 @@ describe("isMatchResultMessage", () => {
       isMatchResultMessage({
         type: "match-result",
         matchId: "m1",
+        matchAttemptId: "attempt-1",
         result: { entries: [{ botId: "b1" }] },
       })
     ).toBe(false);
@@ -224,10 +226,10 @@ describe("isMatchResultMessage", () => {
     ).toBe(true);
   });
 
-  it("keeps matchAttemptId optional during the expand migration", () => {
+  it("rejects a missing match attempt id", () => {
     expect(
       isMatchResultMessage({ type: "match-result", matchId: "m1", result: validResult() })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("rejects an empty match attempt id when present", () => {
@@ -247,6 +249,7 @@ describe("isMatchProgressMessage", () => {
     const message: MatchProgressMessage = {
       type: "match-progress",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       entries: [
         {
           botId: "b1",
@@ -268,6 +271,7 @@ describe("isMatchProgressMessage", () => {
       isMatchProgressMessage({
         type: "match-progress",
         matchId: "m1",
+        matchAttemptId: "attempt-1",
         entries: [{ botId: "b1" }],
       })
     ).toBe(false);
@@ -278,6 +282,7 @@ describe("isMatchProgressMessage", () => {
       isMatchProgressMessage({
         type: "match-progress",
         matchId: "m1",
+        matchAttemptId: "attempt-1",
         entries: "nope",
       })
     ).toBe(false);
@@ -301,6 +306,12 @@ describe("isMatchProgressMessage", () => {
       entries: [],
     };
     expect(isMatchProgressMessage(message)).toBe(false);
+  });
+
+  it("rejects a missing match attempt id", () => {
+    expect(isMatchProgressMessage({ type: "match-progress", matchId: "m1", entries: [] })).toBe(
+      false
+    );
   });
 });
 

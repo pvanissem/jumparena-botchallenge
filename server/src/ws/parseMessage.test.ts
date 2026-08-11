@@ -164,6 +164,7 @@ describe("parseInboundMessage", () => {
     const raw = JSON.stringify({
       type: "match-result",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       result: {
         entries: [
           {
@@ -184,6 +185,7 @@ describe("parseInboundMessage", () => {
     expect(parseInboundMessage(raw)).toEqual({
       type: "match-result",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       result: {
         entries: [
           {
@@ -206,6 +208,7 @@ describe("parseInboundMessage", () => {
     const raw = JSON.stringify({
       type: "match-result",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       result: { entries: [{ botId: "b1" }] },
     });
 
@@ -216,6 +219,7 @@ describe("parseInboundMessage", () => {
     const raw = JSON.stringify({
       type: "match-progress",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       entries: [
         {
           botId: "b1",
@@ -233,6 +237,7 @@ describe("parseInboundMessage", () => {
     expect(parseInboundMessage(raw)).toEqual({
       type: "match-progress",
       matchId: "m1",
+      matchAttemptId: "attempt-1",
       entries: [
         {
           botId: "b1",
@@ -246,5 +251,14 @@ describe("parseInboundMessage", () => {
         },
       ],
     });
+  });
+
+  it.each(["match-result", "match-progress"])("rejects %s without a match attempt id", (type) => {
+    const message =
+      type === "match-result"
+        ? { type, matchId: "m1", result: { entries: [] } }
+        : { type, matchId: "m1", entries: [] };
+
+    expect(parseInboundMessage(JSON.stringify(message))).toBeNull();
   });
 });
