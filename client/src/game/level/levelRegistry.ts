@@ -7,6 +7,7 @@
 import { LEVEL_FIVE } from "./levelFive";
 import { LEVEL_FOUR } from "./levelFour";
 import { LEVEL_ONE } from "./levelOne";
+import { LEVEL_SIX } from "./levelSix";
 import { LEVEL_THREE } from "./levelThree";
 import { LEVEL_TOOLKIT_TEST } from "./levelToolkitTest";
 import { LEVEL_TWO } from "./levelTwo";
@@ -24,6 +25,7 @@ export const LEVEL_REGISTRY: readonly LevelRegistryEntry[] = [
   { id: "level-three", label: "Level 3 – Night", level: LEVEL_THREE },
   { id: "level-four", label: "Level 4 – Underground", level: LEVEL_FOUR },
   { id: "level-five", label: "Level 5 – Desert", level: LEVEL_FIVE },
+  { id: "level-six", label: "Level 6 – Frost", level: LEVEL_SIX },
   { id: "toolkit-test", label: "Test – Bot Toolkit", level: LEVEL_TOOLKIT_TEST },
 ];
 
