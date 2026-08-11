@@ -318,7 +318,7 @@ client/src/styles/
   `removeShowHold`, `canAdvance`
 - Produces: `selectNextPendingMatch(state): { match; roundIndex } | null`
 
-- [ ] **Step 1: Failing Zustands- und Selektortests schreiben**
+- [x] **Step 1: Failing Zustands- und Selektortests schreiben**
 
   ```ts
   const intro = enterTimedPhase(base, "matchup-intro", 1_000, 5_000);
@@ -334,25 +334,25 @@ client/src/styles/
   Selektortests überspringen Freilose, finished und running Matches und wählen
   pending Matches in Runden-/Array-Reihenfolge.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/tournament/showPhaseMachine.test.ts server/src/tournament/selectNextPendingMatch.test.ts`
 
   Expected: FAIL, Module fehlen.
 
-- [ ] **Step 3: Pure Minimalimplementierung schreiben**
+- [x] **Step 3: Pure Minimalimplementierung schreiben**
 
   Keine Timer, keine Registry, kein Broadcast und kein `TournamentService` in
   diesen Modulen. Arrays werden ohne Duplikate behandelt; Entfernen eines
   unbekannten Holds ist identischer No-op.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run server/src/tournament/showPhaseMachine.test.ts server/src/tournament/selectNextPendingMatch.test.ts`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src/tournament/showTiming.ts server/src/tournament/showPhaseMachine.ts server/src/tournament/showPhaseMachine.test.ts server/src/tournament/selectNextPendingMatch.ts server/src/tournament/selectNextPendingMatch.test.ts .features/tournament-show-flow/tasks.md
