@@ -8,12 +8,12 @@ import { describe, expect, it, vi } from "vitest";
 import { BotRegistry } from "../botRegistry/BotRegistry";
 import { ClientRegistry } from "../ws/ClientRegistry";
 import { SingleEliminationStrategy } from "./SingleEliminationStrategy";
+import { TournamentService } from "./TournamentService";
 import {
   type Clock,
   type ShowScheduler,
   TournamentSessionService,
 } from "./TournamentSessionService";
-import { TournamentService } from "./TournamentService";
 
 class FakeClock implements Clock {
   currentMs = 0;
@@ -110,23 +110,33 @@ function result(): MatchResult {
   };
 }
 
-function setup() {
+function setup(options: { presentIds?: string[]; attemptIds?: string[] } = {}) {
   const clock = new FakeClock();
   const scheduler = new FakeScheduler(clock);
   const tournament = new TournamentService(
     new BotRegistry([bot("b1"), bot("b2")]),
-    new SingleEliminationStrategy((participants) => [...participants], () => "match-1")
+    new SingleEliminationStrategy(
+      (participants) => [...participants],
+      () => "match-1"
+    )
   );
+  const readyPresentClients = new ClientRegistry();
+  for (const id of options.presentIds ?? ["present-1"]) {
+    readyPresentClients.add({ id, send: vi.fn() });
+    readyPresentClients.registerRole(id, "present");
+    readyPresentClients.setPresentReady(id, true);
+  }
+  const attemptIds = [...(options.attemptIds ?? ["attempt-1", "attempt-2"])];
   const publishSnapshot = vi.fn<(message: TournamentStateMessage) => void>();
   const session = new TournamentSessionService({
     tournament,
-    readyPresentClients: new ClientRegistry(),
+    readyPresentClients,
     clock,
     scheduler,
-    createAttemptId: () => "attempt-1",
+    createAttemptId: () => attemptIds.shift() ?? "attempt-fallback",
     publishSnapshot,
   });
-  return { clock, scheduler, tournament, publishSnapshot, session };
+  return { clock, scheduler, tournament, publishSnapshot, readyPresentClients, session };
 }
 
 describe("TournamentSessionService", () => {
@@ -148,12 +158,17 @@ describe("TournamentSessionService", () => {
       phaseEndsAtMs: 8_000,
     });
     scheduler.fireCurrent();
-    expect(session.getSnapshot().show?.phase).toBe("match-running");
+    expect(session.getSnapshot().show).toMatchObject({
+      phase: "match-running",
+      executorClientId: "present-1",
+      matchAttemptId: "attempt-1",
+    });
 
     expect(
       session.acceptResult("present-1", {
         type: "match-result",
         matchId: "match-1",
+        matchAttemptId: "attempt-1",
         result: result(),
       })
     ).toBe(true);
@@ -229,5 +244,122 @@ describe("TournamentSessionService", () => {
     expect(session.getSnapshot()).toEqual({ state: null, show: null });
     expect(session.configure(configureMessage())).toBe(true);
     expect(publishSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("holds the countdown when no present executor is ready", () => {
+    const { scheduler, session } = setup({ presentIds: [] });
+    session.configure(configureMessage());
+    session.control("start");
+
+    scheduler.fireCurrent();
+    scheduler.fireCurrent();
+
+    expect(session.getSnapshot().show).toMatchObject({
+      phase: "countdown",
+      executorClientId: null,
+      matchAttemptId: null,
+      phaseEndsAtMs: null,
+      heldRemainingMs: 0,
+      holds: ["present-unavailable"],
+      presentReady: false,
+    });
+    expect(session.getSnapshot().state?.rounds[0][0].status).toBe("pending");
+  });
+
+  it("leases the first ready present and rejects all other senders or attempts", () => {
+    const { scheduler, session } = setup({
+      presentIds: ["present-a", "present-b"],
+      attemptIds: ["attempt-a"],
+    });
+    session.configure(configureMessage());
+    session.control("start");
+    scheduler.fireCurrent();
+    scheduler.fireCurrent();
+
+    expect(session.getSnapshot().show).toMatchObject({
+      executorClientId: "present-a",
+      matchAttemptId: "attempt-a",
+    });
+    const progress = {
+      type: "match-progress" as const,
+      matchId: "match-1",
+      matchAttemptId: "attempt-a",
+      entries: [],
+    };
+    expect(session.acceptProgress("present-b", progress)).toBe(false);
+    expect(session.acceptProgress("present-a", { ...progress, matchAttemptId: "stale" })).toBe(
+      false
+    );
+    expect(session.acceptProgress("present-a", progress)).toBe(true);
+    expect(
+      session.acceptResult("present-b", {
+        type: "match-result",
+        matchId: "match-1",
+        matchAttemptId: "attempt-a",
+        result: result(),
+      })
+    ).toBe(false);
+  });
+
+  it("restarts the same running match with a new attempt after executor loss", () => {
+    const { readyPresentClients, scheduler, session } = setup({
+      presentIds: ["present-a", "present-b"],
+      attemptIds: ["attempt-a", "attempt-b"],
+    });
+    session.configure(configureMessage());
+    session.control("start");
+    scheduler.fireCurrent();
+    scheduler.fireCurrent();
+    readyPresentClients.remove("present-a");
+
+    session.onPresentAvailabilityChanged();
+
+    expect(session.getSnapshot().show).toMatchObject({
+      phase: "match-running",
+      activeMatchId: "match-1",
+      executorClientId: "present-b",
+      matchAttemptId: "attempt-b",
+      presentReady: true,
+    });
+    expect(session.getSnapshot().state?.rounds[0][0].status).toBe("running");
+    expect(
+      session.acceptProgress("present-a", {
+        type: "match-progress",
+        matchId: "match-1",
+        matchAttemptId: "attempt-a",
+        entries: [],
+      })
+    ).toBe(false);
+  });
+
+  it("waits without an executor and creates a fresh attempt when a present returns", () => {
+    const { readyPresentClients, scheduler, session } = setup({
+      presentIds: ["present-a"],
+      attemptIds: ["attempt-a", "attempt-b"],
+    });
+    session.configure(configureMessage());
+    session.control("start");
+    scheduler.fireCurrent();
+    scheduler.fireCurrent();
+    readyPresentClients.remove("present-a");
+    session.onPresentAvailabilityChanged();
+
+    expect(session.getSnapshot().show).toMatchObject({
+      executorClientId: null,
+      matchAttemptId: null,
+      presentReady: false,
+    });
+
+    readyPresentClients.add({ id: "present-b", send: vi.fn() });
+    readyPresentClients.registerRole("present-b", "present");
+    readyPresentClients.setPresentReady("present-b", true);
+    session.onPresentAvailabilityChanged();
+
+    expect(session.getSnapshot().show).toMatchObject({
+      activeMatchId: "match-1",
+      executorClientId: "present-b",
+      matchAttemptId: "attempt-b",
+      presentReady: true,
+    });
   });
 });

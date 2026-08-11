@@ -446,7 +446,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Consumes: `ClientRegistry.getReadyPresentClients()`
 - Produces: `executorClientId`, `matchAttemptId`, Attempt-Validierung
 
-- [ ] **Step 1: Failing Lease-/Failover-Tests schreiben**
+- [x] **Step 1: Failing Lease-/Failover-Tests schreiben**
 
   ```ts
   session.control("start");
@@ -463,26 +463,26 @@ Session-Service“ und „Gültige Übergänge“.
   alten Attempt ungültig, neuer ready Client erhält neue Attempt-ID für
   dasselbe Match.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/tournament/TournamentSessionService.test.ts`
 
   Expected: FAIL bei Lease-/Attempt-Fällen.
 
-- [ ] **Step 3: Minimalen Lease-Mechanismus implementieren**
+- [x] **Step 3: Minimalen Lease-Mechanismus implementieren**
 
   `countdown → match-running` verlangt einen ready Client. Während
   `match-running` startet ein Executor-Verlust keinen neuen Bracket-Match,
   sondern erzeugt für dasselbe `activeMatchId` einen neuen Attempt, sobald ein
   ready Client existiert. Alter Progress und alte Resultate bleiben No-ops.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run server/src/tournament/TournamentSessionService.test.ts`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src/tournament/TournamentSessionService.ts server/src/tournament/TournamentSessionService.test.ts .features/tournament-show-flow/tasks.md
