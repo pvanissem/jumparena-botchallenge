@@ -381,7 +381,7 @@ Session-Service“ und „Gültige Übergänge“.
 - Produces: injizierbare `Clock`, `ShowScheduler`, `createAttemptId`,
   `publishSnapshot`
 
-- [ ] **Step 1: Failing Happy-Path- und Timer-Tests schreiben**
+- [x] **Step 1: Failing Happy-Path- und Timer-Tests schreiben**
 
   Mit Fake Clock/Scheduler exakt prüfen:
 
@@ -404,26 +404,26 @@ Session-Service“ und „Gültige Übergänge“.
   Weitere rote Fälle: Pause/Resume mit Restzeit, Advance, Ergebnis 6 s,
   Bracket 10 s, Finale Bracket → Champion, Reset und Reconfigure-Ablehnung.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/tournament/TournamentSessionService.test.ts server/src/tournament/broadcastTournamentSession.test.ts`
 
   Expected: FAIL, Module fehlen.
 
-- [ ] **Step 3: Minimalen Application-Service implementieren**
+- [x] **Step 3: Minimalen Application-Service implementieren**
 
   Genau eine Timer-Referenz und monotone `scheduleGeneration` halten. Jeder
   planende/löschende/ersetzende Vorgang inkrementiert die Generation. Callback
   prüft Generation, Phase, Match-ID und erwartete Deadline. Jeder erfolgreiche
   Zustandswechsel veröffentlicht genau einen Snapshot mit `serverNowMs`.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run server/src/tournament/TournamentSessionService.test.ts server/src/tournament/broadcastTournamentSession.test.ts`
 
   Expected: PASS, insbesondere alter Callback nach Pause/Resume bleibt No-op.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src/tournament/TournamentSessionService.ts server/src/tournament/TournamentSessionService.test.ts server/src/tournament/broadcastTournamentSession.ts server/src/tournament/broadcastTournamentSession.test.ts .features/tournament-show-flow/tasks.md
