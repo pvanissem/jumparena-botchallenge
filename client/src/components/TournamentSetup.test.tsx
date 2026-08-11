@@ -22,7 +22,11 @@ describe("TournamentSetup", () => {
   });
 
   it("renders group size buttons for every allowed size", () => {
-    render(<TournamentSetup bots={[bot("b1"), bot("b2")]} onStart={vi.fn()} />);
+    const { container } = render(
+      <TournamentSetup bots={[bot("b1"), bot("b2")]} onStart={vi.fn()} />
+    );
+
+    expect(container.firstElementChild?.classList.contains("tournament-setup")).toBe(true);
 
     for (const size of ALLOWED_GROUP_SIZES) {
       expect(screen.getByRole("button", { name: String(size) })).toBeTruthy();

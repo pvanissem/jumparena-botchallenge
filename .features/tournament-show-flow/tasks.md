@@ -959,7 +959,7 @@ Ergebnisverzögerung“.
 - Consumes: Session, Countdown, Bracket, LiveScoreboard
 - Produces: Start/Pause/Resume/Advance/Reset-Commands
 
-- [ ] **Step 1: Failing Control-Room-Tests schreiben**
+- [x] **Step 1: Failing Control-Room-Tests schreiben**
 
   Prüfe gültige Aktionen je Phase, Restzeit, Present-Warnung, Next Match,
   letztes Ergebnis und Reset-Bestätigung:
@@ -972,26 +972,26 @@ Ergebnisverzögerung“.
   expect(screen.queryByRole("button", { name: "Sofort weiter" })).toBeNull();
   ```
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run client/src/components/ShowControlPanel.test.tsx client/src/pages/AdminPage.test.tsx client/src/components/TournamentSetup.test.tsx`
 
   Expected: FAIL wegen fehlender Control-Komponente/Session-Integration.
 
-- [ ] **Step 3: Minimalen Control Room implementieren**
+- [x] **Step 3: Minimalen Control Room implementieren**
 
   Entferne Match-Startbuttons vollständig. Danger-Zone nutzt bewusst
   `window.confirm`; bei Abbruch kein Reset-Command. Vorbereitungsansicht zeigt
   Bot-Sammelstelle + Setup, laufende Ansicht Control + vollständiges Bracket +
   Live/letzten Stand.
 
-- [ ] **Step 4: Grün verifizieren**
+- [x] **Step 4: Grün verifizieren**
 
   Run: `npx vitest run client/src/components/ShowControlPanel.test.tsx client/src/pages/AdminPage.test.tsx client/src/components/TournamentSetup.test.tsx`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add client/src/components/ShowControlPanel.tsx client/src/components/ShowControlPanel.test.tsx client/src/components/TournamentSetup.tsx client/src/components/TournamentSetup.test.tsx client/src/components/BracketView.tsx client/src/components/BracketView.test.tsx client/src/components/MatchLiveStandings.tsx client/src/pages/AdminPage.tsx client/src/pages/AdminPage.test.tsx client/src/tournament/useTournamentState.ts client/src/tournament/useTournamentState.test.ts client/src/tournament/selectMatchStage.ts client/src/tournament/selectMatchStage.test.ts .features/tournament-show-flow/tasks.md
