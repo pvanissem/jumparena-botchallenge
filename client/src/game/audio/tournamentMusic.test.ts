@@ -56,6 +56,25 @@ describe("selectTournamentMusicKey", () => {
     expect(selectTournamentMusicKey(tournament(2), show("match-running", 0))).toBe("theme3");
   });
 
+  it("does not mistake a progressively generated opening round for the final", () => {
+    const progressive = tournament(1);
+    progressive.rounds = [
+      Array.from({ length: 4 }, (_, matchIndex) => ({
+        id: `match-${matchIndex}`,
+        status: "pending" as const,
+        result: null,
+        participants: [0, 1].map((participantIndex) => ({
+          botId: `bot-${matchIndex}-${participantIndex}`,
+          name: `Bot ${matchIndex}-${participantIndex}`,
+          author: "Test",
+          color: "#00ffff",
+        })),
+      })),
+    ];
+
+    expect(selectTournamentMusicKey(progressive, show("match-running", 0))).toBe("theme2");
+  });
+
   it("falls back to the base theme for invalid running state", () => {
     expect(selectTournamentMusicKey(tournament(4), show("match-running", null))).toBe(
       AUDIO_KEYS.THEME

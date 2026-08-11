@@ -1,4 +1,4 @@
-import type { TournamentShowState, TournamentState } from "@arena/shared";
+import { estimateRoundCount, type TournamentShowState, type TournamentState } from "@arena/shared";
 import { AUDIO_KEYS } from "../assets/audio";
 
 export type TournamentMusicKey =
@@ -24,7 +24,13 @@ export function selectTournamentMusicKey(
   if (show.phase !== "match-running") return AUDIO_KEYS.END;
   if (show.activeRoundIndex === null) return AUDIO_KEYS.THEME;
 
-  const distanceToFinal = tournament.rounds.length - 1 - show.activeRoundIndex;
+  const initialParticipantCount =
+    tournament.rounds[0]?.reduce((total, match) => total + match.participants.length, 0) ?? 0;
+  const totalRoundCount = Math.max(
+    tournament.rounds.length,
+    estimateRoundCount(initialParticipantCount, tournament.groupSize)
+  );
+  const distanceToFinal = totalRoundCount - 1 - show.activeRoundIndex;
   if (distanceToFinal === 0) return AUDIO_KEYS.EPIC;
   if (distanceToFinal === 1) return AUDIO_KEYS.THEME_3;
   if (distanceToFinal === 2) return AUDIO_KEYS.THEME_2;
