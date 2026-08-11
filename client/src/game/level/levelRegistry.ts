@@ -4,6 +4,7 @@
  * importiert; Konsumenten (RaceScene, /dev-UI, später ggf. /admin)
  * referenzieren Level ausschließlich über ihre stabile `id`.
  */
+import { LEVEL_FIVE } from "./levelFive";
 import { LEVEL_FOUR } from "./levelFour";
 import { LEVEL_ONE } from "./levelOne";
 import { LEVEL_THREE } from "./levelThree";
@@ -22,6 +23,7 @@ export const LEVEL_REGISTRY: readonly LevelRegistryEntry[] = [
   { id: "level-two", label: "Level 2 – Kaizo", level: LEVEL_TWO },
   { id: "level-three", label: "Level 3 – Night", level: LEVEL_THREE },
   { id: "level-four", label: "Level 4 – Underground", level: LEVEL_FOUR },
+  { id: "level-five", label: "Level 5 – Desert", level: LEVEL_FIVE },
   { id: "toolkit-test", label: "Test – Bot Toolkit", level: LEVEL_TOOLKIT_TEST },
 ];
 

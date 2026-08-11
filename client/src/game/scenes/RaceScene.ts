@@ -59,7 +59,6 @@ const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
 // für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
 const STATUS_EMIT_INTERVAL_MS = 100;
 const STOMP_BOUNCE_VELOCITY = -280;
-const BOINGO_JUMP_VELOCITY = -820;
 /** Ab dieser horizontalen Geschwindigkeit gilt der Racer als "läuft" (Anim). */
 const RUN_ANIM_THRESHOLD = 1;
 
@@ -710,7 +709,7 @@ export class RaceScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     if (body.velocity.y <= 0) return;
 
-    body.setVelocityY(BOINGO_JUMP_VELOCITY);
+    body.setVelocityY(MOVEMENT_TUNING.BOINGO_JUMP_VELOCITY);
     this.playSfx(AUDIO_KEYS.BOINGO);
 
     const kind = utility.getData("kind") as UtilityKind;

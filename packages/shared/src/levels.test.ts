@@ -8,6 +8,7 @@ describe("LEVEL_IDS", () => {
       "level-two",
       "level-three",
       "level-four",
+      "level-five",
       "toolkit-test",
     ]);
   });
@@ -18,7 +19,7 @@ describe("isValidLevelId", () => {
     expect(isValidLevelId(id)).toBe(true);
   });
 
-  it.each(["level-five", "unknown", ""])("lehnt die unbekannte ID '%s' ab", (id) => {
+  it.each(["unknown", ""])("lehnt die unbekannte ID '%s' ab", (id) => {
     expect(isValidLevelId(id)).toBe(false);
   });
 

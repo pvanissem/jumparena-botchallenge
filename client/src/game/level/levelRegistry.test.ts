@@ -1,5 +1,6 @@
 import { LEVEL_IDS } from "@arena/shared";
 import { describe, expect, it } from "vitest";
+import { LEVEL_FIVE } from "./levelFive";
 import { LEVEL_FOUR } from "./levelFour";
 import { LEVEL_ONE } from "./levelOne";
 import { DEFAULT_LEVEL_ID, getLevelById, LEVEL_REGISTRY } from "./levelRegistry";
@@ -7,10 +8,10 @@ import { LEVEL_THREE } from "./levelThree";
 import { LEVEL_TWO } from "./levelTwo";
 
 describe("LEVEL_REGISTRY", () => {
-  it("contains level-one through level-four with human-readable labels", () => {
+  it("contains level-one through level-five with human-readable labels", () => {
     const ids = LEVEL_REGISTRY.map((entry) => entry.id);
     expect(ids).toEqual(
-      expect.arrayContaining(["level-one", "level-two", "level-three", "level-four"])
+      expect.arrayContaining(["level-one", "level-two", "level-three", "level-four", "level-five"])
     );
     for (const entry of LEVEL_REGISTRY) {
       expect(entry.label.length).toBeGreaterThan(0);
@@ -50,6 +51,10 @@ describe("getLevelById", () => {
 
   it("returns LEVEL_FOUR for 'level-four'", () => {
     expect(getLevelById("level-four")).toBe(LEVEL_FOUR);
+  });
+
+  it("returns LEVEL_FIVE for 'level-five'", () => {
+    expect(getLevelById("level-five")).toBe(LEVEL_FIVE);
   });
 
   it("throws a clear error for an unknown level id", () => {
