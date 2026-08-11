@@ -40,7 +40,7 @@ function reducer(state: BotRegistryState, action: RegistryAction): BotRegistrySt
  * shared, server-authoritative state.
  */
 export function useBotRegistry(
-  lastMessage: OutboundMessage | null,
+  subscribe: (listener: (message: OutboundMessage) => void) => () => void,
   connectionStatus: ConnectionStatus
 ): BotRegistryState {
   const [state, dispatch] = useReducer(reducer, EMPTY_REGISTRY);
@@ -49,21 +49,23 @@ export function useBotRegistry(
     if (connectionStatus !== "connected") dispatch({ type: "reset" });
   }, [connectionStatus]);
 
-  useEffect(() => {
-    if (!lastMessage) return;
-
-    switch (lastMessage.type) {
-      case "bot-registry-snapshot":
-        dispatch({ type: "snapshot", bots: lastMessage.bots });
-        break;
-      case "bot-added":
-        dispatch({ type: "added", bot: lastMessage.bot });
-        break;
-      case "bot-removed":
-        dispatch({ type: "removed", id: lastMessage.id });
-        break;
-    }
-  }, [lastMessage]);
+  useEffect(
+    () =>
+      subscribe((message) => {
+        switch (message.type) {
+          case "bot-registry-snapshot":
+            dispatch({ type: "snapshot", bots: message.bots });
+            break;
+          case "bot-added":
+            dispatch({ type: "added", bot: message.bot });
+            break;
+          case "bot-removed":
+            dispatch({ type: "removed", id: message.id });
+            break;
+        }
+      }),
+    [subscribe]
+  );
 
   return state;
 }

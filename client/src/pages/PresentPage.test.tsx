@@ -1,14 +1,63 @@
-import type { MatchDef, TournamentShowState, TournamentState } from "@arena/shared";
-import { cleanup, render, screen } from "@testing-library/react";
+import type {
+  MatchDef,
+  OutboundMessage,
+  TournamentShowState,
+  TournamentState,
+} from "@arena/shared";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PresentStage } from "./PresentPage";
+import { PresentPage, PresentStage } from "./PresentPage";
+
+const connection = vi.hoisted(() => ({
+  lastMessage: null as OutboundMessage | null,
+  listeners: new Set<(message: OutboundMessage) => void>(),
+  send: vi.fn(),
+}));
+
+let matchEngineStarts = 0;
+
+function MatchViewLifecycleProbe({
+  onProgress,
+  onFinished,
+}: {
+  onProgress: unknown;
+  onFinished: unknown;
+}) {
+  useEffect(() => {
+    void onProgress;
+    void onFinished;
+    matchEngineStarts += 1;
+  }, [onProgress, onFinished]);
+  return <div data-testid="match-view">Match engine</div>;
+}
 
 vi.mock("../match/MatchView", () => ({
-  MatchView: () => <div data-testid="match-view">Match engine</div>,
+  MatchView: MatchViewLifecycleProbe,
 }));
 vi.mock("../game/audio/useShowAudioCue", () => ({ useShowAudioCue: vi.fn() }));
+vi.mock("../ws/useWebSocketConnection", () => ({
+  useWebSocketConnection: () => ({
+    status: "connected",
+    clientId: "exec",
+    lastMessage: connection.lastMessage,
+    subscribe: (listener: (message: OutboundMessage) => void) => {
+      connection.listeners.add(listener);
+      return () => {
+        connection.listeners.delete(listener);
+      };
+    },
+    send: connection.send,
+  }),
+}));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  connection.lastMessage = null;
+  connection.listeners.clear();
+  connection.send.mockClear();
+  matchEngineStarts = 0;
+});
 
 const match: MatchDef = {
   id: "m1",
@@ -45,7 +94,7 @@ function runningShow(executorClientId: string): TournamentShowState {
 
 describe("PresentStage", () => {
   it("keeps display-only clients from mounting Phaser", () => {
-    render(
+    const { container } = render(
       <PresentStage
         tournament={tournament}
         show={runningShow("exec")}
@@ -59,10 +108,13 @@ describe("PresentStage", () => {
     );
     expect(screen.queryByTestId("match-view")).toBeNull();
     expect(screen.getByText(/Display-Modus/)).toBeTruthy();
+    expect(container.querySelector(".present-live-stage")?.getAttribute("data-executor")).toBe(
+      "false"
+    );
   });
 
   it("mounts Phaser only for the current executor", () => {
-    render(
+    const { container } = render(
       <PresentStage
         tournament={tournament}
         show={runningShow("exec")}
@@ -75,5 +127,36 @@ describe("PresentStage", () => {
       />
     );
     expect(screen.getByTestId("match-view")).toBeTruthy();
+    expect(container.querySelector(".present-live-stage")?.getAttribute("data-executor")).toBe(
+      "true"
+    );
+  });
+});
+
+describe("PresentPage", () => {
+  it("does not restart the match engine when live progress arrives", async () => {
+    render(<PresentPage />);
+    act(() => {
+      const message: OutboundMessage = {
+        type: "tournament-state",
+        state: tournament,
+        show: runningShow("exec"),
+        serverNowMs: Date.now(),
+      };
+      for (const listener of connection.listeners) listener(message);
+    });
+    await screen.findByTestId("match-view");
+
+    act(() => {
+      const message: OutboundMessage = {
+        type: "match-progress",
+        matchId: "m1",
+        matchAttemptId: "attempt-1",
+        entries: [],
+      };
+      for (const listener of connection.listeners) listener(message);
+    });
+
+    expect(matchEngineStarts).toBe(1);
   });
 });

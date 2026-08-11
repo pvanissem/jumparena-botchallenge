@@ -28,12 +28,14 @@ function racer(overrides: Partial<RacerRuntimeState> = {}): RacerRuntimeState {
 }
 
 function descriptor(
-  outcomeKind: TileOverlayDescriptor["outcome"]["kind"],
+  outcomeKind: NonNullable<TileOverlayDescriptor["outcome"]>["kind"],
   isWinner: boolean
 ): TileOverlayDescriptor {
   return {
     botId: "bot-a",
     name: "Alpha",
+    color: "#00ffff",
+    playerNumber: 1,
     viewport: { x: 0, y: 0, width: 100, height: 100 },
     outcome: { kind: outcomeKind, reachedGoal: outcomeKind === "goal" },
     racer: racer({
@@ -65,6 +67,21 @@ describe("RacerTileOverlay", () => {
     render(<RacerTileOverlay descriptor={descriptor("goal", false)} />);
     expect(screen.getByText("Alpha")).toBeTruthy();
     expect(screen.getByText(/punkte/i)).toBeTruthy();
+  });
+
+  it("renders a persistent player label before an outcome", () => {
+    const running = {
+      ...descriptor("goal", false),
+      racer: null,
+      outcome: null,
+    };
+
+    const { container } = render(<RacerTileOverlay descriptor={running} />);
+    expect(screen.getByText("Player 1")).toBeTruthy();
+    expect(screen.getByText("Alpha")).toBeTruthy();
+    expect(document.querySelector(".racer-tile-label")).toBeTruthy();
+    expect(document.querySelector(".pixel-overlay__card")).toBeNull();
+    expect(container.querySelector(".pixel-overlay--running")).toBeTruthy();
   });
 
   it("shows the winner badge and border only when isWinner is true", () => {

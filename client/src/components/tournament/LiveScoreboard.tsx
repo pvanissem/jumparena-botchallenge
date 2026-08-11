@@ -22,10 +22,11 @@ export function LiveScoreboard({ standings, variant }: LiveScoreboardProps) {
     <section
       className={`live-scoreboard live-scoreboard--${variant}`}
       aria-label="Live-Punktestand"
+      data-variant={variant}
     >
       <header className="live-scoreboard__header">
         <h2>Live Score</h2>
-        <span>{standings.length} Bots</span>
+        <span className="live-scoreboard__count">{standings.length} Bots</span>
       </header>
       <ol className="live-scoreboard__list">
         {standings.map((standing) => (

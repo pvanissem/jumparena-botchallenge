@@ -33,6 +33,7 @@ function MatchNode({ match, active }: { match: MatchDef; active: boolean }) {
       className={`tournament-bracket__match tournament-bracket__match--${match.status}`}
       aria-label={`Match ${match.id}`}
       data-active={active ? "true" : "false"}
+      aria-current={active ? "step" : undefined}
     >
       <span className="tournament-bracket__status">
         {match.status === "running"
@@ -119,7 +120,11 @@ export function TournamentBracket({ state, show, variant }: TournamentBracketPro
   }, [graph.edges, visibleIds]);
 
   return (
-    <div ref={containerRef} className={`tournament-bracket tournament-bracket--${variant}`}>
+    <div
+      ref={containerRef}
+      className={`tournament-bracket tournament-bracket--${variant}`}
+      data-variant={variant}
+    >
       <svg className="tournament-bracket__edges" aria-hidden="true">
         {paths.map((path) => (
           <path
@@ -154,7 +159,29 @@ export function TournamentBracket({ state, show, variant }: TournamentBracketPro
                       className="tournament-bracket__match tournament-bracket__match--placeholder"
                       aria-label={`Zukünftiges Match ${roundIndex + 1}-${node.matchIndex + 1}`}
                     >
-                      Wartet auf Sieger
+                      <ol className="tournament-bracket__participants">
+                        {node.qualifiers.map((participant) => (
+                          <li
+                            key={participant.botId}
+                            style={{ borderInlineStartColor: participant.color }}
+                          >
+                            <span>{participant.name}</span>
+                            <strong>Qualifiziert</strong>
+                          </li>
+                        ))}
+                        {graph.edges
+                          .filter(
+                            (edge) => edge.targetNodeId === node.id && edge.advancedBotId === null
+                          )
+                          .map((edge) => (
+                            <li
+                              className="tournament-bracket__participant--waiting"
+                              key={edge.sourceNodeId}
+                            >
+                              <span>Wartet auf Sieger</span>
+                            </li>
+                          ))}
+                      </ol>
                     </article>
                   )}
                 </div>

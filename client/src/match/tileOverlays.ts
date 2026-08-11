@@ -6,15 +6,18 @@ import { deriveRacerOutcome, type RacerOutcome } from "./racerOutcome";
 export interface TileOverlayDescriptor {
   botId: string;
   name: string;
+  color: string;
+  playerNumber: number;
   viewport: ViewportRect;
-  outcome: RacerOutcome;
-  racer: RacerRuntimeState;
+  outcome: RacerOutcome | null;
+  racer: RacerRuntimeState | null;
   isWinner: boolean;
 }
 
 export interface TileOverlaySlot {
   botId: string;
   name: string;
+  color: string;
   viewport: ViewportRect;
   racer: RacerRuntimeState | null;
   pausedReasonKind: BotRunnerPauseReasonKind | null;
@@ -30,19 +33,17 @@ export function computeTileOverlays(input: {
   slots: readonly TileOverlaySlot[];
   winnerBotId: string | null;
 }): TileOverlayDescriptor[] {
-  return input.slots
-    .map((slot) => {
-      if (!slot.racer) return null;
-      const outcome = deriveRacerOutcome(slot.racer, slot.pausedReasonKind);
-      if (!outcome) return null;
-      return {
-        botId: slot.botId,
-        name: slot.name,
-        viewport: slot.viewport,
-        outcome,
-        racer: slot.racer,
-        isWinner: input.winnerBotId === slot.botId,
-      };
-    })
-    .filter((descriptor): descriptor is TileOverlayDescriptor => descriptor !== null);
+  return input.slots.map((slot, index) => {
+    const outcome = slot.racer ? deriveRacerOutcome(slot.racer, slot.pausedReasonKind) : null;
+    return {
+      botId: slot.botId,
+      name: slot.name,
+      color: slot.color,
+      playerNumber: index + 1,
+      viewport: slot.viewport,
+      outcome,
+      racer: slot.racer,
+      isWinner: input.winnerBotId === slot.botId,
+    };
+  });
 }

@@ -93,11 +93,7 @@ export function MatchView({
   const descriptors = tiles ? computeTileOverlays(tiles) : [];
 
   return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={{ position: "relative", width: "100%", height: "70vh" }}
-    >
+    <div ref={containerRef} className={className} style={{ position: "relative", width: "100%" }}>
       <div className="match-view__overlays">
         {descriptors.map((descriptor) => (
           <RacerTileOverlay key={descriptor.botId} descriptor={descriptor} />

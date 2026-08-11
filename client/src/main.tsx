@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import "./theme.css";
+import "./styles/tournament.css";
+import "./styles/admin-control-room.css";
+import "./styles/present-broadcast.css";
 
 const container = document.getElementById("root");
 if (!container) {

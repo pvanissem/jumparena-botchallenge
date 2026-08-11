@@ -91,6 +91,8 @@ export interface RaceSceneInitData {
   /** Musik UND Soundeffekte dieser Szene. Default `true` (heutiges Verhalten).
    *  Im Match für ALLE Racer-Szenen `false`. */
   audio?: boolean;
+  /** MatchBootScene hat den gemeinsamen Cache bereits vollständig geladen. */
+  assetsPreloaded?: boolean;
 }
 
 export class RaceScene extends Phaser.Scene {
@@ -157,7 +159,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   preload(): void {
-    preloadArenaAssets(this);
+    if (!this.initData.assetsPreloaded) preloadArenaAssets(this);
   }
 
   create(): void {

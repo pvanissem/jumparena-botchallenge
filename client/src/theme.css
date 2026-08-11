@@ -874,10 +874,45 @@ canvas {
   pointer-events: none;
 }
 
+.pixel-overlay--running {
+  background: none;
+  animation: none;
+}
+
 .pixel-overlay--tile .pixel-overlay__card {
   width: min(560px, 92%);
   padding: 20px 24px;
   pointer-events: auto;
+}
+
+.racer-tile-label {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  padding: 8px 12px;
+  border: 3px solid var(--neon-cyan);
+  background: rgba(10, 12, 24, 0.9);
+  box-shadow: 3px 3px 0 var(--border-dark);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.racer-tile-label span {
+  color: var(--ink-dim);
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+.racer-tile-label strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: clamp(9px, 0.9vw, 14px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pixel-overlay--tile .pixel-overlay__title {

@@ -54,6 +54,11 @@ describe("buildBracketGraph", () => {
       highlighted: true,
     });
     expect(graph.nodes.find((node) => node.id === "round-1-slot-0")?.match).toBeNull();
+    expect(
+      graph.nodes
+        .find((node) => node.id === "round-1-slot-0")
+        ?.qualifiers.map((participant) => participant.botId)
+    ).toEqual(["m0-a"]);
   });
 
   it("uses real follow-up matches when already materialized", () => {

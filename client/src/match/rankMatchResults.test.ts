@@ -62,6 +62,18 @@ describe("rankMatchResults", () => {
     expect(entries.map((e) => e.botId)).toEqual(["b2", "b1"]);
   });
 
+  it("normalizes fractional Phaser time to protocol-safe milliseconds", () => {
+    const [entry] = rankMatchResults([
+      {
+        botId: "b1",
+        state: racer({ finished: true, timeElapsedMs: 4_123.75 }),
+        disabled: false,
+      },
+    ]);
+
+    expect(entry.timeElapsedMs).toBe(4_124);
+  });
+
   it("assigns consecutive ranks starting at 1", () => {
     const entries = rankMatchResults([
       { botId: "b1", state: racer({ fruitScore: 300, finished: true }), disabled: false },

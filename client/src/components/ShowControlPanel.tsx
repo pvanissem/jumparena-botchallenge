@@ -50,7 +50,7 @@ export function ShowControlPanel({
   };
 
   return (
-    <section className="show-control-panel" aria-label="Show-Steuerung">
+    <section className="show-control-panel" aria-label="Show-Steuerung" data-phase={show.phase}>
       <div className="show-control-panel__overview">
         <span>Aktuelle Phase</span>
         <h2>{PHASE_LABELS[show.phase]}</h2>

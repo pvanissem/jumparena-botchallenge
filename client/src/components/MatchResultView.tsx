@@ -17,7 +17,7 @@ export function MatchResultView({ result, state, onContinue }: MatchResultViewPr
   return (
     <section className="match-result-view">
       <header className="match-result-view__header">
-        <span>Match complete</span>
+        <span className="match-result-view__eyebrow">Match complete</span>
         <h2>
           {winner ? `${nameById.get(winner.botId) ?? winner.botId} gewinnt!` : "Match beendet"}
         </h2>

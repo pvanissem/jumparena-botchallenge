@@ -38,7 +38,7 @@ const readyShow: TournamentShowState = {
 describe("AdminTournamentView", () => {
   it("controls the show and renders the full bracket without match start buttons", () => {
     const send = vi.fn();
-    render(
+    const { container } = render(
       <AdminTournamentView
         tournament={tournament}
         show={readyShow}
@@ -52,6 +52,9 @@ describe("AdminTournamentView", () => {
     expect(send).toHaveBeenCalledWith({ type: "tournament-show-control", action: "start" });
     expect(screen.getByLabelText("Match m1")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Match starten/ })).toBeNull();
+    expect(container.querySelector(".admin-tournament-view")?.getAttribute("data-phase")).toBe(
+      "ready"
+    );
   });
 
   it("shows live standings for the active match", () => {

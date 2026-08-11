@@ -150,8 +150,8 @@ beschrieben.
   (Roundtrip-Nachweis), sind aber ansonsten unabhängige, isolierte Prozesse pro
   Stationsrechner – sie kennen den Präsentationsrechner nicht und haben (noch)
   keine Bot-Entwicklungslogik an den Server angebunden.
-- Persistenz der Bot-Registry: JSON-Datei (`data/bot-registry.json`, konfigurierbar
-  via `BOT_REGISTRY_FILE`), die Server-Neustarts überlebt. Keine Datenbank.
+- Die Bot-Registry lebt ausschließlich im Speicher des laufenden Servers.
+  Nach einem Neustart werden die `.js`-Dateien in `/admin` erneut ausgewählt.
 
 **Wichtige Klarstellung zu `/dev`:** Eine `/dev`-Station ist und bleibt ein
 rein lokaler, isolierter Vite-Client-Prozess (`npm run dev`, siehe oben) ohne
@@ -167,9 +167,8 @@ danach lokal (z.B. per USB-Stick) vom Rechner kopiert wird – siehe
 Damit `/admin` und `/present` **denselben Stand an eingereichten Bot-Artefakten**
 sehen, gibt es eine zentrale Sammelstelle im Hub-Server:
 
-- Der Hub-Server hält eine **Bot-Registry** (In-Memory + Persistenz als
-  `data/bot-registry.json`) mit den eingereichten Bot-Artefakten
-  (Quellcode + Metadaten wie Name/Autor/Farbe).
+- Der Hub-Server hält eine flüchtige **In-Memory-Bot-Registry** mit den
+  eingereichten Bot-Artefakten (Quellcode + Metadaten wie Name/Autor/Farbe).
 - `/admin` und `/present` lesen/abonnieren dieselbe Registry über den
   bestehenden WebSocket-Kanal – beide sehen also garantiert denselben Stand.
   Neu verbundene Clients erhalten sofort einen vollständigen Snapshot.
@@ -177,7 +176,8 @@ sehen, gibt es eine zentrale Sammelstelle im Hub-Server:
   aus** (keine Bot-Sandbox, keine Simulation auf dem Server).
 - Als Zwischenlösung für das **Einspeisen** in die Sammelstelle: `/admin` bietet
   einen manuellen Datei-Upload (Drag&Drop/File-Input) für `.js`-Bot-Artefakte an.
-  `/dev` ist daran **nicht** angebunden.
+  `/dev` ist daran **nicht** angebunden. Nach einem Server-Neustart ist dieser
+  manuelle Upload erneut erforderlich.
 
 **Validierung ist dreigeteilt:**
 
