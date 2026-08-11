@@ -37,4 +37,17 @@ describe("TERRAIN_STYLE_REGISTRY", () => {
     const b = safeTint & 0xff;
     expect(b > r && b > g, `expected a blue-ish tint, got RGB(${r}, ${g}, ${b})`).toBe(true);
   });
+
+  it("has 'desert' with a warm sand tint", () => {
+    expect(TERRAIN_STYLE_REGISTRY.desert).toBeDefined();
+    const tint = TERRAIN_STYLE_REGISTRY.desert.tint;
+    expect(typeof tint).toBe("number");
+    const safeTint = tint as number;
+    expect(Number.isFinite(safeTint)).toBe(true);
+    const r = (safeTint >> 16) & 0xff;
+    const g = (safeTint >> 8) & 0xff;
+    const b = safeTint & 0xff;
+    expect(r > b, `expected r > b, got RGB(${r}, ${g}, ${b})`).toBe(true);
+    expect(g > b, `expected g > b, got RGB(${r}, ${g}, ${b})`).toBe(true);
+  });
 });

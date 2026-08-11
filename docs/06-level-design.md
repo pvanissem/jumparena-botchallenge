@@ -68,6 +68,12 @@ Vergleiche im Leaderboard (schnellster Bot ≠ zwangsläufig Sieger).
   Stein-Tiles. Die Schwierigkeit liegt klar über Level 3 (mehr Hazards, variable Lückenbreiten)
   und deutlich unter Level 2 (keine Kaizo-Lücken, kein Kugelblitz).
 
+  **Update Level 5 ("Desert"):** Ein neues, leicht bis mittel schweres Level mit Wüsten-Theming
+  (prozeduraler Warmverlauf, Sonne, Dünen, Sandton-Terrain). Zwei strukturelle Neuheiten:
+  eine zwingend per Trampolin-Kette zu überwindende Abgrund-Passage ("Großer Graben") und
+  eine echte Routenwahl zwischen sicherer Bodenroute und ertragreicher, riskanter Hochroute.
+  Siehe `.features/level-five-desert/`.
+
   **Update Stage-Level:** Im Turniermodus kann der Betreiber vor Aufstellen pro Runde
   («Stage») ein Level wählen; Runden ohne eigene Stage verwenden automatisch das Level der
   letzten konfigurierten Stage. Siehe `.features/tournament-stage-levels/` und
