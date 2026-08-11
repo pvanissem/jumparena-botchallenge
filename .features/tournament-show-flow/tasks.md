@@ -195,7 +195,7 @@ client/src/styles/
 - Produces: `onClientDisconnected(clientId)` Gateway-Callback
 - Consumes: `ArenaClientRole` aus Task 1
 
-- [ ] **Step 1: Failing Registry- und Disconnect-Tests schreiben**
+- [x] **Step 1: Failing Registry- und Disconnect-Tests schreiben**
 
   ```ts
   registry.add(presentA);
@@ -212,25 +212,25 @@ client/src/styles/
   Im Gateway-Test muss `close` den Callback genau einmal auslösen, auch wenn
   anschließend `error` feuert.
 
-- [ ] **Step 2: Rot verifizieren**
+- [x] **Step 2: Rot verifizieren**
 
   Run: `npx vitest run server/src/ws/ClientRegistry.test.ts server/src/ws/WebSocketGateway.test.ts`
 
   Expected: FAIL wegen fehlender Metadatenmethoden/Callback.
 
-- [ ] **Step 3: Registry minimal erweitern**
+- [x] **Step 3: Registry minimal erweitern**
 
   Rollen/Readiness liegen in derselben Registry wie die Verbindung. `remove`
   löscht Client und Metadaten idempotent. `getReadyPresentClients()` folgt der
   stabilen Einfügereihenfolge der bestehenden `Map`.
 
-- [ ] **Step 4: Grün und bestehende WS-Regression verifizieren**
+- [x] **Step 4: Grün und bestehende WS-Regression verifizieren**
 
   Run: `npx vitest run server/src/ws`
 
   Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add server/src/ws .features/tournament-show-flow/tasks.md

@@ -19,7 +19,8 @@ export class WebSocketGateway {
   constructor(
     private readonly registry: ClientRegistry,
     private readonly dispatcher: MessageDispatcher,
-    private readonly onClientConnected?: (client: ConnectedClient) => void
+    private readonly onClientConnected?: (client: ConnectedClient) => void,
+    private readonly onClientDisconnected?: (clientId: string) => void
   ) {
     this.wss = new WebSocketServer({ noServer: true });
     this.wss.on("connection", (socket) => this.handleConnection(socket));
@@ -51,7 +52,13 @@ export class WebSocketGateway {
       this.dispatcher.dispatch(client.id, message);
     });
 
-    const cleanup = () => this.registry.remove(client.id);
+    let disconnected = false;
+    const cleanup = () => {
+      if (disconnected) return;
+      disconnected = true;
+      this.registry.remove(client.id);
+      this.onClientDisconnected?.(client.id);
+    };
     socket.on("close", cleanup);
     socket.on("error", cleanup);
   }
