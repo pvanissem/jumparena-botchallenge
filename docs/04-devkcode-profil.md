@@ -32,8 +32,11 @@ Enthält:
 5. Kurze, laienverständliche Zusammenfassung, was der generierte Bot tut ("Dein Bot rennt
    immer Richtung Ziel, sammelt Münzen die er auf dem Weg sieht, und springt über Gefahren").
 6. Export/Speichern der Datei (Dateiname z.B. `bot-<teilnehmername>.js`).
-7. Optional: Ein bis zwei Iterationen erlauben ("Möchtest du etwas anpassen?"), aber
-   zeitlich begrenzt (siehe Zeitbudget).
+7. Ein Testlauf erzeugt pro Versuch (Start/Respawn bis Tod, Ziel oder Abbruch)
+   eine zeitgestempelte JSON-Datei unter `client/src/bot/runs/`. Der Agent liest
+   die neuesten Runs, nennt höchstens zwei Beobachtungen und schlägt genau eine
+   Änderung vor. Umsetzung erst nach Zustimmung des Besuchers; danach höchstens
+   ein kurzer Kontrolllauf.
 
 ### 3. Zeitbudget-Steuerung
 - Bei 15–20 Minuten pro Teilnehmer muss der Ablauf straff geführt werden – das Profil sollte
@@ -44,6 +47,14 @@ Enthält:
 - Falls der generierte Code fehlerhaft ist (Syntaxfehler o.ä.), muss ein Validierungsschritt
   vor dem "fertig"-Zustand erfolgen (z.B. Testausführung der Funktion mit einem Beispiel-State
   in einer Sandbox, bevor die Datei final exportiert wird).
+
+### 5. Lauf-Telemetrie
+
+Die Telemetrie ist ausschließlich im Bot-Modus von `/dev` aktiv. Jeder Tod
+schließt den aktuellen Versuch ab und schreibt genau eine neue Timestamp-Datei;
+der Respawn beginnt einen neuen Versuch. Arena-Ereignisse sind Fakten,
+heuristische `findings` nur Diagnosehinweise. `npm run reset-bot` löscht die
+Run-Dateien zusammen mit dem Zurücksetzen der Bot-Arbeitsdatei.
 
 ## Beispiel-Interaktion (illustrativ)
 

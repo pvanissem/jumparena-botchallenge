@@ -51,6 +51,10 @@ import {
 import { buildBotState } from "../state/botStateBuilder";
 import { computeHazardVelocities } from "../state/hazardVelocity";
 import type { WorldSnapshot } from "../state/worldSnapshot";
+import { BotRunRecorder } from "../trace/BotRunRecorder";
+import { botRevisionForSource } from "../trace/botTraceIdentity";
+import { RunTelemetryLifecycle } from "../trace/runLifecycle";
+import type { BotRunTrace, RacerSummaryInput, RunResult, TraceEventInput } from "../trace/types";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
 
 const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
@@ -92,6 +96,8 @@ export interface RaceSceneInitData {
   audio?: boolean;
   /** MatchBootScene hat den gemeinsamen Cache bereits vollständig geladen. */
   assetsPreloaded?: boolean;
+  /** Nur `/dev`: ohne diese explizite Option bleibt Telemetrie vollständig aus. */
+  telemetry?: { sessionId: string; onTrace: (trace: BotRunTrace) => void };
 }
 
 export class RaceScene extends Phaser.Scene {
@@ -146,6 +152,7 @@ export class RaceScene extends Phaser.Scene {
   /** Stellt sicher, dass `haltRacer()` nur einmal wirkt (der Früh-Ausstieg in
    *  `update()` würde es sonst jeden Frame erneut aufrufen). */
   private terminalHandled = false;
+  private telemetry: RunTelemetryLifecycle | null = null;
 
   constructor(key = "RaceScene") {
     super(key);
@@ -173,6 +180,23 @@ export class RaceScene extends Phaser.Scene {
     this.jumpStartMs = null;
     this.terminalHandled = false;
     this.activatedCheckpointIds = new Set<string>();
+
+    if (this.initData.telemetry && this.initData.controllerMode === "bot") {
+      this.telemetry = new RunTelemetryLifecycle(
+        (initial) =>
+          new BotRunRecorder({
+            levelId: this.initData.levelId ?? DEFAULT_LEVEL_ID,
+            sessionId: this.initData.telemetry?.sessionId ?? "unknown-session",
+            botRevision: botRevisionForSource(this.initData.botSourceCode ?? ""),
+            startedAt: new Date().toISOString(),
+            initial,
+          }),
+        this.initData.telemetry.onTrace,
+        this.traceSummary()
+      );
+    } else {
+      this.telemetry = null;
+    }
 
     createAnimations(this);
     this.world = buildWorld(this, this.level);
@@ -267,7 +291,17 @@ export class RaceScene extends Phaser.Scene {
 
   private createController(): RacerController {
     if (this.initData.controllerMode === "bot" && this.initData.botSourceCode) {
-      this.botRunner = new BotRunner(createBrowserWorker());
+      this.botRunner = new BotRunner(createBrowserWorker(), {
+        observer: this.telemetry
+          ? {
+              onDecision: (result) => this.telemetry?.current?.recordDecision(result),
+              onPaused: (reason, message) => {
+                this.recordTraceEvent("bot-paused", { reason, message });
+                this.finishTrace("bot-paused", reason);
+              },
+            }
+          : undefined,
+      });
       this.botRunner.init(this.initData.botSourceCode);
       return new BotController(this.botRunner);
     }
@@ -289,10 +323,27 @@ export class RaceScene extends Phaser.Scene {
       (mode === "keyboard" || botSourceCode === this.initData.botSourceCode);
     if (unchanged) return;
 
+    this.finishTrace("aborted", "manual-mode");
     this.controller?.dispose();
     this.keyboardController = null;
     this.botRunner = null;
     this.initData = { ...this.initData, controllerMode: mode, botSourceCode };
+    if (mode === "bot" && this.initData.telemetry) {
+      this.telemetry = new RunTelemetryLifecycle(
+        (initial) =>
+          new BotRunRecorder({
+            levelId: this.initData.levelId ?? DEFAULT_LEVEL_ID,
+            sessionId: this.initData.telemetry?.sessionId ?? "unknown-session",
+            botRevision: botRevisionForSource(this.initData.botSourceCode ?? ""),
+            startedAt: new Date().toISOString(),
+            initial,
+          }),
+        this.initData.telemetry.onTrace,
+        this.traceSummary()
+      );
+    } else {
+      this.telemetry = null;
+    }
     this.controller = this.createController();
     this.lastBotActions = [];
     this.notifyStatus();
@@ -317,15 +368,20 @@ export class RaceScene extends Phaser.Scene {
     }
 
     if (this.elapsedMs >= RUN_TIME_LIMIT_MS && !this.racer.finished) {
+      this.finishTrace("time-limit", "time-limit");
       this.racer = applyTimeLimitReached(this.racer);
       this.notifyStatus();
       return;
     }
 
     if (this.player.y > this.level.worldHeight + 100) {
+      const deathPosition = { x: this.player.x, y: this.player.y };
+      this.recordTraceEvent("pit-fall", undefined, deathPosition);
+      this.finishTrace("death", "pit-fall", { ...this.traceSummary(), position: deathPosition });
       this.racer = applyPitFall(this.racer);
       this.markDamageAndRespawn();
       this.player.setPosition(this.racer.x, this.racer.y);
+      this.telemetry?.start(this.traceSummary());
       this.playSfx(AUDIO_KEYS.FALL);
       this.notifyStatus();
     }
@@ -349,6 +405,7 @@ export class RaceScene extends Phaser.Scene {
     this.updatePlayerAnimation();
     this.syncRacerPositionFromPhysics();
     this.updateSpikeheadTriggers();
+    this.telemetry?.advance(delta, this.traceSummary());
 
     // Live-HUD (Zeit/Coins) gedrosselt aktualisieren.
     this.sinceLastStatusEmit += delta;
@@ -418,6 +475,7 @@ export class RaceScene extends Phaser.Scene {
       justRespawned: this.pendingJustRespawned,
       tookDamage: this.pendingTookDamage,
     });
+    this.telemetry?.current?.recordState(botState);
     // Ereignis-Flags gelten nur für den EINEN Tick unmittelbar nach dem
     // Ereignis – nach dem Konsum zurücksetzen.
     this.pendingJustRespawned = false;
@@ -637,6 +695,7 @@ export class RaceScene extends Phaser.Scene {
     const id = coin.getData("id") as string;
     if (this.racer.collectedCoinIds.has(id)) return;
     const fruit = coin.getData("fruit") as keyof typeof FRUIT_VALUES;
+    this.recordTraceEvent("coin-collected", { id, value: FRUIT_VALUES[fruit] });
     this.racer = applyCoinPickup(this.racer, id, FRUIT_VALUES[fruit]);
     this.playPickupEffect(coin.x, coin.y);
     this.playSfx(AUDIO_KEYS.COLLECT);
@@ -656,6 +715,8 @@ export class RaceScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const hitFromBelow = body.blocked.up || body.touching.up;
     if (!hitFromBelow) return;
+
+    this.recordTraceEvent("block-hit", { id });
 
     this.racer = applyBlockHit(this.racer, id);
 
@@ -688,6 +749,7 @@ export class RaceScene extends Phaser.Scene {
     this.racer = applyCheckpointReached(this.racer, def);
 
     if (this.activatedCheckpointIds.has(id)) return;
+    this.recordTraceEvent("checkpoint-reached", { id });
     this.activatedCheckpointIds.add(id);
 
     // Erstes Erreichen: Fahne einmalig hissen, danach dauerhaft winkend
@@ -701,6 +763,8 @@ export class RaceScene extends Phaser.Scene {
 
   private onGoalOverlap(): void {
     if (this.racer.finished) return;
+    this.recordTraceEvent("goal-reached");
+    this.finishTrace("finished", "goal");
     this.racer = applyGoalReached(this.racer);
     this.world.goal.play("goal-pressed");
     this.playSfx(AUDIO_KEYS.COMPLETE);
@@ -732,19 +796,30 @@ export class RaceScene extends Phaser.Scene {
     const contact = resolveHazardContact(kind, isActive, contactFromAbove);
     if (contact === "none") return;
     if (contact === "stomped") {
+      this.recordTraceEvent("hazard-stomped", { hazardKind: kind, hazardId: id });
       body.setVelocityY(STOMP_BOUNCE_VELOCITY);
       this.playVanishEffect(hazard.x, hazard.y);
       if (!this.racer.destroyedHazardIds.has(id)) {
-        this.racer = { ...this.racer, destroyedHazardIds: new Set(this.racer.destroyedHazardIds).add(id) };
+        this.racer = {
+          ...this.racer,
+          destroyedHazardIds: new Set(this.racer.destroyedHazardIds).add(id),
+        };
       }
       hazard.destroy();
       this.playSfx(AUDIO_KEYS.DAMAGED);
       return;
     }
 
+    const deathPosition = { x: this.player.x, y: this.player.y };
+    this.recordTraceEvent("hazard-hit", { hazardKind: kind, hazardId: id }, deathPosition);
+    this.finishTrace("death", `hazard:${kind}`, {
+      ...this.traceSummary(),
+      position: deathPosition,
+    });
     this.racer = applyHazardContact(this.racer, contact);
     this.markDamageAndRespawn();
     this.player.setPosition(this.racer.x, this.racer.y);
+    this.telemetry?.start(this.traceSummary());
     this.player.play("player-hit", true);
     this.playSfx(AUDIO_KEYS.PLAYER_DAMAGED);
     this.notifyStatus();
@@ -775,7 +850,34 @@ export class RaceScene extends Phaser.Scene {
     });
   }
 
+  private traceSummary(): RacerSummaryInput {
+    return {
+      position: { x: this.racer.x, y: this.racer.y },
+      coinsCollected: this.racer.coinsCollected,
+      fruitScore: this.racer.fruitScore,
+    };
+  }
+
+  private recordTraceEvent(
+    kind: string,
+    details?: TraceEventInput["details"],
+    position = { x: this.racer.x, y: this.racer.y }
+  ): void {
+    this.telemetry?.current?.recordEvent({
+      kind,
+      tick: Math.max(0, this.tickCounter - 1),
+      timeMs: Math.round(this.elapsedMs),
+      position,
+      details,
+    });
+  }
+
+  private finishTrace(result: RunResult, reason: string, summary = this.traceSummary()): void {
+    this.telemetry?.finish(result, reason, summary);
+  }
+
   shutdown(): void {
+    this.finishTrace("aborted", "scene-shutdown");
     this.controller?.dispose();
     this.music?.stop();
     this.unsubscribeAudio?.();

@@ -168,6 +168,7 @@ npm-debug.log*
 # devkcode bearbeitet diese Datei live pro Besuchersession - siehe
 # .features/dev-station-mode/. Nur das Template ist versioniert.
 client/src/bot/current-bot.js
+client/src/bot/runs/
 
 ### Lokaler Superpowers-Brainstorming-Begleiter ###
 .superpowers/

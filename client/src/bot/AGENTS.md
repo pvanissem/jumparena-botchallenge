@@ -14,7 +14,8 @@ tut. Der Bot tritt danach in einer Arena gegen die Bots anderer Besucher an.
 Wichtige Rahmenbedingungen für dich:
 
 - **Du bearbeitest ausschließlich `./current-bot.js`.** Keine anderen
-  Dateien anfassen, keine neuen Dateien anlegen.
+  Dateien anfassen, keine neuen Dateien anlegen. Die einzige zusätzliche
+  Erlaubnis ist das **Lesen** der JSON-Traces unter `./runs/`.
 - **Der Nutzer beschreibt Strategie in natürlicher Sprache** ("sammle viele
   Münzen", "weiche Gegnern aus", "lauf einfach schnell ins Ziel") – du übersetzt
   das in Code. Der Nutzer soll sich wie beim "echten Coden" fühlen, aber keinen
@@ -387,6 +388,7 @@ kannst sie direkt in `decide` aufrufen (und bei Bedarf anpassen):
 | `moveToward(dx, sprint)` | Passende Bewegungs-Action für einen horizontalen Versatz. |
 | `createJumpHold()` | Kleines Zähler-Objekt zum Halten von `"jump"` über mehrere Ticks. |
 | `pathHits(path, dx, dy, radius)` | Kommt eine Flugbahn nah an einen Punkt heran (z.B. eine Münze)? |
+| `createNavigator(options?)` | Optionaler, zustandsbehafteter Navigator: erzeugt sichere Sprungpläne, führt sie aus und bietet Fallbacks. Wird nicht automatisch aktiviert. |
 
 Beispiel – "springe genau so lange, dass ich die nächste Münze erreiche":
 
@@ -402,9 +404,72 @@ if (coin) {
 }
 ```
 
-Diese Funktionen sind **Bausteine, keine fertige Strategie** – sie beantworten
-Fragen ("wo lande ich?"), treffen aber keine Entscheidung. Du darfst sie
-frei lesen, anpassen oder durch eigene Logik ersetzen.
+Die Low-Level-Funktionen sind **Bausteine, keine fertige Strategie** – sie
+beantworten Fragen wie „wo lande ich?“. `createNavigator` ist eine optionale
+Orchestrierung dieser Bausteine und wird im leeren Template nicht aktiviert.
+Du darfst alles frei lesen, konfigurieren, anpassen oder durch eigene Logik
+ersetzen.
+
+### Balance: zuverlässig, aber individuell
+
+Das leere Template aktiviert absichtlich **keinen** fertigen Universalbot. Deine
+Aufgabe ist es, aus dem Gespräch eine erkennbare Strategie zu bauen. Verwende
+dabei die vorhandenen Bausteine für schwierige Physik, statt dieselbe
+Landungsprüfung jedes Mal neu und fehleranfällig zu programmieren.
+
+Für einen ersten brauchbaren Bot darfst du `createNavigator(...)` verwenden.
+Übernimm ihn aber nicht blind mit identischen Einstellungen für jeden Besucher:
+
+```js
+const navigator = createNavigator({
+  sprint: true,
+  choosePlan(context, plans) {
+    // Hier wird die Besucherstrategie sichtbar: z.B. vorsichtig den kürzesten
+    // sicheren Sprung oder mutig einen weiten Sprintsprung auswählen.
+    return plans[0] || null;
+  },
+  recoverFromStuck(context) {
+    return [context.direction > 0 ? "sprint-left" : "sprint-right"];
+  },
+});
+```
+
+Der Navigator liefert mit `navigator.decide(state)` Actions. Über
+`navigator.getLastDecision()` sind außerdem `mode`, `reason` und die Anzahl der
+betrachteten Pläne sichtbar. Der Agent kann:
+
+- Optionen passend zur Persönlichkeit setzen,
+- in `choosePlan(context, plans)` sichere Kandidaten anders priorisieren,
+- mit `recoverFromStuck(context)` einen eigenen Fallback definieren,
+- vor oder nach dem Navigator eigene Regeln für Früchte, Gegner oder Utilities
+  ergänzen,
+- oder den Navigator komplett weglassen und nur die Low-Level-Helfer verwenden.
+
+Die Individualität entsteht in der **Auswahl und Priorisierung**, nicht dadurch,
+dass jeder Bot Sprungphysik und Kollisionsprüfung neu erfinden muss.
+
+### Robustes Planungsmuster (bei jedem Bot beachten)
+
+1. Bestimme die gewünschte Richtung aus Strategie, Ziel und gegebenenfalls
+   Früchten – nicht pauschal immer rechts.
+2. Betrachte alle relevanten sichtbaren Probleme im selben Korridor. Eine Gefahr
+   kurz vor einer Lücke ist **ein kombiniertes Hindernis**, nicht zwei getrennte
+   Entscheidungen.
+3. Erzeuge mehrere Kandidaten (normal/Sprint, verschiedene Sprunghaltezeiten).
+4. Akzeptiere einen Sprung nur, wenn die simulierte Bahn Gefahren meidet **und
+   auf einer sichtbaren festen Fläche landet**. „Das nächste Objekt überquert“
+   allein reicht nicht.
+5. Führe den gewählten Plan über mehrere Ticks konsistent aus. Plane nicht mitten
+   im Flug grundlos neu.
+6. Wenn kein sicherer Plan existiert: höchstens begrenzt warten, dann Abstand
+   gewinnen und neu anlaufen. Niemals unbegrenzt `idle` zurückgeben.
+7. Setze Zustandsvariablen bei `justRespawned` zurück und halte immer einen
+   Stuck-Fallback bereit.
+
+`gapAhead.distance` ist nur die Entfernung zur **nahen Kante**, nicht die Breite
+der Lücke. Nutze deshalb für die Landung immer `platforms` beziehungsweise
+`predictPath`. Starre Schwellenwerte dürfen nur Lookahead auslösen; sie dürfen
+nicht allein entscheiden, ob ein Sprung sicher ist.
 
 ---
 
@@ -412,8 +477,13 @@ frei lesen, anpassen oder durch eigene Logik ersetzen.
 
 - **Erst Strategie klären, dann coden.** Frag den Nutzer, was der Bot tun soll, und
   fass es kurz in eigenen Worten zusammen, bevor du Code schreibst.
-- **Klein anfangen, iterativ ausbauen.** Starte mit etwas Simplem (z.B. immer
-  `["right"]`), lass es testen, und mach den Bot dann Schritt für Schritt schlauer.
+- **Direkt einen vollständigen einfachen Bot bauen.** Verwende von Anfang an
+  eine robuste Grundnavigation für Zielrichtung, Lücken und aktive Gefahren.
+  Erzeuge keine absichtlich schwache Zwischenstufe wie „immer rechts“.
+- **Persönlichkeit im Code sichtbar machen.** Nutze mindestens eine Präferenz
+  aus dem Gespräch (Tempo, Risiko, Früchte, Gegner, Warten) für eine echte
+  Auswahlentscheidung. Erzeuge nicht für alle Besucher denselben Navigator mit
+  denselben Optionen.
 - **Nach jeder Änderung testen lassen.** Der Nutzer kann seinen Bot direkt im Spiel
   laufen lassen ("Bot laufen lassen") oder das Level selbst spielen ("Selbst
   spielen", Steuerung ← → / Leertaste). Bitte ihn, dir zu sagen, was er beobachtet.
@@ -421,6 +491,62 @@ frei lesen, anpassen oder durch eigene Logik ersetzen.
 - **Bleib reaktiv:** Schreib Logik, die auf `state` reagiert (Coin in Reichweite?
   Gefahr voraus? Lücke im Boden?), niemals auf fest einprogrammierte
   Level-Positionen.
+
+### Testlauf mit Trace auswerten
+
+Im Bot-Modus von `/dev` schreibt jeder einzelne Versuch eine JSON-Datei nach
+`./runs/`: vom Start beziehungsweise Respawn bis zum nächsten Tod,
+Ziel, Zeitlimit oder Abbruch. Die Datei entsteht mit dem ersten Bot-Tick und
+wird während des Versuchs etwa alle fünf Sekunden atomar aktualisiert. Mehrere
+Tode ergeben mehrere Dateien.
+
+Die neuesten fünf Runs findest du mit:
+
+```sh
+ls -1t ./runs/*.json 2>/dev/null | head -5
+```
+
+Lies die großen Dateien **zweistufig**, damit die Diagnose schnell bleibt:
+
+1. Ermittle zuerst für die neuesten Runs nur Metadaten, Ergebnis und Findings:
+
+   ```sh
+   for f in $(ls -1t ./runs/*.json 2>/dev/null | head -10); do
+     jq -c '{file:input_filename,run,summary,findings}' "$f"
+   done
+   ```
+
+2. Wähle daraus die aktuelle `botRevision` und relevante `sessionId`. Lies erst
+   dann aus höchstens zwei passenden Dateien zusätzlich `events` und `windows`.
+
+Jeder Trace enthält:
+
+- `run`: Level, `sessionId`, `botRevision`, Start/Ende, Dauer und Ergebnis des
+  einzelnen Versuchs. Vergleiche niemals Runs verschiedener Bot-Revisionen, ohne
+  diesen Unterschied ausdrücklich zu nennen. `status: "running"` bezeichnet
+  einen Zwischenstand; bei `status: "completed"` sind `result`, `endReason` und
+  `endedAt` endgültig gesetzt. `flushedAt` zeigt den Stand der Datei.
+- `summary`: Fortschritt, Früchte/Punkte und gegebenenfalls Todesursache.
+- `events`: Tatsächlich von der Arena beobachtete Fakten wie `pit-fall` oder
+  `hazard-hit`.
+- `findings`: Abgeleitete Hinweise wie `missed-gap` oder `oscillating`.
+- `windows`: Kompakte Tick-Fenster mit State und Actions als Belege.
+
+Das letzte `window` enthält bei laufenden Runs die aktuellsten Ticks und bei
+abgeschlossenen Runs die unmittelbare Phase vor dem Run-Ende. Nutze dieses
+Fenster zuerst. Eine `sessionId` gruppiert alle Versuche desselben gestarteten
+`/dev`-Laufs; mehrere Tode können deshalb zur gleichen Session gehören. Wenn du
+einen laufenden Run erneut liest, lade die Datei frisch, weil sie gewachsen sein
+kann.
+
+Behandle `events` als Fakten. Formuliere `findings` vorsichtig als Hinweis
+(„Der Trace deutet darauf hin …“), nicht als Gewissheit. Bei wiederholten
+Problemen vergleiche mehrere der neuesten Runs.
+
+Erkläre dem Besucher höchstens die zwei wichtigsten Beobachtungen in
+Alltagssprache. Schlage danach **genau eine** zur gewünschten Strategie passende
+Änderung vor. Ändere `current-bot.js` erst, wenn der Besucher zustimmt. Empfiehl
+danach höchstens einen kurzen Kontrolllauf.
 
 ### Typische Fallstricke (aktiv vermeiden)
 
@@ -438,6 +564,14 @@ frei lesen, anpassen oder durch eigene Logik ersetzen.
   (nur `ninjafrog`); auf alle anderen – auch die Säge `schnetzler` – niemals.
 - **Weite Sprünge:** vorher `sprint-*` geben (Momentum), sonst reicht die Weite
   evtl. nicht über eine Lücke (`gapAhead`).
+- **Gefahr vor Lücke:** gemeinsam planen. Ein kurzer Gefahrensprung kann den Bot
+  trotz vermiedener Gefahr über die folgende Plattformkante tragen.
+- **Landung prüfen:** Ein Sprung ist nur sicher, wenn `predictPath` mit
+  `landed === true` endet und die Landung hinter dem gesamten Hindernis liegt.
+- **Warten begrenzen:** Jede `idle`-Strategie braucht einen Tick-Zähler und danach
+  einen alternativen Plan (zurücklaufen, neu anlaufen oder anderes Ziel).
+- **Stuck-Recovery:** Wenn der Bot trotz Bewegungswunsch über viele Ticks kaum
+  vorankommt, kurz Gegenrichtung wählen und anschließend neu planen.
 - **5-ms-Budget respektieren:** Keine großen Schleifen/Berechnungen in `decide`.
 
 ### Beispiel-Strategien als Gesprächsanker

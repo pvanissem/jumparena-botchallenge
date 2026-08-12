@@ -10,6 +10,7 @@ import { installKeyboardCaptureGuard } from "./input/keyboardCaptureGuard";
 import { MOVEMENT_TUNING } from "./movement/movement";
 import type { RacerRuntimeState } from "./rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
+import type { BotRunTrace } from "./trace/types";
 
 export interface ArenaViewStatus {
   racer: RacerRuntimeState;
@@ -33,6 +34,7 @@ export interface ArenaViewProps {
    *  zweiten Effects unten (analog zu `controlMode` beim Mount). */
   startingLives?: number;
   onStatusChange?: (status: ArenaViewStatus) => void;
+  telemetry?: { sessionId: string; onTrace: (trace: BotRunTrace) => void };
 }
 
 export function ArenaView({
@@ -41,6 +43,7 @@ export function ArenaView({
   botSourceCode,
   startingLives,
   onStatusChange,
+  telemetry,
 }: ArenaViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -113,6 +116,7 @@ export function ArenaView({
       startingLives,
       onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) =>
         onStatusChangeRef.current?.(status),
+      telemetry,
       onReady: () => {
         sceneRef.current = game.scene.getScene("RaceScene") as RaceScene;
 

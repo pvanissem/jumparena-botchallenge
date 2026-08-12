@@ -4,14 +4,21 @@
  * Abschnitt 1. Triviales Dateisystem-Skript, bewusst ohne Unit-Test
  * (manuelle Verifikation siehe design.md/tasks.md Task 0.4).
  */
-import { copyFileSync } from "node:fs";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const botDir = join(here, "../client/src/bot");
-const templatePath = join(botDir, "current-bot.template.js");
-const targetPath = join(botDir, "current-bot.js");
 
-copyFileSync(templatePath, targetPath);
-console.log("current-bot.js wurde aus current-bot.template.js zurückgesetzt.");
+export async function resetBot(root = join(here, "..")) {
+  const botDir = join(root, "client/src/bot");
+  const traceDir = join(botDir, "runs");
+  await copyFile(join(botDir, "current-bot.template.js"), join(botDir, "current-bot.js"));
+  await rm(traceDir, { recursive: true, force: true });
+  await mkdir(traceDir, { recursive: true });
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  await resetBot();
+  console.log("current-bot.js wurde zurückgesetzt und Bot-Traces wurden gelöscht.");
+}

@@ -155,6 +155,46 @@ describe("BotRunner.tick", () => {
     await expect(promise).resolves.toEqual(["jump", "sprint-right"]);
   });
 
+  it("reports normalized actions to the optional observer", async () => {
+    const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
+    const observedRunner = new BotRunner(worker, { observer });
+    observedRunner.init(VALID_CODE);
+    const promise = observedRunner.tick(SAMPLE_STATE);
+    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["jump", "fly"] as never });
+
+    await expect(promise).resolves.toEqual(["jump"]);
+    expect(observer.onDecision).toHaveBeenCalledWith({ tick: 0, kind: "ok", actions: ["jump"] });
+  });
+
+  it("reports runtime errors and timeouts without changing their idle result", async () => {
+    vi.useFakeTimers();
+    try {
+      const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
+      const observedRunner = new BotRunner(worker, { observer });
+      observedRunner.init(VALID_CODE);
+      const errorPromise = observedRunner.tick(SAMPLE_STATE);
+      worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
+      await expect(errorPromise).resolves.toEqual([]);
+      const timeoutPromise = observedRunner.tick(SAMPLE_STATE);
+      await vi.advanceTimersByTimeAsync(10);
+      await expect(timeoutPromise).resolves.toEqual([]);
+
+      expect(observer.onDecision).toHaveBeenNthCalledWith(1, {
+        tick: 0,
+        kind: "runtime-error",
+        actions: [],
+        message: "boom",
+      });
+      expect(observer.onDecision).toHaveBeenNthCalledWith(2, {
+        tick: 1,
+        kind: "timeout",
+        actions: [],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("filters out invalid actions and keeps the valid ones", async () => {
     const promise = runner.tick(SAMPLE_STATE);
     worker.emit({
@@ -338,5 +378,18 @@ describe("BotRunner.dispose", () => {
     expect(runner.status).toBe("paused");
     expect(runner.pausedReason).toBe("disposed");
     expect(runner.pausedReasonKind).toBe("disposed");
+  });
+
+  it("reports a pause exactly once", () => {
+    const worker = new FakeWorker();
+    const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
+    const runner = new BotRunner(worker, { observer });
+    runner.init(GUARDED_CODE);
+
+    expect(observer.onPaused).toHaveBeenCalledTimes(1);
+    expect(observer.onPaused).toHaveBeenCalledWith(
+      "guard-rejected",
+      expect.stringContaining("Guard")
+    );
   });
 });

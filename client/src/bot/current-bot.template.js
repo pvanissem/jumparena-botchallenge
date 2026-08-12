@@ -609,6 +609,224 @@ export function pathHits(path, dx, dy, radius) {
   return false;
 }
 
+/**
+ * Optionaler Navigator mit bewusst austauschbaren Strategie-Punkten. Er nimmt
+ * dem Bot die fehleranfällige Flugbahn- und Landungsprüfung ab, wird aber nicht
+ * automatisch verwendet. Über `choosePlan` wählt eine individuelle Strategie
+ * aus sicheren Kandidaten; `recoverFromStuck` ersetzt bei Bedarf die
+ * Standard-Befreiung. Für ganz eigene Logik bleiben alle Helfer direkt nutzbar.
+ */
+export function createNavigator(options) {
+  const config = options || {};
+  const jumpHolds = config.jumpHolds || [6, 8, 10, 12, 16, 20];
+  const hazardLookahead = config.hazardLookahead || 170;
+  const gapLookahead = config.gapLookahead || 150;
+  const combinedLookahead = config.combinedLookahead || 190;
+  const maxWaitTicks = config.maxWaitTicks || 30;
+  const stuckAfterTicks = config.stuckAfterTicks || 45;
+  let activePlan = null;
+  let waitTicks = 0;
+  let recoveryTicks = 0;
+  let lastPosition = null;
+  let unmovedTicks = 0;
+  let lastDecision = { mode: "start", reason: "not-run", consideredPlans: 0 };
+
+  function reset() {
+    activePlan = null;
+    waitTicks = 0;
+    recoveryTicks = 0;
+    lastPosition = null;
+    unmovedTicks = 0;
+  }
+
+  function updateStuck(state) {
+    if (lastPosition) {
+      const moved = Math.hypot(
+        state.position.x - lastPosition.x,
+        state.position.y - lastPosition.y
+      );
+      unmovedTicks = moved < 1 ? unmovedTicks + 1 : 0;
+    }
+    lastPosition = { x: state.position.x, y: state.position.y };
+    return unmovedTicks >= stuckAfterTicks;
+  }
+
+  function visibleProblems(state, direction) {
+    const hazards = state.hazards.filter(
+      (hazard) =>
+        (hazard.active || hazard.warning) &&
+        hazard.dx * direction > 0 &&
+        Math.abs(hazard.dx) < hazardLookahead &&
+        Math.abs(hazard.dy) < 72
+    );
+    const gapDistance = state.gapAhead.present ? state.gapAhead.distance : null;
+    const gapNear =
+      gapDistance !== null &&
+      gapDistance >= 0 &&
+      gapDistance < (hazards.length > 0 ? combinedLookahead : gapLookahead);
+    return { hazards, gapNear, gapDistance };
+  }
+
+  function makeJumpPlans(state, direction, problems) {
+    const plans = [];
+    const sprintModes = problems.gapNear ? [true, false] : [false, true];
+    const furthestHazard = problems.hazards.reduce(
+      (distance, hazard) => Math.max(distance, Math.abs(hazard.dx)),
+      0
+    );
+    const requiredDistance = Math.max(
+      problems.gapNear ? problems.gapDistance + state.tuning.botWidth : 0,
+      furthestHazard + state.tuning.botWidth
+    );
+
+    for (const sprint of sprintModes) {
+      for (const holdJumpTicks of jumpHolds) {
+        const path = predictPath(state, {
+          dir: direction,
+          sprint,
+          jump: true,
+          holdJumpTicks,
+          maxTicks: 60,
+        });
+        const landing = path[path.length - 1];
+        const avoidsHazards = problems.hazards.every((hazard) => {
+          const dangerousHazard = hazard.active ? hazard : { ...hazard, active: true };
+          return !pathIntersectsHazard(
+            state,
+            path,
+            dangerousHazard,
+            state.tuning.botWidth * 0.75
+          );
+        });
+        const reachesSafety =
+          landing && landing.landed && landing.dx * direction > requiredDistance;
+
+        if (reachesSafety && avoidsHazards) {
+          plans.push({
+            kind: "jump",
+            direction,
+            sprint,
+            holdJumpTicks,
+            landing,
+            path,
+            reason:
+              problems.gapNear && problems.hazards.length > 0
+                ? "hazard-and-gap"
+                : problems.gapNear
+                  ? "gap"
+                  : "hazard",
+          });
+        }
+      }
+    }
+    return plans;
+  }
+
+  function chooseDefaultPlan(plans, problems) {
+    if (plans.length === 0) return null;
+    return [...plans].sort((a, b) => {
+      if (!problems.gapNear && a.sprint !== b.sprint) return a.sprint ? 1 : -1;
+      if (problems.gapNear && a.sprint !== b.sprint) return a.sprint ? -1 : 1;
+      return a.holdJumpTicks - b.holdJumpTicks;
+    })[0];
+  }
+
+  function movementAction(direction, sprint) {
+    return moveToward(direction, sprint);
+  }
+
+  function beginRecovery(state, direction, reason) {
+    recoveryTicks = config.recoveryTicks || 12;
+    activePlan = null;
+    waitTicks = 0;
+    const context = { state, direction, reason };
+    const custom = config.recoverFromStuck && config.recoverFromStuck(context);
+    lastDecision = { mode: "recovering", reason, consideredPlans: 0 };
+    return Array.isArray(custom) ? custom : [movementAction(-direction, true)];
+  }
+
+  function decide(state) {
+    const direction = state.goalDirection.dx >= 0 ? 1 : -1;
+    if (state.justRespawned) reset();
+
+    if (updateStuck(state) && recoveryTicks === 0) {
+      return beginRecovery(state, direction, "stuck");
+    }
+
+    if (recoveryTicks > 0) {
+      recoveryTicks--;
+      lastDecision = { mode: "recovering", reason: "creating-run-up", consideredPlans: 0 };
+      return [movementAction(-direction, true)];
+    }
+
+    if (activePlan) {
+      const actions = [movementAction(activePlan.direction, activePlan.sprint)];
+      if (activePlan.remainingJumpTicks > 0) {
+        actions.unshift("jump");
+        activePlan.remainingJumpTicks--;
+      }
+      if (state.onGround && activePlan.started && activePlan.remainingJumpTicks === 0) {
+        activePlan = null;
+      } else {
+        activePlan.started = true;
+      }
+      lastDecision = {
+        mode: "executing",
+        reason: activePlan ? activePlan.reason : "landed",
+        consideredPlans: 1,
+      };
+      return actions;
+    }
+
+    const problems = visibleProblems(state, direction);
+    if (state.onGround && (problems.gapNear || problems.hazards.length > 0)) {
+      const plans = makeJumpPlans(state, direction, problems);
+      const context = { state, direction, problems };
+      const selected =
+        (config.choosePlan && config.choosePlan(context, plans)) ||
+        chooseDefaultPlan(plans, problems);
+
+      if (selected) {
+        activePlan = { ...selected, remainingJumpTicks: selected.holdJumpTicks, started: false };
+        waitTicks = 0;
+        lastDecision = {
+          mode: "executing",
+          reason: selected.reason,
+          consideredPlans: plans.length,
+        };
+        activePlan.remainingJumpTicks--;
+        return ["jump", movementAction(direction, selected.sprint)];
+      }
+
+      const activeLoderix = problems.hazards.some(
+        (hazard) => hazard.kind === "loderix" && (hazard.active || hazard.warning)
+      );
+      if (activeLoderix && waitTicks < maxWaitTicks) {
+        waitTicks++;
+        lastDecision = {
+          mode: "waiting",
+          reason: "active-loderix",
+          consideredPlans: plans.length,
+        };
+        return ["idle"];
+      }
+      return beginRecovery(state, direction, "no-safe-plan");
+    }
+
+    waitTicks = 0;
+    lastDecision = { mode: "moving", reason: "toward-goal", consideredPlans: 0 };
+    return [movementAction(direction, config.sprint !== false)];
+  }
+
+  return {
+    decide,
+    reset,
+    getLastDecision() {
+      return { ...lastDecision };
+    },
+  };
+}
+
 export default {
   apiVersion: 1,
   // Name des Bots und Name des Besuchers - werden ganz am Anfang des

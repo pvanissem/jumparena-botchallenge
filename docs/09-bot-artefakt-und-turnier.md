@@ -148,3 +148,9 @@ und leitet Bracket, Match-Result und Match-Progress weiter.
 (deterministisch immer `client/src/bot/current-bot.js`, siehe "Import" oben).
 Beide laufen im selben Level, nützlich zum Ausprobieren und Debuggen –
 unabhängig vom späteren Turniermodus in `/present`.
+
+Im Bot-Modus zeichnet `/dev` Lauf-Telemetrie auf. Ein Run entspricht einem
+einzelnen Versuch vom Start beziehungsweise Respawn bis Tod, Ziel, Zeitlimit
+oder Abbruch. Jeder Run wird als eigene zeitgestempelte JSON-Datei unter
+`client/src/bot/runs/` gespeichert; `/present` zeichnet keine Telemetrie auf.
+`npm run reset-bot` leert diesen Ordner für die nächste Besucher-Session.

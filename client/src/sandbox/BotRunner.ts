@@ -4,13 +4,20 @@
  * `.features/bot-decide-api/design.md` für die vollständige Herleitung.
  */
 import { ACTIONS, type Action, type BotState, checkStaticGuard } from "@arena/bot-contract";
+import type { BotDecisionTrace } from "../game/trace/types";
 import type { WorkerLike, WorkerToHostMessage } from "./workerLike";
+
+export interface BotRunnerObserver {
+  onDecision(result: BotDecisionTrace): void;
+  onPaused(reason: BotRunnerPauseReasonKind, message: string | null): void;
+}
 
 export interface BotRunnerOptions {
   /** Zeitlimit pro Tick in ms, Default 5 (siehe docs/02-bot-api.md). */
   timeoutMs?: number;
   /** Schwelle aufeinanderfolgender Fehlversuche, Default 10 (siehe docs/09). */
   maxConsecutiveFailures?: number;
+  observer?: BotRunnerObserver;
 }
 
 export type BotRunnerStatus = "running" | "paused";
@@ -48,6 +55,7 @@ function normalizeActions(value: unknown): Action[] {
 export class BotRunner {
   private readonly timeoutMs: number;
   private readonly maxConsecutiveFailures: number;
+  private readonly observer: BotRunnerObserver | undefined;
 
   private runnerStatus: BotRunnerStatus = "running";
   private reason: string | null = null;
@@ -69,6 +77,7 @@ export class BotRunner {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxConsecutiveFailures =
       options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES;
+    this.observer = options.observer;
     this.worker.onmessage = (event) => this.handleWorkerMessage(event.data);
   }
 
@@ -116,6 +125,7 @@ export class BotRunner {
     return new Promise<Action[]>((resolve) => {
       const timer = setTimeout(() => {
         this.resolvePendingTick(tick, []);
+        this.observer?.onDecision({ tick, kind: "timeout", actions: [] });
         this.registerFailure(null);
       }, this.timeoutMs);
 
@@ -152,13 +162,23 @@ export class BotRunner {
     if (message.type === "action") {
       // Erfolgreiche Antwort (auch ein leeres Ergebnis nach Filterung ist ein
       // gültiges "nichts tun" – kein Fehlversuch).
-      this.resolvePendingTick(message.tick, normalizeActions(message.actions));
+      const actions = normalizeActions(message.actions);
+      this.resolvePendingTick(message.tick, actions);
+      this.observer?.onDecision({ tick: message.tick, kind: "ok", actions });
       this.registerSuccess();
       return;
     }
 
     // "error"-Message → Fehlversuch.
     this.resolvePendingTick(message.tick, []);
+    if (message.type === "error") {
+      this.observer?.onDecision({
+        tick: message.tick,
+        kind: "runtime-error",
+        actions: [],
+        message: message.message,
+      });
+    }
     this.registerFailure(message.type === "error" ? message.message : null);
   }
 
@@ -188,8 +208,10 @@ export class BotRunner {
   }
 
   private pause(kind: BotRunnerPauseReasonKind, reason: string): void {
+    if (this.runnerStatus === "paused") return;
     this.runnerStatus = "paused";
     this.reasonKind = kind;
     this.reason = reason;
+    this.observer?.onPaused(kind, reason);
   }
 }

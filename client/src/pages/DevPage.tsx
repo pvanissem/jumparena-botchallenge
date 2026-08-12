@@ -10,6 +10,7 @@ import { useAudioUnlockHint } from "../game/audio/useAudioUnlockHint";
 import { useArenaControls } from "../game/control/useArenaControls";
 import { LEVEL_REGISTRY } from "../game/level/levelRegistry";
 import type { RacerRuntimeState } from "../game/rules/racerState";
+import { writeBotTrace } from "../game/trace/writeBotTrace";
 
 type BotDiagnosis = Pick<
   ArenaViewStatus,
@@ -54,6 +55,8 @@ export function DevPage() {
   // (zerstört das alte Phaser-Game sauber und startet die Szene mit frischem
   // `create()`/Racer-State neu, siehe ArenaView.tsx Cleanup-Effect).
   const [runId, setRunId] = useState(0);
+  const [sessionId, setSessionId] = useState(() => new Date().toISOString());
+  const [traceStatus, setTraceStatus] = useState<"saved" | "error" | null>(null);
 
   // Gemeinsamer Reset-Mechanismus für "↻ Neu", einen Levelwechsel (US-4) UND
   // den "Nochmal"-Button im FinishOverlay: alle sollen den Lauf identisch
@@ -62,6 +65,8 @@ export function DevPage() {
   const restart = () => {
     setRacer(null);
     setDiagnosis(null);
+    setTraceStatus(null);
+    setSessionId(new Date().toISOString());
     setRunId((id) => id + 1);
   };
 
@@ -127,6 +132,12 @@ export function DevPage() {
           {mode === "bot" && diagnosis && (
             <span className="pixel-status">{renderBotDiagnosis(diagnosis)}</span>
           )}
+          {mode === "bot" && traceStatus === "saved" && (
+            <span className="pixel-status">📝 Trace gespeichert</span>
+          )}
+          {mode === "bot" && traceStatus === "error" && (
+            <span className="pixel-status">🟠 Trace konnte nicht gespeichert werden</span>
+          )}
         </div>
 
         <div className="pixel-arena">
@@ -136,6 +147,19 @@ export function DevPage() {
             levelId={levelId}
             botSourceCode={mode === "bot" ? currentBotSource : undefined}
             startingLives={UNLIMITED_LIVES}
+            telemetry={
+              mode === "bot"
+                ? {
+                    sessionId,
+                    onTrace: (trace) => {
+                      void writeBotTrace(trace).then(
+                        () => setTraceStatus("saved"),
+                        () => setTraceStatus("error")
+                      );
+                    },
+                  }
+                : undefined
+            }
             onStatusChange={(s) => {
               setRacer(s.racer);
               setDiagnosis({
