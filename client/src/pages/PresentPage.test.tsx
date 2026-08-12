@@ -14,6 +14,7 @@ const connection = vi.hoisted(() => ({
   listeners: new Set<(message: OutboundMessage) => void>(),
   send: vi.fn(),
 }));
+const tournamentMusic = vi.hoisted(() => ({ useTournamentMusic: vi.fn() }));
 
 let matchEngineStarts = 0;
 
@@ -36,6 +37,7 @@ vi.mock("../match/MatchView", () => ({
   MatchView: MatchViewLifecycleProbe,
 }));
 vi.mock("../game/audio/useShowAudioCue", () => ({ useShowAudioCue: vi.fn() }));
+vi.mock("../game/audio/useTournamentMusic", () => tournamentMusic);
 vi.mock("../ws/useWebSocketConnection", () => ({
   useWebSocketConnection: () => ({
     status: "connected",
@@ -56,6 +58,7 @@ afterEach(() => {
   connection.lastMessage = null;
   connection.listeners.clear();
   connection.send.mockClear();
+  tournamentMusic.useTournamentMusic.mockClear();
   matchEngineStarts = 0;
 });
 
@@ -134,6 +137,22 @@ describe("PresentStage", () => {
 });
 
 describe("PresentPage", () => {
+  it("forwards the current tournament state to the music controller", () => {
+    render(<PresentPage />);
+    const currentShow = runningShow("exec");
+    act(() => {
+      const message: OutboundMessage = {
+        type: "tournament-state",
+        state: tournament,
+        show: currentShow,
+        serverNowMs: Date.now(),
+      };
+      for (const listener of connection.listeners) listener(message);
+    });
+
+    expect(tournamentMusic.useTournamentMusic).toHaveBeenLastCalledWith(tournament, currentShow);
+  });
+
   it("does not restart the match engine when live progress arrives", async () => {
     render(<PresentPage />);
     act(() => {
