@@ -171,3 +171,4 @@ client/src/bot/current-bot.js
 
 ### Lokaler Superpowers-Brainstorming-Begleiter ###
 .superpowers/
+*.timestamp-*.mjs
