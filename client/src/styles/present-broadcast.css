@@ -1,4 +1,6 @@
 .event-chrome {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   padding: clamp(12px, 1.4vw, 26px);
   overflow: hidden;
@@ -22,6 +24,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
   min-height: 82px;
   margin-bottom: clamp(12px, 1.5vw, 24px);
   padding: 12px 18px;
@@ -67,15 +72,35 @@
 }
 
 .event-chrome__stage {
-  min-height: calc(100vh - 134px);
+  flex: 1;
+  min-height: 0;
+}
+
+/* Rahmen um den jeweils aktiven Present-Screen (Warteliste, Matchup,
+   Live-Match, Bracket), damit die einzelnen Ansichten klar voneinander
+   abgegrenzt sind. `.match-result-view`/`.champion-view` haben ihren
+   eigenen Rahmen bereits aus `tournament.css` (dort auch von der
+   Admin-Ansicht mitgenutzt). */
+.roster-attract,
+.matchup-stage,
+.tournament-bracket--present,
+.present-live-stage {
+  box-sizing: border-box;
+  padding: clamp(16px, 1.8vw, 28px);
+  border: 4px solid var(--neon-pink);
+  background: var(--arena-panel);
+  box-shadow:
+    8px 8px 0 var(--border-dark),
+    var(--arena-glow-pink);
 }
 
 .matchup-stage {
   position: relative;
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: clamp(20px, 3vw, 48px);
-  min-height: calc(100vh - 150px);
+  min-height: 100%;
+  padding-top: clamp(12px, 2vw, 32px);
   animation: stage-enter 420ms steps(6) both;
 }
 
@@ -172,7 +197,16 @@
   grid-template-columns: minmax(240px, 0.45fr) minmax(0, 1.55fr);
   gap: clamp(20px, 3vw, 52px);
   align-items: center;
-  min-height: calc(100vh - 160px);
+  min-height: 100%;
+}
+
+.roster-attract > header {
+  /* Ohne dieses min-width:0 verwendet der Browser die intrinsische
+     Mindestbreite von h2 (ein langes, unteilbares Wort wie
+     "Herausforderer") als Untergrenze für die Grid-Spalte - die
+     Überschrift läuft dann über den Spaltenrand hinaus und rutscht
+     hinter die Bot-Karten der rechten Spalte statt umzubrechen. */
+  min-width: 0;
 }
 
 .roster-attract h2 {
@@ -180,6 +214,7 @@
   color: var(--neon-yellow);
   font-size: clamp(22px, 3vw, 48px);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .roster-attract header p,
@@ -216,7 +251,7 @@
 .tournament-bracket--present {
   grid-auto-columns: minmax(0, 1fr);
   width: 100%;
-  min-height: calc(100vh - 165px);
+  min-height: 100%;
   overflow: hidden;
 }
 
@@ -257,7 +292,16 @@
 
 .event-chrome .match-result-view,
 .event-chrome .champion-view {
-  min-height: calc(100vh - 165px);
+  min-height: 100%;
+  /* Überschreibt den kaum sichtbaren `--panel-hi`-Rahmen aus tournament.css
+     (dort auch von der kleinen Admin-Sidebar-Ansicht genutzt) mit demselben
+     auffälligen Rahmen wie bei den anderen Present-Screens, damit die
+     Ansichten während eines Matches (Ergebnis/Champion) genauso klar
+     abgegrenzt sind wie Warteliste, Matchup, Live-Match und Bracket. */
+  border: 4px solid var(--neon-pink);
+  box-shadow:
+    8px 8px 0 var(--border-dark),
+    var(--arena-glow-pink);
 }
 
 @keyframes stage-enter {
@@ -331,7 +375,6 @@
 
   .matchup-stage {
     gap: 14px;
-    min-height: calc(100vh - 100px);
   }
 
   .matchup-stage__participant {

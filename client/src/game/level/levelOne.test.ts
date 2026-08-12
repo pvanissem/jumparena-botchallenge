@@ -1,31 +1,46 @@
 import { describe, expect, it } from "vitest";
+import { HAZARD_REGISTRY } from "../hazards/registry";
 import { LEVEL_ONE } from "./levelOne";
 
 describe("LEVEL_ONE structure", () => {
-  it("has 10-15 visible coins (docs/06)", () => {
-    expect(LEVEL_ONE.coins.length).toBeGreaterThanOrEqual(10);
-    expect(LEVEL_ONE.coins.length).toBeLessThanOrEqual(15);
+  it("has 18-26 visible coins (Trainingslevel: alle Mechaniken, daher mehr als docs/06)", () => {
+    expect(LEVEL_ONE.coins.length).toBeGreaterThanOrEqual(18);
+    expect(LEVEL_ONE.coins.length).toBeLessThanOrEqual(26);
   });
 
-  it("has 3-5 hidden coin blocks (docs/06)", () => {
+  it("has 3-8 hidden coin blocks (Trainingslevel: alle Mechaniken, daher mehr als docs/06)", () => {
     expect(LEVEL_ONE.hiddenCoinBlocks.length).toBeGreaterThanOrEqual(3);
-    expect(LEVEL_ONE.hiddenCoinBlocks.length).toBeLessThanOrEqual(5);
+    expect(LEVEL_ONE.hiddenCoinBlocks.length).toBeLessThanOrEqual(8);
   });
 
   it("has at least 2 checkpoints", () => {
     expect(LEVEL_ONE.checkpoints.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("contains all four hazard kinds (docs/08)", () => {
+  it("contains all six hazard kinds (docs/08) - Trainingslevel muss alles abdecken", () => {
     const kinds = LEVEL_ONE.hazards.map((h) => h.kind);
     expect(kinds).toEqual(
-      expect.arrayContaining(["ninjafrog", "stachlinger", "loderix", "kugelblitz"])
+      expect.arrayContaining([
+        "ninjafrog",
+        "schnetzler",
+        "stachlinger",
+        "loderix",
+        "kugelblitz",
+        "spikehead",
+      ])
     );
   });
 
-  it("uses the stompable ninjafrog (not the saw) as the level's patrolling NPC", () => {
+  it("teaches the stompable/non-stompable distinction via ninjafrog vs. schnetzler", () => {
+    expect(HAZARD_REGISTRY.ninjafrog.stompable).toBe(true);
+    expect(HAZARD_REGISTRY.schnetzler.stompable).toBe(false);
     const kinds = LEVEL_ONE.hazards.map((h) => h.kind);
-    expect(kinds).not.toContain("schnetzler");
+    expect(kinds).toContain("ninjafrog");
+    expect(kinds).toContain("schnetzler");
+  });
+
+  it("contains at least one ceiling platform (Kriechgang-Training)", () => {
+    expect(LEVEL_ONE.platforms.some((p) => p.kind === "ceiling")).toBe(true);
   });
 
   it("has at least one boingo utility", () => {
@@ -61,19 +76,27 @@ describe("LEVEL_ONE physical plausibility", () => {
     return LEVEL_ONE.platforms.some((p) => platformContains(p, x));
   }
 
-  it("keeps every ground gap within a comfortably jumpable distance (<=200px)", () => {
+  it("keeps every ground gap within a comfortably jumpable distance, except the one deliberate chasm (>=1000px, bridged by the boingo chain)", () => {
     const groundPlatforms = LEVEL_ONE.platforms
-      .filter((p) => p.kind !== "float")
+      .filter((p) => (p.kind ?? "ground") === "ground")
       .slice()
       .sort((a, b) => a.x - b.x);
 
+    let chasmSeen = false;
     for (let i = 1; i < groundPlatforms.length; i++) {
       const prev = groundPlatforms[i - 1];
       const curr = groundPlatforms[i];
       const gap = curr.x - (prev.x + prev.tilesWide * 16);
       expect(gap).toBeGreaterThanOrEqual(0);
-      expect(gap).toBeLessThanOrEqual(200);
+      if (gap > 200) {
+        expect(chasmSeen, "only one ground gap may exceed 200px").toBe(false);
+        expect(gap, "the deliberate chasm must be bridged by the boingo chain").toBeGreaterThanOrEqual(
+          1000
+        );
+        chasmSeen = true;
+      }
     }
+    expect(chasmSeen, "expected exactly one deliberate chasm gap").toBe(true);
   });
 
   it("places every patrolling hazard's full range on a single platform (never into a gap)", () => {
@@ -97,7 +120,7 @@ describe("LEVEL_ONE physical plausibility", () => {
     const kugelblitz = LEVEL_ONE.hazards.find((h) => h.kind === "kugelblitz");
     expect(kugelblitz).toBeDefined();
     if (kugelblitz?.kind === "kugelblitz") {
-      const groundPlatforms = LEVEL_ONE.platforms.filter((p) => p.kind !== "float");
+      const groundPlatforms = LEVEL_ONE.platforms.filter((p) => (p.kind ?? "ground") === "ground");
       const overGround = groundPlatforms.some((p) => platformContains(p, kugelblitz.pivotX));
       expect(overGround, "kugelblitz should swing over a gap, not solid ground").toBe(false);
     }

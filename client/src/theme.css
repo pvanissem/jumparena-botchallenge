@@ -872,6 +872,14 @@ canvas {
   justify-content: center;
   z-index: 40;
   pointer-events: none;
+  /* Rahmt jede einzelne Kamera-Kachel (siehe `computeGridViewports` -
+     nebeneinander bei 2 Teilnehmern, 2x2-Grid bei 3-4), damit die Spiel-
+     Screens bei mehreren gleichzeitigen Bots klar voneinander abgegrenzt
+     sind, statt nahtlos ineinander zu laufen. `inset` statt `border`, damit
+     sich die Kachelgröße (exaktes Viewport-Rechteck) nicht verschiebt. */
+  box-shadow:
+    inset 0 0 0 3px var(--border-dark),
+    inset 0 0 0 6px var(--neon-cyan);
 }
 
 .pixel-overlay--running {
