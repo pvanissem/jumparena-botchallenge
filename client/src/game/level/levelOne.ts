@@ -150,7 +150,6 @@ export const LEVEL_ONE: LevelDef = {
   // NICHT hier, sondern in `loseLifeAndRespawn` (raceRules.ts) angewendet,
   // damit die Fahnen visuell korrekt auf dem Boden stehen (siehe Chat-Verlauf).
   checkpoints: [
-    { id: "checkpoint-1", x: 800, y: GROUND_Y - 0 }, // Start von P3
     { id: "checkpoint-2", x: 1470, y: GROUND_Y - 0 }, // Start von P5, nach der Kugelblitz-Lücke
     { id: "checkpoint-3", x: 2240, y: GROUND_Y - 0 }, // Start von P7, nach dem Loderix-Gauntlet
     { id: "checkpoint-4", x: 3504, y: GROUND_Y - 0 }, // Start von P9, Schnetzler-Einführung
@@ -158,8 +157,6 @@ export const LEVEL_ONE: LevelDef = {
     { id: "checkpoint-6", x: 4368, y: GROUND_Y - 0 }, // Start von P11, Spikehead solo
     { id: "checkpoint-7", x: 4816, y: GROUND_Y - 0 }, // Start von P12, vor dem Kriechgang
     { id: "checkpoint-8", x: 5450, y: GROUND_Y - 0 }, // P13, direkt vor dem Loderix/Spikehead-Puzzle
-    { id: "checkpoint-9", x: 5890, y: GROUND_Y - 0 }, // P13, direkt nach dem Spikehead
-    { id: "checkpoint-10", x: 6020, y: GROUND_Y - 0 }, // P13-Ende, Sicherheitspunkt vor dem Abgrund
     { id: "checkpoint-11", x: 7232, y: GROUND_Y - 0 }, // Start von P14, direkt nach dem Abgrund
   ],
 
