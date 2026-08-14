@@ -305,16 +305,33 @@ bevor man `.dx` liest!
 
 **`nearbyTiles` (Sichtfeld-Raster):**
 
-- Ein Raster mit **5 Zeilen × 7 Spalten**: `nearbyTiles[zeile][spalte]`.
-- Der **Bot sitzt in der Mitte**, bei `nearbyTiles[2][3]`.
-- Zeilen: Index `0` = 2 Tiles **oberhalb** des Bots, `4` = 2 Tiles **unterhalb**.
-- Spalten: Index `0` = 3 Tiles **links**, `6` = 3 Tiles **rechts**.
+- Ein Raster mit **9 Zeilen × 11 Spalten**: `nearbyTiles[zeile][spalte]`.
+- Der **Bot sitzt in der Mitte**, bei `nearbyTiles[4][5]`.
+- Zeilen: Index `0` = 4 Tiles **oberhalb** des Bots, `8` = 4 Tiles **unterhalb**.
+- Spalten: Index `0` = 5 Tiles **links**, `10` = 5 Tiles **rechts**.
 - Jeder Eintrag ist ein `TileType`:
   `"empty"` (frei/Luft), `"solid"` (fester Boden/Wand), `"hazard"` (gerade
   gefährliche Gefahr – getaktete nur, solange „AN"), `"coinBlock"` (versteckter
   Münzblock, von unten treffen), `"goal"` (Ziel), `"unknown"`.
 - Nützlich z.B., um zu erkennen: "ist direkt vor mir eine Lücke?" (Tile unter der
   Position rechts vom Bot ist `"empty"`) oder "steht eine Wand vor mir?".
+- Für alles jenseits dieser 11×9 Tiles `platforms` bzw. die Hilfsfunktionen
+  (`surfaceAt`, `landingSpot`, `predictPath`) nutzen – die reichen deutlich weiter.
+
+**Wie weit sieht der Bot überhaupt?**
+
+Objekt-Listen (`coins`, `hazards`, `utilities`) und `platforms` sind auf ein
+achsenparalleles Rechteck um den Bot begrenzt:
+
+| Richtung | Reichweite |
+| --- | --- |
+| links/rechts | **±400 px** (= 25 Tiles, halbe Bildschirmbreite) |
+| oben/unten | **±540 px** (= volle Level-Höhe, praktisch unbegrenzt) |
+
+Vertikal siehst du also *immer* das ganze Level – genau wie ein menschlicher
+Spieler, denn die Kamera scrollt nur horizontal. Ein Bot auf einer hohen
+Plattform findet den Boden weit unter sich zuverlässig über `surfaceAt`.
+Sichtlinien gibt es nicht: Wände verdecken nichts.
 
 ### Der Output: Rückgabewert von `decide`
 
@@ -404,6 +421,12 @@ if (coin) {
 }
 ```
 
+Bereits fertig gelöst – nicht neu bauen (genau hier entstehen sonst die Bugs,
+die einen Bot am Stand komplett blockieren): sichere Sprungprüfung inklusive
+Stomp-Wissen (`hazardBlocksPath`), Trampolin-Auslösung (`boingoBounceAction`),
+sowie im Navigator die Rückzugs-Sicherheit (wird jeden Tick neu geprüft) und
+die Unterscheidung „bewusstes Warten“ vs. „festgefahren“.
+
 Die Low-Level-Funktionen sind **Bausteine, keine fertige Strategie** – sie
 beantworten Fragen wie „wo lande ich?“. `createNavigator` ist eine optionale
 Orchestrierung dieser Bausteine und wird im leeren Template nicht aktiviert.
@@ -428,9 +451,11 @@ const navigator = createNavigator({
     // sicheren Sprung oder mutig einen weiten Sprintsprung auswählen.
     return plans[0] || null;
   },
-  recoverFromStuck(context) {
-    return [context.direction > 0 ? "sprint-left" : "sprint-right"];
-  },
+  // recoverFromStuck ist OPTIONAL. Der Standard-Rueckzug prueft bereits, ob
+  // hinter dem Bot Boden ist und keine Gefahr lauert - ueberschreibe ihn nur,
+  // wenn du bewusst etwas anderes willst, und pruefe dann selbst auf Abgrund
+  // und Gefahr (sonst weicht der Bot in genau das zurueck, dem er ausweichen
+  // wollte).
 });
 ```
 
@@ -491,6 +516,20 @@ nicht allein entscheiden, ob ein Sprung sicher ist.
 - **Bleib reaktiv:** Schreib Logik, die auf `state` reagiert (Coin in Reichweite?
   Gefahr voraus? Lücke im Boden?), niemals auf fest einprogrammierte
   Level-Positionen.
+- **Diagnose nur aus frischen Traces, nie aus Vermutungen.** Wenn etwas nicht
+  funktioniert, lies den tatsächlichen Trace (`decision.actions` Tick für Tick)
+  statt zu raten. Die eigene Nachrechnung kann von der Live-Physik abweichen –
+  der Trace ist die Wahrheit.
+- **Nach jeder Änderung kurz warten, bevor du den nächsten Trace liest.**
+  Speichern und Neuladen des Bots braucht einen Moment. Prüfe die
+  `botRevision` im Trace: Stammt sie noch von der alten Fassung, ist die
+  Datei-Änderung dort noch gar nicht wirksam – eine Diagnose darauf führt in
+  die Irre.
+- **Bei `technicalErrors > 0` oder `result: "bot-paused"` zuerst den
+  Programmfehler beheben.** Ein Laufzeitfehler (z.B. eine nicht definierte
+  Funktion) legt den Bot komplett lahm; das sieht am Bildschirm wie ein
+  Strategieproblem aus, ist aber keines. `decision.message` im Trace nennt den
+  Fehler.
 
 ### Testlauf mit Trace auswerten
 
@@ -573,6 +612,53 @@ danach höchstens einen kurzen Kontrolllauf.
 - **Stuck-Recovery:** Wenn der Bot trotz Bewegungswunsch über viele Ticks kaum
   vorankommt, kurz Gegenrichtung wählen und anschließend neu planen.
 - **5-ms-Budget respektieren:** Keine großen Schleifen/Berechnungen in `decide`.
+
+### Eigene Regeln rund um den Navigator
+
+Zusaetzliche eigene Logik vor/nach `navigator.decide(state)` ist erlaubt und
+oft sinnvoll (z.B. Fruechte ansteuern, ein Trampolin nutzen). Zwei Dinge
+uebernimmt der Navigator aber bereits selbst – baue sie NICHT nach, sonst
+arbeiten beide gegeneinander:
+
+- **Sturz-Sicherung im Flug.** Der Navigator prueft waehrend des Fallens
+  laufend, ob die Bahn noch sicher landet, und steuert sonst selbst gegen.
+- **Gefahren-Ausweichen am Boden.** Das steckt vollstaendig in der
+  Sprungplanung (inklusive Stomp-Wissen und Sicherheitsabstand).
+
+Eine eigene "wenn Gefahr nah, dann ausweichen"-Regel ist deshalb fast immer
+ein Rueckschritt: Direkt beim Absprung ist die Gefahr, ueber die gesprungen
+wird, zwangslaeufig nah – eine solche Regel bricht den bereits geprueften
+Sprung sofort wieder ab und der Bot huepft endlos auf der Stelle. Brauchst du
+in einem Sonderfall doch einen eigenen Reflex, lass ihn nur greifen, wenn
+`navigator.hasActivePlan()` `false` liefert, und rechne mit
+`navigator.getActivePlanCourse()` statt mit einer aus `velocity.vx`
+geratenen Richtung.
+
+### Entscheidungen, die DU treffen musst (nicht vorgegeben)
+
+Diese Punkte sind bewusst offen – sie hängen von der Besucherstrategie ab:
+
+- **Wie viel Sicherheitsabstand bei Sprüngen?** Über `hazardRadius` in
+  `createNavigator` steuerbar. Standard ist bewusst großzügig (`botWidth*1.5`,
+  Kollision entsteht zwischen zwei Boxen, nicht zwischen zwei Punkten).
+  Kleiner = risikofreudiger, größer = vorsichtiger.
+- **Welcher der sicheren Sprünge?** In `choosePlan`. Achtung: Der *knappste*
+  Sprung landet dicht an der Kante (anfällig), der *weiteste* fliegt weit in
+  noch unsichtbares Gelände (dort können neue Gefahren auftauchen, die beim
+  Absprung nicht einplanbar waren). Ein mittlerer Kandidat mit etwas Puffer
+  ist meist am robustesten.
+- **Wie lange warten, bevor aufgegeben wird?** `maxWaitTicks`. Ein
+  `loderix`-Zyklus dauert ~1,5 s an / ~1,5 s aus – zu kurzes Warten führt zu
+  unnötigen Rückzügen (der Bot könnte einfach kurz stehen bleiben).
+- **Liegt das Ziel unter dem Bot?** `goalDirection.dy > 0` heißt: Ziel ist
+  TIEFER. Dann ist ein Sprung nach oben über eine Lücke kontraproduktiv –
+  besser kontrolliert über die Kante fallen lassen.
+- **Verhalten kurz vorm Ziel.** Findet der Bot nahe am Ziel keinen
+  "hundertprozentig sicheren" Plan (z.B. weil hinter der letzten Lücke keine
+  Plattform mehr im Sichtfeld liegt – das Ziel selbst zählt nicht als Boden),
+  darf er nicht ewig zögern: Endloses Zaudern garantiert ein DNF (−50), ein
+  Versuch hat eine Chance. Ein Zähler plus beherzter Sprung ist hier meist
+  besser als weitere Vorsicht.
 
 ### Beispiel-Strategien als Gesprächsanker
 

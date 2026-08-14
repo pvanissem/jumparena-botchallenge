@@ -167,17 +167,32 @@ describe("buildBotState coin/hazard/utility lists", () => {
     expect(state.nearestCoin).toEqual(state.coins[0]);
   });
 
-  it("filters out objects beyond the view radius", () => {
+  it("filters out objects beyond the horizontal view range", () => {
     const r = racer({ x: 0, y: 0 });
     const snap = snapshot({
       visibleCoins: [
-        { id: "in", x: 300, y: 0, value: 5 },
-        { id: "out", x: 400, y: 0, value: 5 }, // 400 > 320 radius
+        { id: "in", x: 400, y: 0, value: 5 }, // exakt auf der Kante -> sichtbar
+        { id: "out", x: 401, y: 0, value: 5 },
       ],
     });
     const state = build(snap, r);
     expect(state.coins).toHaveLength(1);
-    expect(state.coins[0].dx).toBe(300);
+    expect(state.coins[0].dx).toBe(400);
+  });
+
+  it("sees objects far above and below, since the camera never scrolls vertically", () => {
+    const r = racer({ x: 0, y: 100 });
+    const snap = snapshot({
+      visibleCoins: [
+        { id: "below", x: 0, y: 500, value: 5 },
+        { id: "above", x: 0, y: 0, value: 7 },
+      ],
+    });
+    const state = build(snap, r);
+    expect(state.coins).toEqual([
+      { dx: 0, dy: -100, value: 7 },
+      { dx: 0, dy: 400, value: 5 },
+    ]);
   });
 
   it("marks only ninjafrog as stompable and passes through active/warning", () => {

@@ -9,7 +9,7 @@ import { buildNearbyTiles, TILE_SIZE } from "../level/tiles";
 import { MOVEMENT_TUNING } from "../movement/movement";
 import type { RacerRuntimeState } from "../rules/racerState";
 import { computeGapAhead } from "./gapAhead";
-import { withinViewRadius } from "./viewport";
+import { withinView } from "./viewport";
 import { buildVisiblePlatforms } from "./visiblePlatforms";
 import type { WorldSnapshot } from "./worldSnapshot";
 
@@ -32,7 +32,7 @@ export interface BotStateExtras {
 
 /**
  * Bildet Kandidaten auf sichtbare, distanz-sortierte Relativ-Objekte ab:
- * filtert per Sichtradius, sortiert aufsteigend nach quadrierter Distanz (kein
+ * filtert per Sichtrechteck, sortiert aufsteigend nach quadrierter Distanz (kein
  * `Math.sqrt` nötig) und mappt jeden Treffer via `mapFn` auf das Contract-Objekt.
  */
 function toVisibleList<TIn extends Positioned, TOut extends { dx: number; dy: number }>(
@@ -44,7 +44,7 @@ function toVisibleList<TIn extends Positioned, TOut extends { dx: number; dy: nu
   for (const item of items) {
     const dx = item.x - from.x;
     const dy = item.y - from.y;
-    if (!withinViewRadius(dx, dy)) continue;
+    if (!withinView(dx, dy)) continue;
     result.push({ out: mapFn(item, dx, dy), distSq: dx * dx + dy * dy });
   }
   result.sort((a, b) => a.distSq - b.distSq);

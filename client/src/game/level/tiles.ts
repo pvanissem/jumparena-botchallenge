@@ -130,13 +130,21 @@ export function tileTypeAt(
   return "empty";
 }
 
+/**
+ * Rechteckiger Tile-Ausschnitt um den Bot herum (`state.nearbyTiles`).
+ *
+ * Default 11×9 (176×144px), Bot in der Mitte bei `[4][5]`: 5 Spalten links/
+ * rechts, 4 Zeilen über/unter dem Bot. Bewusst großzügiger als das frühere
+ * 7×5, das nach unten nur 2 Tiles (32px) reichte und damit tiefer liegende
+ * Böden verschwieg (siehe `viewport.ts`).
+ */
 export function buildNearbyTiles(
   level: LevelDef,
   dynamic: DynamicTileState,
   centerCol: number,
   centerRow: number,
-  width = 7,
-  height = 5
+  width = 11,
+  height = 9
 ): TileType[][] {
   const halfWidth = Math.floor(width / 2);
   const halfHeight = Math.floor(height / 2);

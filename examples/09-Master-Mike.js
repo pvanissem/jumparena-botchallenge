@@ -12,7 +12,7 @@
  *   velocity           - { vx, vy } eigene Geschwindigkeit
  *   isSprinting        - baut gerade Sprint-Tempo auf?
  *   sprintRampProgress - 0..1, wie weit die Sprint-Rampe schon aufgebaut ist
- *   nearbyTiles        - Sichtfeld-Raster (7x5) um den Bot
+ *   nearbyTiles        - Sichtfeld-Raster (11x9, Bot bei [4][5]) um den Bot
  *   platforms          - exakte Rechtecke aller sichtbaren, festen Flächen:
  *                          [{ dx, dy, width, height, kind }, ...]
  *                          kind: "ground" | "float" | "ceiling" | "block"

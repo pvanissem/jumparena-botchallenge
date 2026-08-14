@@ -2,14 +2,14 @@
  * Sichtbare Terrain-Geometrie für den Bot-State (`state.platforms`) – siehe
  * `.features/bot-toolkit/design.md`, US-2. Bildet exakte Rechteck-Geometrie
  * (keine Rasterung) aus `level.platforms` + ungelösten `level.hiddenCoinBlocks`
- * ab, gefiltert auf den Sichtradius des Bots. Pure Funktion, keine
- * Phaser-Abhängigkeit.
+ * ab, gefiltert auf das Sichtrechteck des Bots (siehe `viewport.ts`). Pure
+ * Funktion, keine Phaser-Abhängigkeit.
  */
 import type { PlatformKind, VisiblePlatform } from "@arena/bot-contract";
 import { STATIC_IMAGE_KEYS, spriteScale } from "../assets/spriteSheets";
 import { TILE_SIZE } from "../level/tiles";
 import type { HiddenCoinBlockDef, LevelDef, PlatformDef } from "../level/types";
-import { VIEW_RADIUS_PX } from "./viewport";
+import { VIEW_HALF_HEIGHT_PX, VIEW_HALF_WIDTH_PX } from "./viewport";
 
 interface Rect {
   x: number;
@@ -18,13 +18,21 @@ interface Rect {
   height: number;
 }
 
-/** Kürzeste Distanz (quadriert) zwischen Kreismittelpunkt und Rechteck <= radius^2? */
-function rectIntersectsCircle(rect: Rect, cx: number, cy: number, radius: number): boolean {
-  const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.width));
-  const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.height));
-  const dx = cx - closestX;
-  const dy = cy - closestY;
-  return dx * dx + dy * dy <= radius * radius;
+/** Überlappt das Rechteck das um (cx, cy) zentrierte Sichtrechteck?
+ *  Klassischer AABB-Test, Berührung an der Kante zählt als sichtbar. */
+function rectIntersectsView(
+  rect: Rect,
+  cx: number,
+  cy: number,
+  halfWidth: number,
+  halfHeight: number
+): boolean {
+  return (
+    rect.x <= cx + halfWidth &&
+    rect.x + rect.width >= cx - halfWidth &&
+    rect.y <= cy + halfHeight &&
+    rect.y + rect.height >= cy - halfHeight
+  );
 }
 
 function platformRect(platform: PlatformDef): Rect {
@@ -74,7 +82,8 @@ export function buildVisiblePlatforms(
   resolvedBlockIds: ReadonlySet<string>,
   botX: number,
   botY: number,
-  radius = VIEW_RADIUS_PX
+  halfWidth = VIEW_HALF_WIDTH_PX,
+  halfHeight = VIEW_HALF_HEIGHT_PX
 ): VisiblePlatform[] {
   const result: VisiblePlatform[] = [];
 
@@ -82,14 +91,14 @@ export function buildVisiblePlatforms(
     if (platform.tilesWide <= 0) continue;
     const rect = platformRect(platform);
     if (rect.width <= 0 || rect.height <= 0) continue;
-    if (!rectIntersectsCircle(rect, botX, botY, radius)) continue;
+    if (!rectIntersectsView(rect, botX, botY, halfWidth, halfHeight)) continue;
     result.push(toVisiblePlatform(rect, platform.kind ?? "ground", botX, botY));
   }
 
   for (const block of level.hiddenCoinBlocks) {
     if (resolvedBlockIds.has(block.id)) continue;
     const rect = blockRect(block);
-    if (!rectIntersectsCircle(rect, botX, botY, radius)) continue;
+    if (!rectIntersectsView(rect, botX, botY, halfWidth, halfHeight)) continue;
     result.push(toVisiblePlatform(rect, "block", botX, botY));
   }
 

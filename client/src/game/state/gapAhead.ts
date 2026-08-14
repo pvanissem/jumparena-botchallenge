@@ -8,7 +8,7 @@
 import type { GapAhead } from "@arena/bot-contract";
 import { isSolidAt, TILE_SIZE } from "../level/tiles";
 import type { LevelDef } from "../level/types";
-import { VIEW_RADIUS_PX } from "./viewport";
+import { VIEW_HALF_WIDTH_PX } from "./viewport";
 
 /**
  * Schreitet ab der Bot-Spalte Tile für Tile in `facing`-Richtung (bis
@@ -22,7 +22,7 @@ export function computeGapAhead(
   x: number,
   y: number,
   facing: "left" | "right",
-  maxDistancePx = VIEW_RADIUS_PX
+  maxDistancePx = VIEW_HALF_WIDTH_PX
 ): GapAhead {
   const step = facing === "right" ? 1 : -1;
   const botCol = Math.floor(x / TILE_SIZE);

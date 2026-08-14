@@ -12,7 +12,7 @@
  *   velocity           - { vx, vy } eigene Geschwindigkeit
  *   isSprinting        - baut gerade Sprint-Tempo auf?
  *   sprintRampProgress - 0..1, wie weit die Sprint-Rampe schon aufgebaut ist
- *   nearbyTiles        - Sichtfeld-Raster (7x5) um den Bot
+ *   nearbyTiles        - Sichtfeld-Raster (11x9, Bot bei [4][5]) um den Bot
  *   platforms          - exakte Rechtecke aller sichtbaren, festen Flächen:
  *                          [{ dx, dy, width, height, kind }, ...]
  *                          kind: "ground" | "float" | "ceiling" | "block"
@@ -24,7 +24,10 @@
  *   nearestCoin        - kuerzeste Abkuerzung = coins[0] oder null
  *   nearestHazard      - = hazards[0] oder null
  *   nearestUtility     - = utilities[0] oder null
- *   goalDirection      - { dx, dy } Richtung zum Ziel (in Pixeln)
+ *   goalDirection      - { dx, dy } Richtung zum Ziel (in Pixeln).
+ *                        ACHTUNG: dy kann POSITIV sein - das Ziel liegt dann
+ *                        UNTER dem Bot. Ein Sprung nach oben über eine Lücke
+ *                        ist dann sinnlos; besser kontrolliert fallen lassen.
  *   gapAhead           - { present, distance } Abgrund in Laufrichtung?
  *   worldBounds        - { width, height } Levelgroesse
  *   justRespawned, tookDamage
@@ -53,10 +56,18 @@
  *   surfaceAt(state, dx)              -> dy der naechsten festen Flaeche bei Versatz dx
  *   wallAhead(state)                  -> { distance, height } unspringbare Wand voraus
  *   predictHazard(state, hazard, ticks) -> vorhergesagte Hazard-Position/-Status
- *   pathIntersectsHazard(state, path, hazard) -> kreuzt meine Bahn diesen Hazard?
+ *   hazardBlocksPath(state, path, hazard, opts) -> blockiert ein Hazard meine
+ *                                       Bahn wirklich? (kennt Stomp und einen
+ *                                       realistischen Kollisionsradius - das
+ *                                       ist die Funktion fuer Sprungplanung)
+ *   boingoBounceAction(state, opts)   -> Actions, um ein Trampolin auszuloesen
  *   moveToward(dx, sprint)            -> passende Action ("left"/"sprint-right"/...)
  *   createJumpHold()                  -> Zaehler-Objekt zum Halten von "jump" über Ticks
  *   pathHits(path, dx, dy, radius)    -> kommt die Bahn nah an (dx,dy) vorbei?
+ *
+ * Der Navigator (`createNavigator`) bietet zusaetzlich `hasActivePlan()` und
+ * `getActivePlanCourse()` - noetig, damit eigene Reflexe einen laufenden,
+ * bereits geprueften Sprung nicht versehentlich abbrechen.
  */
 
 // ---------------------------------------------------------------------------
@@ -540,7 +551,12 @@ export function predictHazard(state, hazard, ticks) {
 }
 
 /** Ob eine mit `predictPath` berechnete Bahn zu irgendeinem Zeitpunkt nah
- *  genug an der vorhergesagten Position eines (aktiven) Hazards vorbeikommt. */
+ *  genug an der vorhergesagten Position eines (aktiven) Hazards vorbeikommt.
+ *
+ *  ACHTUNG - reine Abstandsprüfung ohne Stomp-Wissen: ein `ninjafrog`
+ *  (`stompable: true`) gilt hier auch dann als Treffer, wenn die Bahn ihn von
+ *  OBEN im Fallen berührt (was in Wahrheit ungefährlich ist und ihn besiegt).
+ *  Für Sprungplanung deshalb besser `hazardBlocksPath` verwenden. */
 export function pathIntersectsHazard(state, path, hazard, radius) {
   if (!hazard.active) return false;
   const r = radius !== undefined ? radius : state.tuning.botWidth;
@@ -549,6 +565,47 @@ export function pathIntersectsHazard(state, path, hazard, radius) {
     const ddx = point.dx - predicted.dx;
     const ddy = point.dy - predicted.dy;
     if (ddx * ddx + ddy * ddy <= r * r) return true;
+  }
+  return false;
+}
+
+/**
+ * Wie `pathIntersectsHazard`, aber mit korrektem Stomp-Wissen: prüft, ob ein
+ * Hazard eine geplante Bahn WIRKLICH gefährlich blockiert.
+ *
+ * Unterschied zur reinen Abstandsprüfung - beides ist für sichere Sprünge
+ * nötig und wurde erfahrungsgemäß gern falsch gemacht:
+ *
+ *  - **Stomp zählt nicht als Treffer.** Berührt die Bahn einen `stompable`
+ *    Gegner von OBEN, während der Bot FÄLLT (`vy > 0`), wird der Gegner
+ *    besiegt - kein Leben-Verlust. Nur seitlicher Kontakt oder Kontakt im
+ *    Steigflug ist tödlich. Ein pauschales "stompable ignorieren" wäre
+ *    deshalb FALSCH (der Bot liefe dann seitlich hinein).
+ *  - **Großzügiger Standard-Radius.** Die reale Kollision entsteht zwischen
+ *    zwei Boxen (Bot + Hazard), nicht zwischen zwei Punkten. Ein zu kleiner
+ *    Radius lässt knappe, in Wahrheit tödliche Vorbeiflüge als "sicher"
+ *    durchgehen. Default: `botWidth * 1.5`.
+ *  - **`warning` zählt wie aktiv.** Ein `spikehead` in der Vorwarnphase
+ *    (`active: false`, `warning: true`) fällt gleich - er ist zu meiden.
+ *
+ * `opts`: `{ radius, allowStomp }` (`allowStomp` Default `true`).
+ */
+export function hazardBlocksPath(state, path, hazard, opts) {
+  const o = opts || {};
+  if (!hazard.active && !hazard.warning) return false;
+  const r = o.radius !== undefined ? o.radius : state.tuning.botWidth * 1.5;
+  const allowStomp = o.allowStomp !== false;
+
+  for (const point of path) {
+    const predicted = predictHazard(state, hazard, point.ticks);
+    const ddx = point.dx - predicted.dx;
+    const ddy = point.dy - predicted.dy;
+    if (ddx * ddx + ddy * ddy > r * r) continue;
+
+    // Sicherer Stomp: Bot fällt (vy > 0) und ist oberhalb des Hazards.
+    const stomping =
+      allowStomp && hazard.stompable && point.vy > 0 && point.dy < predicted.dy;
+    if (!stomping) return true;
   }
   return false;
 }
@@ -578,6 +635,44 @@ export function createJumpHold() {
       return false;
     },
   };
+}
+
+/**
+ * Actions, um ein Trampolin (`boingo`) korrekt auszulösen - oder `null`, wenn
+ * gerade keines relevant ist.
+ *
+ * Hintergrund (wird sonst leicht übersehen): Der Katapult-Boost greift NUR,
+ * wenn der Bot das Trampolin im FALLEN berührt (`vy > 0`). Läuft er am Boden
+ * einfach darüber (`vy === 0`), passiert NICHTS - an Stellen, die nur per
+ * Boingo erreichbar sind, kommt er dann nie weiter. Deshalb kurz davor einen
+ * kleinen Hüpfer einlegen, damit er auf dem letzten Stück fällt.
+ *
+ * `opts`: `{ sprint }` (Default `true`).
+ */
+export function boingoBounceAction(state, opts) {
+  const sprint = !opts || opts.sprint !== false;
+  const tuning = state.tuning;
+  const boingo = state.utilities.find((utility) => utility.kind === "boingo");
+  if (!boingo) return null;
+
+  // Nur relevant, wenn das Trampolin ungefähr auf Bot-Höhe liegt.
+  if (Math.abs(boingo.dy) > tuning.botHeight * 2.5) return null;
+
+  const direction = boingo.dx >= 0 ? 1 : -1;
+  const distance = Math.abs(boingo.dx);
+
+  // Schon in der Luft und fallend: einfach draufhalten, der Boost kommt
+  // beim Kontakt automatisch.
+  if (!state.onGround && state.velocity.vy > 0 && distance < tuning.botWidth * 4) {
+    return [moveToward(direction, sprint)];
+  }
+
+  // Am Boden kurz davor: hüpfen, damit der Kontakt im Fallen passiert.
+  if (state.onGround && distance > tuning.botWidth * 0.5 && distance < tuning.botWidth * 3) {
+    return ["jump", moveToward(direction, sprint)];
+  }
+
+  return null;
 }
 
 /** Ob die Bahn `path` irgendwo näher als `radius` an (dx, dy) vorbeikommt -
@@ -624,9 +719,25 @@ export function createNavigator(options) {
   const combinedLookahead = config.combinedLookahead || 190;
   const maxWaitTicks = config.maxWaitTicks || 30;
   const stuckAfterTicks = config.stuckAfterTicks || 45;
+  // Kollisionsradius für die Sprungprüfung. Bewusst großzügig: die reale
+  // Kollision entsteht zwischen zwei Boxen (Bot + Hazard), nicht zwischen
+  // zwei Punkten - ein zu kleiner Wert lässt knappe, in Wahrheit tödliche
+  // Vorbeiflüge als "sicher" durchgehen. Kleiner = risikofreudiger.
+  const hazardRadius = config.hazardRadius;
+  // Vertikale Reichweite, ab der eine Gefahr überhaupt als "Problem" für die
+  // Sprungplanung gilt. Bewusst großzügiger als nur "auf Bot-Höhe": ein
+  // `kugelblitz` (Pendel) oder `spikehead` (fällt von oben) kann deutlich
+  // über/unter dem Bot hängen und trotzdem in die geplante Flugbahn hinein
+  // schwingen/fallen - ein zu enger Wert lässt solche Gefahren komplett
+  // unbeachtet (siehe Trace: Kugelblitz bei dy=-130 wurde nie als Problem
+  // erkannt und traf den Bot Ticks später, als er heruntergeschwungen war).
+  const hazardVerticalLookahead = config.hazardVerticalLookahead || 160;
   let activePlan = null;
   let waitTicks = 0;
   let recoveryTicks = 0;
+  let recoveryReason = null;
+  let fallCorrectionTicks = 0;
+  let fallCorrectionDir = null;
   let lastPosition = null;
   let unmovedTicks = 0;
   let lastDecision = { mode: "start", reason: "not-run", consideredPlans: 0 };
@@ -635,6 +746,9 @@ export function createNavigator(options) {
     activePlan = null;
     waitTicks = 0;
     recoveryTicks = 0;
+    recoveryReason = null;
+    fallCorrectionTicks = 0;
+    fallCorrectionDir = null;
     lastPosition = null;
     unmovedTicks = 0;
   }
@@ -657,7 +771,7 @@ export function createNavigator(options) {
         (hazard.active || hazard.warning) &&
         hazard.dx * direction > 0 &&
         Math.abs(hazard.dx) < hazardLookahead &&
-        Math.abs(hazard.dy) < 72
+        Math.abs(hazard.dy) < hazardVerticalLookahead
     );
     const gapDistance = state.gapAhead.present ? state.gapAhead.distance : null;
     const gapNear =
@@ -679,6 +793,21 @@ export function createNavigator(options) {
       furthestHazard + state.tuning.botWidth
     );
 
+    // Das ZIEL selbst zählt nie als sichtbare Plattform (siehe AGENTS.md,
+    // "Verhalten kurz vorm Ziel") - liegt direkt davor eine Lücke, findet die
+    // reine Landungsprüfung unten deshalb NIE eine bestätigte Landung UND der
+    // Sturz sieht (mangels sichtbarem Boden dahinter) wie ein Todes-Abgrund
+    // aus. Ohne diese Sonderbehandlung lehnt die Planung jeden Sprung über
+    // eine letzte Lücke vorm Ziel kategorisch ab -> der Bot zieht sich vor
+    // dem Ziel endlos zurück, statt hineinzulaufen. Deshalb gilt das Ziel
+    // hier explizit als gültiges, sicheres Sprungziel, wenn es ungefähr auf
+    // Höhe der Landung liegt und in Sprintrichtung vor uns ist.
+    const goal = state.goalDirection;
+    const goalIsJumpTarget =
+      !!goal &&
+      goal.dx * direction > 0 &&
+      Math.abs(goal.dy) < state.tuning.botHeight * 4;
+
     for (const sprint of sprintModes) {
       for (const holdJumpTicks of jumpHolds) {
         const path = predictPath(state, {
@@ -691,15 +820,28 @@ export function createNavigator(options) {
         const landing = path[path.length - 1];
         const avoidsHazards = problems.hazards.every((hazard) => {
           const dangerousHazard = hazard.active ? hazard : { ...hazard, active: true };
-          return !pathIntersectsHazard(
-            state,
-            path,
-            dangerousHazard,
-            state.tuning.botWidth * 0.75
-          );
+          // `hazardBlocksPath` statt reiner Abstandsprüfung: kennt Stomp
+          // (Kontakt von oben im Fallen besiegt einen `ninjafrog` gefahrlos)
+          // und nutzt einen realistisch großzügigen Kollisionsradius.
+          return !hazardBlocksPath(state, path, dangerousHazard, { radius: hazardRadius });
         });
-        const reachesSafety =
-          landing && landing.landed && landing.dx * direction > requiredDistance;
+        const reachesKnownSafety =
+          landing &&
+          landing.dx * direction > requiredDistance &&
+          // Bestätigt gelandet ist ideal - aber auch OHNE bestätigte Landung
+          // (Sichtfeld begrenzt, Fläche jenseits der Lücke einfach noch nicht
+          // sichtbar) ist der Sprung akzeptabel, SOLANGE er nicht unplausibel
+          // tief unter die Levelgrenzen fällt (echtes Warnzeichen für einen
+          // Todes-Abgrund statt nur "noch nicht sichtbar").
+          (landing.landed ||
+            state.position.y + landing.dy <
+              (state.worldBounds ? state.worldBounds.height : Infinity) + 200);
+        // Alternative: Die Flugbahn kommt nah genug am ZIEL selbst vorbei -
+        // dann ist die fehlende Plattform-Bestätigung irrelevant, das Ziel
+        // hat garantiert Boden.
+        const reachesGoal =
+          goalIsJumpTarget && pathHits(path, goal.dx, goal.dy, state.tuning.botWidth * 2);
+        const reachesSafety = reachesKnownSafety || reachesGoal;
 
         if (reachesSafety && avoidsHazards) {
           plans.push({
@@ -709,8 +851,9 @@ export function createNavigator(options) {
             holdJumpTicks,
             landing,
             path,
-            reason:
-              problems.gapNear && problems.hazards.length > 0
+            reason: reachesGoal
+              ? "goal"
+              : problems.gapNear && problems.hazards.length > 0
                 ? "hazard-and-gap"
                 : problems.gapNear
                   ? "gap"
@@ -739,24 +882,171 @@ export function createNavigator(options) {
     recoveryTicks = config.recoveryTicks || 12;
     activePlan = null;
     waitTicks = 0;
+    recoveryReason = reason;
+    lastDecision = { mode: "recovering", reason, consideredPlans: 0 };
+    return recoveryStep(state, direction, reason);
+  }
+
+  /**
+   * EIN Rückzugs-Tick. Wird bei JEDEM Tick des Rückzugs neu aufgerufen (nicht
+   * nur beim ersten): Ein mehrere Ticks langes Manöver blind durchzuziehen ist
+   * gefährlich, weil sich die Lage während des Rückzugs ändern kann (ein
+   * getaktetes Feuer geht an, eine Säge kommt herangefahren). `recoverFromStuck`
+   * bekommt so jeden Tick frischen `state` und kann jedes Mal neu entscheiden.
+   */
+  function recoveryStep(state, direction, reason) {
     const context = { state, direction, reason };
     const custom = config.recoverFromStuck && config.recoverFromStuck(context);
-    lastDecision = { mode: "recovering", reason, consideredPlans: 0 };
-    return Array.isArray(custom) ? custom : [movementAction(-direction, true)];
+    return Array.isArray(custom) ? custom : defaultRecoveryStep(state, direction);
+  }
+
+  /**
+   * Standard-Rueckzug MIT Sicherheitspruefung: Vor dem Zurueckweichen wird
+   * geprueft, ob dort ueberhaupt Boden ist und keine Gefahr lauert.
+   *
+   * Ohne diese Pruefung laeuft ein Bot beim Zurueckweichen in genau die
+   * Abgruende und Gefahren, denen er eigentlich ausweichen wollte - der
+   * haeufigste Grund fuer "der Bot rennt grundlos rueckwaerts in den Tod".
+   * Geprueft wird nur die RUECKZUGS-Seite; die Gefahr, vor der er gerade
+   * zurueckweicht, liegt ja per Definition in der anderen Richtung.
+   */
+  function defaultRecoveryStep(state, direction) {
+    const tuning = state.tuning;
+    const retreatDir = -direction;
+
+    const ground = surfaceAt(state, retreatDir * tuning.botWidth * 1.5);
+    const hasGroundBehind = ground !== null && ground < tuning.botHeight * 3;
+
+    const dangerBehind = state.hazards.some(
+      (hazard) =>
+        (hazard.active || hazard.warning) &&
+        hazard.dx * retreatDir > 0 &&
+        Math.abs(hazard.dx) < tuning.botWidth * 3 &&
+        Math.abs(hazard.dy) < tuning.botHeight * 2
+    );
+
+    // Lieber kurz stehen bleiben als in Abgrund/Gefahr zurueckweichen.
+    if (!hasGroundBehind || dangerBehind) return ["idle"];
+    return [movementAction(retreatDir, true)];
+  }
+
+  /**
+   * Sturz-Sicherung: prueft WAEHREND des Falls, ob die aktuelle Bahn noch
+   * sicher landet - und steuert sonst noch in der Luft gegen.
+   *
+   * Laeuft bewusst INNERHALB des Navigators, weil nur hier der laufende Plan
+   * bekannt ist: Als eigener Reflex ausserhalb wuerde diese Pruefung entweder
+   * den gerade gestarteten Sprung abwuergen (Gefahr ist beim Absprung immer
+   * nah -> Endlos-Huepfen) oder mit einer aus `velocity.vx` geratenen
+   * Richtung gegen den eigenen Plan arbeiten (-> Wackeln).
+   */
+  function fallSafety(state) {
+    if (config.fallSafety === false) return null;
+    if (state.velocity.vy <= 0) return null; // steigt noch - kein Fehlurteil zu frueh
+
+    // Einmal getroffene Korrektur einige Ticks konsequent durchziehen.
+    if (fallCorrectionTicks > 0) {
+      fallCorrectionTicks--;
+      return fallCorrectionDir === 0 ? ["idle"] : [movementAction(fallCorrectionDir, true)];
+    }
+
+    const sprint = activePlan
+      ? activePlan.sprint
+      : Math.abs(state.velocity.vx) > state.tuning.baseMoveSpeed + 1;
+    const currentDir = activePlan
+      ? activePlan.direction
+      : state.velocity.vx > 0
+        ? 1
+        : state.velocity.vx < 0
+          ? -1
+          : state.facing === "right"
+            ? 1
+            : -1;
+
+    const landsSafely = (dir) => {
+      const path = predictPath(state, { dir, sprint, maxTicks: 45 });
+      const last = path[path.length - 1];
+      if (!last) return false;
+      const hazardInWay = state.hazards.some((hazard) =>
+        hazardBlocksPath(state, path, hazard, { radius: hazardRadius })
+      );
+      if (hazardInWay) return false;
+      if (last.landed) return true;
+      // Keine Gefahr im Weg, aber auch (noch) keine bestätigte Landung auf
+      // einer sichtbaren Plattform: Das SICHTFELD ist begrenzt - die
+      // Landefläche liegt meistens einfach noch nicht im Blickfeld, nicht
+      // weil dort kein Boden wäre (siehe AGENTS.md: "gapAhead.distance ist
+      // nur die Entfernung zur nahen Kante... Sichtfeld ist begrenzt").
+      // Ohne bekannte Gefahr also KEIN Grund zur Umkehr - nur bei einem
+      // unplausibel tiefen Sturz (deutlich unter die Levelgrenzen) gilt das
+      // als echtes Warnsignal für einen tatsächlichen Todes-Abgrund.
+      const projectedY = state.position.y + last.dy;
+      const worldHeight = state.worldBounds ? state.worldBounds.height : Infinity;
+      return projectedY < worldHeight + 200;
+    };
+
+    if (landsSafely(currentDir)) return null; // alles gut - nicht eingreifen
+
+    const engage = (dir) => {
+      activePlan = null; // ueberholter Plan - nach der Landung neu planen
+      fallCorrectionDir = dir;
+      fallCorrectionTicks = 8;
+      lastDecision = { mode: "falling", reason: "course-correction", consideredPlans: 0 };
+      return dir === 0 ? ["idle"] : [movementAction(dir, sprint)];
+    };
+
+    if (landsSafely(-currentDir)) return engage(-currentDir);
+    if (landsSafely(0)) return engage(0);
+    return null; // nichts rettet die Lage - nicht verschlimmbessern
   }
 
   function decide(state) {
     const direction = state.goalDirection.dx >= 0 ? 1 : -1;
     if (state.justRespawned) reset();
 
-    if (updateStuck(state) && recoveryTicks === 0) {
+    if (!state.onGround) {
+      const correction = fallSafety(state);
+      if (correction) return correction;
+
+      // WICHTIG: Waehrend des Flugs darf die (nur fuer den Boden gedachte)
+      // Rueckzugs-/Stuck-Logik NICHT weiterlaufen. Sonst ueberschreibt sie
+      // mitten im Sprung ploetzlich die Flugrichtung (Bot dreht in der Luft
+      // um) - das sah aus wie ein abgebrochener Sprung, war aber ein Konflikt
+      // zwischen einem laufenden Rueckzugs-Timer und dem gerade gestarteten
+      // Sprung. Deshalb in der Luft einfach den bestehenden Plan bzw. die
+      // zuletzt gewaehlte Richtung fortsetzen.
+      recoveryTicks = 0;
+      if (activePlan) {
+        const actions = [movementAction(activePlan.direction, activePlan.sprint)];
+        if (activePlan.remainingJumpTicks > 0) {
+          actions.unshift("jump");
+          activePlan.remainingJumpTicks--;
+        }
+        activePlan.started = true;
+        lastDecision = { mode: "executing", reason: activePlan.reason, consideredPlans: 1 };
+        return actions;
+      }
+      lastDecision = { mode: "flying", reason: "airborne", consideredPlans: 0 };
+      return [movementAction(direction, config.sprint !== false)];
+    }
+
+    fallCorrectionTicks = 0;
+    fallCorrectionDir = null;
+
+    // Bewusstes Warten ist KEIN Steckenbleiben: Wartet der Bot absichtlich
+    // (z.B. bis ein getakteter `loderix` ausgeht), steht er zwangsläufig
+    // still - die reine "Position ändert sich nicht"-Erkennung würde das
+    // sonst als Problem werten und ein sinnvolles Warten abbrechen.
+    const isWaiting = waitTicks > 0;
+    const isStuck = updateStuck(state);
+    if (isStuck && recoveryTicks === 0 && !isWaiting) {
       return beginRecovery(state, direction, "stuck");
     }
 
     if (recoveryTicks > 0) {
       recoveryTicks--;
       lastDecision = { mode: "recovering", reason: "creating-run-up", consideredPlans: 0 };
-      return [movementAction(-direction, true)];
+      return recoveryStep(state, direction, recoveryReason || "stuck");
     }
 
     if (activePlan) {
@@ -776,6 +1066,35 @@ export function createNavigator(options) {
         consideredPlans: 1,
       };
       return actions;
+    }
+
+    // Liegt das Ziel schon VOR jeder Lücke/Gefahr auf festem Boden (also
+    // schlicht zu Fuß erreichbar)? Dann nicht erst über eine weiter entfernte
+    // Lücke/Gefahr nachdenken, die für's Erreichen des Ziels gar nicht relevant
+    // ist. Ohne diese Prüfung hält der Navigator jede sichtbare Lücke
+    // pauschal für ein Hindernis, obwohl das Ziel selbst laengst diesseits
+    // davon liegt - und zieht sich grundlos zurück, statt einfach reinzulaufen.
+    const goal = state.goalDirection;
+    if (
+      state.onGround &&
+      goal &&
+      goal.dx * direction > 0 &&
+      Math.abs(goal.dy) < state.tuning.botHeight * 4
+    ) {
+      const goalDistance = Math.abs(goal.dx);
+      const gapBeforeGoal =
+        state.gapAhead.present && state.gapAhead.distance < goalDistance;
+      const hazardBeforeGoal = state.hazards.some(
+        (hazard) =>
+          (hazard.active || hazard.warning) &&
+          hazard.dx * direction > 0 &&
+          Math.abs(hazard.dx) < goalDistance
+      );
+      if (!gapBeforeGoal && !hazardBeforeGoal) {
+        waitTicks = 0;
+        lastDecision = { mode: "moving", reason: "goal-on-foot", consideredPlans: 0 };
+        return [movementAction(direction, config.sprint !== false)];
+      }
     }
 
     const problems = visibleProblems(state, direction);
@@ -823,6 +1142,30 @@ export function createNavigator(options) {
     reset,
     getLastDecision() {
       return { ...lastDecision };
+    },
+    /**
+     * Verfolgt der Navigator gerade einen laufenden Sprungplan?
+     *
+     * Wichtig für eigene Sicherheitsnetze VOR `navigator.decide(state)`:
+     * Direkt beim Absprung ist die zu überspringende Gefahr naturgemäß ganz
+     * nah - eine eigene "Gefahr ist nah!"-Regel würde den gerade erst
+     * gestarteten, bereits geprüften Sprung sofort wieder abbrechen (der Bot
+     * hüpft dann endlos auf der Stelle). Eigene Notfall-Reflexe deshalb nur
+     * anwenden, wenn hier `false` zurückkommt.
+     */
+    hasActivePlan() {
+      return activePlan !== null;
+    },
+    /**
+     * Richtung/Tempo des laufenden Plans (`{ direction, sprint }`) oder `null`.
+     *
+     * Nützlich für Korrekturen im Flug: Rechne mit DIESEN Werten weiter,
+     * statt die Richtung aus `velocity.vx` zu raten - im Sprung schwankt das
+     * Tempo kurzzeitig, wodurch eine geratene Richtung dem eigenen Plan
+     * widerspricht und der Bot zwischen zwei Entscheidungen hin- und herwackelt.
+     */
+    getActivePlanCourse() {
+      return activePlan ? { direction: activePlan.direction, sprint: activePlan.sprint } : null;
     },
   };
 }

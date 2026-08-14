@@ -1,18 +1,43 @@
 /**
- * Sichtbereich des Bots – Single Source of Truth für den Radius, innerhalb dessen
- * ein Bot Objekte (Coins/Hazards/Utilities) "sieht". Bewusst als eigenes,
- * winziges Modul (SRP), damit der Wert zentral justierbar ist und in Builder wie
- * Tests dieselbe Definition teilen.
+ * Sichtbereich des Bots – Single Source of Truth für den Ausschnitt, innerhalb
+ * dessen ein Bot Objekte (Coins/Hazards/Utilities) und Terrain-Geometrie
+ * (`platforms`) "sieht". Bewusst als eigenes, winziges Modul (SRP), damit die
+ * Werte zentral justierbar sind und Builder wie Tests dieselbe Definition
+ * teilen.
  *
- * Wert 320px: Der Canvas ist 800×540 und die Kamera folgt dem Racer zentriert;
- * im Turnier-Grid (bis 2×2) ist eine Zelle ~400px breit. 320px hält den Bot nah
- * an dem, was ein Mensch auf dem Bildschirm sähe, ohne das ganze Level zu
- * verraten (siehe `.features/bot-state-vision/design.md`).
+ * Leitidee (siehe `.features/bot-state-vision/design.md`, US-2): Der Bot soll
+ * ungefähr das sehen, was ein Mensch am Bildschirm sieht – nicht mehr, aber
+ * eben auch nicht weniger.
+ *
+ * Form: achsenparalleles Rechteck (kein Kreis). Der frühere einheitliche
+ * Radius von 320px war vertikal deutlich RESTRIKTIVER als menschliche Sicht:
+ *
+ * - Der Canvas ist 800×540, die Kamera folgt dem Racer zentriert
+ *   (`RaceScene.startFollow`) – horizontal also ±400px.
+ * - Alle Level haben `worldHeight: 540`, exakt die Canvas-Höhe. Wegen
+ *   `cameras.main.setBounds(0, 0, worldWidth, 540)` scrollt die Kamera
+ *   NIEMALS vertikal: ein Mensch sieht permanent die komplette Level-Höhe.
+ *
+ * Daraus folgt: horizontal ±400px (halbe Canvas-Breite), vertikal ±540px
+ * (volle Weltenhöhe, in der Praxis also unbegrenzt innerhalb des Levels).
+ * Ohne das sah ein hoch stehender Bot den Boden tiefer liegender Plattformen
+ * nicht mehr und konnte keine Landung planen.
  */
-export const VIEW_RADIUS_PX = 320;
 
-/** Ob ein Objekt mit dem Pixel-Delta (dx, dy) innerhalb des Sichtradius liegt.
- *  Grenze eingeschlossen. Vergleich quadriert (kein `Math.sqrt`). */
-export function withinViewRadius(dx: number, dy: number, radius = VIEW_RADIUS_PX): boolean {
-  return dx * dx + dy * dy <= radius * radius;
+/** Halbe Sichtbreite in Pixeln = halbe Canvas-Breite (800 / 2). */
+export const VIEW_HALF_WIDTH_PX = 400;
+
+/** Halbe Sichthöhe in Pixeln = volle Weltenhöhe, da die Kamera nie vertikal
+ *  scrollt. Deckt damit jedes vertikale Delta innerhalb eines Levels ab. */
+export const VIEW_HALF_HEIGHT_PX = 540;
+
+/** Ob ein Objekt mit dem Pixel-Delta (dx, dy) im Sichtrechteck liegt.
+ *  Grenze eingeschlossen. */
+export function withinView(
+  dx: number,
+  dy: number,
+  halfWidth = VIEW_HALF_WIDTH_PX,
+  halfHeight = VIEW_HALF_HEIGHT_PX
+): boolean {
+  return Math.abs(dx) <= halfWidth && Math.abs(dy) <= halfHeight;
 }

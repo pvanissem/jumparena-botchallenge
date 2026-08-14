@@ -140,7 +140,7 @@ export interface BotState {
    *  `.features/bot-toolkit/design.md`, US-3). */
   sprintRampProgress: number;
 
-  /** Begrenztes Sichtfeld um den Bot herum (7×5, Bot in der Mitte). */
+  /** Begrenztes Sichtfeld um den Bot herum (11×9, Bot in der Mitte bei [4][5]). */
   nearbyTiles: TileType[][];
 
   /** Exakte Rechteck-Geometrie aller sichtbaren, solide kollidierenden
