@@ -122,6 +122,28 @@ describe("buildNearbyTiles", () => {
     // center cell (row 2, col 3) corresponds to (centerCol, centerRow) = (10,9)
     expect(grid[2][3]).toBe(tileTypeAt(level, 10, 9, NO_DYNAMIC));
   });
+
+  it("defaults to an 11x9 grid with the racer at [4][5]", () => {
+    const level = makeLevel({ platforms: [{ x: 0, y: 160, tilesWide: 40 }] });
+    const grid = buildNearbyTiles(level, NO_DYNAMIC, 10, 9);
+
+    expect(grid.length).toBe(9);
+    for (const row of grid) {
+      expect(row.length).toBe(11);
+    }
+    expect(grid[4][5]).toBe(tileTypeAt(level, 10, 9, NO_DYNAMIC));
+  });
+
+  it("maps every default-grid cell to the correct absolute tile", () => {
+    const level = makeLevel({ platforms: [{ x: 0, y: 160, tilesWide: 40 }] });
+    const grid = buildNearbyTiles(level, NO_DYNAMIC, 10, 9);
+
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 11; c++) {
+        expect(grid[r][c]).toBe(tileTypeAt(level, 10 - 5 + c, 9 - 4 + r, NO_DYNAMIC));
+      }
+    }
+  });
 });
 
 describe("buildDynamicTileState", () => {

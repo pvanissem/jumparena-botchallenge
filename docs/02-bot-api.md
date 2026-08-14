@@ -27,6 +27,13 @@ function decide(state) {
 > = links, `dy < 0` = oben. Die Objekt-Listen (`coins`/`hazards`/`utilities`) sind
 > auf den Sichtbereich des Bots begrenzt und nach Distanz sortiert; `nearest*` ist
 > jeweils das erste Element bzw. `null`.
+>
+> **Sichtbereich** (`client/src/game/state/viewport.ts`): ein achsenparalleles
+> Rechteck von **±400 px horizontal** (halbe Canvas-Breite) und **±540 px
+> vertikal**. Vertikal entspricht das der vollen Weltenhöhe: da alle Level
+> `worldHeight: 540` haben und die Kamera nie vertikal scrollt, sieht auch ein
+> Mensch permanent die komplette Level-Höhe. Es gibt keine Sichtlinien-Prüfung –
+> Wände verdecken nichts.
 
 ```ts
 interface BotState {
@@ -39,7 +46,7 @@ interface BotState {
   isSprinting: boolean;
   sprintRampProgress: number;            // 0..1, Fortschritt der Sprint-Rampe
 
-  nearbyTiles: TileType[][];             // 7x5, Bot in der Mitte
+  nearbyTiles: TileType[][];             // 11x9, Bot in der Mitte bei [4][5]
   platforms: {                           // exakte Rechteck-Geometrie aller
     dx: number; dy: number;              // sichtbaren, festen Flächen (siehe
     width: number; height: number;       // .features/bot-toolkit/), NICHT
@@ -129,8 +136,6 @@ Referenz-Index direkt im Kopfkommentar der Datei.
 
 ## Offene Detailfragen (siehe auch 07-offene-punkte.md)
 
-- Wie groß soll das Sichtfeld (`nearbyTiles`) sein? Zu groß → Bot "sieht" zu viel/wird zu
-  mächtig; zu klein → Strategie wird zu simpel.
 - Sollen Bots Informationen über andere Bots bekommen (z.B. um Rennen taktisch zu spielen)?
   Aktuell: Nein, da keine Bot-Interaktion vorgesehen ist.
 - Soll es mehrere Schwierigkeitsgrade des State-Objekts geben (Einsteiger vs. Fortgeschritten)?

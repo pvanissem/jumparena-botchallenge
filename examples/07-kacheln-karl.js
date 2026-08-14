@@ -2,13 +2,18 @@
  * Beispiel-Bot 7: "Kacheln-Karl" – der Rasterleser.
  *
  * Strategie: Entscheidet ausschliesslich anhand des Sichtfeld-Rasters
- * `nearbyTiles` (5 Zeilen x 7 Spalten, Bot in der Mitte bei [2][3]):
+ * `nearbyTiles` (9 Zeilen x 11 Spalten, Bot in der Mitte bei [4][5]):
  * Wand rechts -> springen, Loch rechts -> springen, Hazard-Kachel voraus ->
  * springen, Muenzblock ueber mir -> von unten dagegen springen.
  *
  * Erwartetes Profil: simpel und robust, mittleres Ergebnis. Gut geeignet als
  * Referenz fuer "einfacher Bot" im Turnier-Feld.
  */
+
+// Mitte des Rasters – der Bot selbst. Alle Zugriffe unten sind relativ dazu,
+// damit eine Aenderung der Rastergroesse nur hier angefasst werden muss.
+const BOT_ROW = 4;
+const BOT_COL = 5;
 
 let jumpTicks = 0;
 
@@ -34,19 +39,22 @@ export default {
     const actions = [];
     const goingRight = state.goalDirection.dx >= 0;
     const step = goingRight ? 1 : -1;
-    const col = 3 + step; // direkt vor dem Bot
-    const col2 = 3 + step * 2; // eine Kachel weiter
+    const col = BOT_COL + step; // direkt vor dem Bot
+    const col2 = BOT_COL + step * 2; // eine Kachel weiter
 
-    const bodyAhead = tileAt(state, 2, col);
-    const groundAhead = tileAt(state, 3, col);
-    const groundAhead2 = tileAt(state, 3, col2);
-    const blockAbove = tileAt(state, 1, 3);
+    const bodyAhead = tileAt(state, BOT_ROW, col);
+    const groundAhead = tileAt(state, BOT_ROW + 1, col);
+    const groundAhead2 = tileAt(state, BOT_ROW + 1, col2);
+    const blockAbove = tileAt(state, BOT_ROW - 1, BOT_COL);
 
     const wall = bodyAhead === "solid";
     const hole = groundAhead === "empty" && groundAhead2 === "empty";
     const hazard =
-      bodyAhead === "hazard" || groundAhead === "hazard" || tileAt(state, 2, col2) === "hazard";
-    const coinBlock = blockAbove === "coinBlock" || tileAt(state, 0, 3) === "coinBlock";
+      bodyAhead === "hazard" ||
+      groundAhead === "hazard" ||
+      tileAt(state, BOT_ROW, col2) === "hazard";
+    const coinBlock =
+      blockAbove === "coinBlock" || tileAt(state, BOT_ROW - 2, BOT_COL) === "coinBlock";
 
     if (state.onGround && jumpTicks <= 0) {
       if (hole) jumpTicks = 9;

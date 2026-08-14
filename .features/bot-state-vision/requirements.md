@@ -54,12 +54,15 @@ auch für einen Menschen auf dem Bildschirm sichtbar wären, damit kein Bot durc
 Level-Weitsicht unfair im Vorteil ist.
 
 Akzeptanzkriterien:
-- WHEN ein Objekt weiter als der definierte Sichtradius vom Bot entfernt ist SHALL
+- WHEN ein Objekt weiter als der definierte Sichtbereich vom Bot entfernt ist SHALL
   DAS SYSTEM es NICHT in `coins`/`hazards`/`utilities` aufnehmen.
-- WHEN ein Objekt innerhalb des Sichtradius liegt SHALL DAS SYSTEM es in die
+- WHEN ein Objekt innerhalb des Sichtbereichs liegt SHALL DAS SYSTEM es in die
   jeweilige Liste aufnehmen.
-- WHEN der Sichtradius angewendet wird SHALL DAS SYSTEM denselben Radius für Coins,
-  Hazards und Utilities verwenden (einheitliche, konsistente Sicht).
+- WHEN der Sichtbereich angewendet wird SHALL DAS SYSTEM dieselbe Definition für
+  Coins, Hazards und Utilities verwenden (einheitliche, konsistente Sicht).
+- WHEN sich ein Objekt vertikal über oder unter dem Bot befindet, aber innerhalb
+  der Level-Höhe SHALL DAS SYSTEM es als sichtbar behandeln, da die Kamera nie
+  vertikal scrollt und ein Mensch stets die volle Level-Höhe sieht.
 
 ### US-3: Bequeme "nearest"-Shortcuts bleiben erhalten
 

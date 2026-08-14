@@ -30,7 +30,7 @@ in den Builder hineingereicht – der Builder "rät" nichts aus Phaser-Objekten.
 | `packages/bot-contract/src/state.ts` | Neue Typen `VisibleCoin/VisibleHazard/VisibleUtility`, `GapAhead`; `BotState` erweitert; `NearestCoin/Hazard/Utility` werden zu Aliassen der `Visible*`-Typen (DRY). |
 | `client/src/game/state/worldSnapshot.ts` | Hazard-Snapshot um `warning` erweitern; Utilities/Coins unverändert. |
 | `client/src/game/state/botStateBuilder.ts` | Listen (sortiert, gefiltert), `nearest*` = `[0]`, `warning/stompable`, `velocity/isSprinting`, `gapAhead`, `worldBounds`, `justRespawned/tookDamage`. |
-| `client/src/game/state/viewport.ts` (**neu**) | `VIEW_RADIUS_PX` + `withinViewRadius()` – Single Source of Truth für den Sichtradius. |
+| `client/src/game/state/viewport.ts` (**neu**) | `VIEW_HALF_WIDTH_PX`/`VIEW_HALF_HEIGHT_PX` + `withinView()` – Single Source of Truth für den Sichtbereich. |
 | `client/src/game/state/gapAhead.ts` (**neu**) | Pure `computeGapAhead(level, x, y, facing, maxDistancePx)`. |
 | `client/src/game/hazards/behaviors.ts` | `spikeheadState` liefert bereits `phase`; daraus wird `warning` abgeleitet (kein neues Verhalten, nur Nutzung). |
 | `client/src/game/scenes/RaceScene.ts` | `buildSnapshot` liefert `warning`; `fireBotTick` reicht `velocity/isSprinting/justRespawned/tookDamage` als `extras` an den Builder; Event-Flags werden nach jedem Bot-Tick zurückgesetzt. |
@@ -92,14 +92,14 @@ export interface BotState {
   velocity: { vx: number; vy: number };   // NEU: px/s, vx>0 rechts, vy>0 unten
   isSprinting: boolean;                    // NEU
 
-  nearbyTiles: TileType[][];               // unverändert (7×5)
+  nearbyTiles: TileType[][];               // 11×9, Bot in der Mitte bei [4][5]
 
   // Shortcuts = jeweils Listen-[0] oder null
   nearestCoin: NearestCoin | null;
   nearestHazard: NearestHazard | null;
   nearestUtility: NearestUtility | null;
 
-  // Vollständige, distanz-sortierte, sichtradius-gefilterte Sicht (NEU)
+  // Vollständige, distanz-sortierte, sichtbereichs-gefilterte Sicht (NEU)
   coins: VisibleCoin[];
   hazards: VisibleHazard[];
   utilities: VisibleUtility[];
@@ -162,24 +162,45 @@ hazards: ReadonlyArray<{
 `HAZARD_REGISTRY` gelesen (Single Source of Truth – DRY; die Snapshot-Schicht ist
 reine Level-/Laufzeitgeometrie, keine Regel-Metadaten).
 
-### Sichtradius (`viewport.ts`, neu)
+### Sichtbereich (`viewport.ts`)
 
 ```ts
-export const VIEW_RADIUS_PX = 320;
-export function withinViewRadius(dx: number, dy: number,
-  radius = VIEW_RADIUS_PX): boolean {
-  return dx * dx + dy * dy <= radius * radius;
+/** Halbe Sichtbreite = halbe Canvas-Breite (800 / 2). */
+export const VIEW_HALF_WIDTH_PX = 400;
+/** Halbe Sichthöhe = volle Weltenhöhe, da die Kamera nie vertikal scrollt. */
+export const VIEW_HALF_HEIGHT_PX = 540;
+
+export function withinView(
+  dx: number, dy: number,
+  halfWidth = VIEW_HALF_WIDTH_PX,
+  halfHeight = VIEW_HALF_HEIGHT_PX
+): boolean {
+  return Math.abs(dx) <= halfWidth && Math.abs(dy) <= halfHeight;
 }
 ```
 
-- **Wert 320 px** (Begründung): Der Canvas ist 800×540 (`ArenaView.tsx`), die
-  Kamera folgt dem Racer zentriert. Im Turniermodus (max. 4 Bots, Grid bis 2×2)
-  ist eine Grid-Zelle ~400 px breit → ~200 px links/rechts sichtbar. 320 px ist ein
-  bewusst etwas großzügiger, **einheitlicher Radius** (rund, leicht zu
-  dokumentieren), der im Einzel-Viewport nicht das ganze Level verrät und im
-  Grid-Fall dem menschlichen Sichtfeld nahekommt. Als einzige Konstante zentral
-  justierbar (kein Magic Value verstreut). Kalibrierung erfolgt manuell am Stand.
-- Ein **einziger** euklidischer Radius für alle Objektarten (US-2, letzte AK).
+Der Sichtbereich ist ein **achsenparalleles Rechteck** um den Bot, kein Kreis. Er
+bildet den Kamera-Ausschnitt nach (US-2: "Sichtbereich entspricht dem des Spielers"):
+
+- **Horizontal ±400 px:** Der Canvas ist 800×540 (`ArenaView.tsx`), die Kamera folgt
+  dem Racer zentriert → halbe Canvas-Breite. Verrät im Einzel-Viewport nicht das
+  ganze Level.
+- **Vertikal ±540 px:** Alle Level haben `worldHeight: 540`, exakt die Canvas-Höhe,
+  und `RaceScene` setzt `cameras.main.setBounds(0, 0, worldWidth, 540)`. Die Kamera
+  scrollt daher **nie** vertikal – ein Mensch sieht permanent die komplette
+  Level-Höhe. Jedes vertikale Delta innerhalb eines Levels liegt somit im Sichtfeld.
+
+Bewusst **kein** euklidischer Radius: ein Kreis schrumpft in der Diagonale und
+würde einem hoch stehenden Bot den Boden tiefer liegender Plattformen verbergen.
+`surfaceAt()`/`landingSpot()` lieferten dort `null`, obwohl `predictPath` Fallwege
+von über 1000 px simuliert – der Bot könnte keine Landung planen.
+
+**Eine** Definition für alle Objektarten (US-2, letzte AK), Grenze eingeschlossen,
+keine Sichtlinien-/Verdeckungsprüfung (Wände verdecken nichts). Zentral in
+`viewport.ts` als Single Source of Truth – kein Magic Value verstreut.
+
+Dieselbe Definition filtert auch `state.platforms` (`visiblePlatforms.ts`, per
+AABB-Overlap gegen das Sicht-Rechteck; Plattformen werden dabei nie geclippt).
 
 ### gapAhead (`gapAhead.ts`, neu)
 
@@ -190,9 +211,11 @@ man steht):
 ```ts
 export function computeGapAhead(
   level: LevelDef, x: number, y: number,
-  facing: "left" | "right", maxDistancePx = VIEW_RADIUS_PX
+  facing: "left" | "right", maxDistancePx = VIEW_HALF_WIDTH_PX
 ): GapAhead
 ```
+
+Der Default entspricht der horizontalen Sichtweite: 400 px = 25 Tile-Spalten.
 
 Algorithmus (KISS, tile-basiert über die bestehende `tileTypeAt`/Plattform-Geometrie):
 1. Startspalte = Tile-Spalte unter dem Bot.
@@ -216,7 +239,7 @@ pure Helferfunktion aus `tiles.ts` exportiert (`isSolidAt(level, col, row)`), di
 // 1. Kandidaten → relative + gefiltert + sortiert (eine generische Helper-Fn, DRY)
 function toVisibleList<TIn, TOut>(
   from, items, mapFn
-): TOut[]   // filtert via withinViewRadius, sortiert nach dist², mappt
+): TOut[]   // filtert via withinView, sortiert nach dist², mappt
 
 // 2. coins/hazards/utilities über toVisibleList
 // 3. nearest* = list[0] ?? null
@@ -331,10 +354,10 @@ Spikehead einmal aufgerufen; `active` und `warning` daraus konsistent abgeleitet
 
 ## Fehlerbehandlung & Edge Cases
 
-- **Leere Listen:** Keine Objekte im Radius → `[]` und `nearest* = null` (US-1/US-3).
+- **Leere Listen:** Keine Objekte im Sichtbereich → `[]` und `nearest* = null` (US-1/US-3).
 - **Bot außerhalb jeder Plattform** (fällt gerade): `gapAhead` liefert konsistent
-  `present: false, distance: null`, wenn in Laufrichtung kein Boden mehr im
-  Radius ist (kein Crash).
+  `present: false, distance: null`, wenn in Laufrichtung innerhalb von
+  `maxDistancePx` kein Boden mehr liegt (kein Crash).
 - **Distanz nie negativ:** `gapAhead.distance = max(0, kante − botX)` bei
   `facing==="right"` bzw. `botX − kante` bei `left`.
 - **Spikehead im Snapshot:** dessen Position ist `fallToY` (bestehende Konvention),
@@ -349,14 +372,22 @@ TDD (Rot-Grün-Refactor), Vitest. Schwerpunkt auf den **puren** Modulen:
 
 **`botStateBuilder.test.ts`** (erweitern):
 - coins/hazards/utilities: leere Listen; korrekte Sortierung nach Distanz;
-  Sichtradius-Filter (drin/knapp draußen); `dx/dy`-Vorzeichen (Pixel, − = links/oben).
+  Sichtbereichs-Filter (drin/knapp draußen, horizontal wie vertikal);
+  `dx/dy`-Vorzeichen (Pixel, − = links/oben).
 - `nearest* === list[0]`; `null` bei leerer Liste.
 - `stompable` nur bei `schnetzler` true; `warning` durchgereicht; `active` erhalten.
 - `velocity/isSprinting/justRespawned/tookDamage` aus `extras` 1:1 übernommen.
 - `worldBounds` aus Level; `goalDirection` unverändert.
 
-**`viewport.test.ts`** (neu): `withinViewRadius` an/innerhalb/außerhalb der Grenze
-(inkl. exakt auf dem Radius = eingeschlossen).
+**`viewport.test.ts`** (neu): `withinView` an/innerhalb/außerhalb der Grenze je
+Achse (Grenze eingeschlossen, Ecke sichtbar); Objekte weit ober-/unterhalb des Bots
+sind sichtbar.
+
+**`visiblePlatforms.test.ts`** (neu): Plattform weit unter-/oberhalb des Bots wird
+geliefert; horizontale Ausschlussgrenze; große Plattform wird nicht geclippt.
+
+**`tiles.test.ts`** (erweitern): `buildNearbyTiles` liefert per Default 11×9 mit dem
+Bot bei `[4][5]`; vollständiges Zell→Tile-Mapping.
 
 **`gapAhead.test.ts`** (neu): kein Gap; Gap direkt voraus (distance≥0); Gap
 außerhalb `maxDistancePx` → `false`; Richtung `left`/`right`; Bot ohne Boden.
@@ -405,11 +436,14 @@ einen String zurückgibt, führt nur zu `[]` (nichts tun), nicht zum Absturz.
 
 ## Design-Entscheidungen zu den offenen Fragen aus requirements.md
 
-1. **Sichtradius:** `VIEW_RADIUS_PX = 320`, zentral in `viewport.ts` (s.o.).
+1. **Sichtbereich:** achsenparalleles Rechteck `±400 × ±540 px`
+   (`VIEW_HALF_WIDTH_PX` / `VIEW_HALF_HEIGHT_PX`), zentral in `viewport.ts` (s.o.).
+   `nearbyTiles` ist **11×9** Tiles (176×144 px), Bot in der Mitte bei `[4][5]`
+   (`buildNearbyTiles`-Defaults in `tiles.ts`).
 2. **`gapAhead.distance`:** Distanz bis zur **Kante der Lücke** (erstes Tile ohne
    Boden darunter) in Laufrichtung – nicht bis zum Wieder-Auftauchen von Boden
    (KISS; "muss ich bald springen?" ist die relevante Frage).
-3. **`nearbyTiles` + spikehead-warning:** `nearbyTiles` bleibt **unverändert**
-   (nur `active` erscheint als `"hazard"`). Die Vorwarnung wird **ausschließlich**
+3. **`nearbyTiles` + spikehead-warning:** In `nearbyTiles` erscheint nur `active`
+   als `"hazard"`. Die Vorwarnung wird **ausschließlich**
    über `hazards[i].warning` bereitgestellt (eine klare Quelle, keine Duplizierung
    der Semantik in zwei Feldern → DRY/KISS).

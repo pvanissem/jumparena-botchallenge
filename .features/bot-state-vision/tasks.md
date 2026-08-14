@@ -34,51 +34,59 @@ einem fehlschlagenden Test. Bezug in Klammern.
 - [x] 9. `state.ts`: `Visible*`-Typen, `warning`/`stompable` an Hazard, `GapAhead`,
       neue `BotState`-Felder, `Nearest* = Visible*`-Aliasse. (US-1,3,4,5,6,7)
 
-## E. Sichtradius
+## E. Sichtbereich
 
-- [x] 10. **Test (rot):** `viewport.test.ts` – `withinViewRadius` an/innerhalb/
-      außerhalb der Grenze (Grenze eingeschlossen). (US-2)
-- [x] 11. `state/viewport.ts`: `VIEW_RADIUS_PX = 320`, `withinViewRadius`. (US-2)
+- [x] 10. **Test (rot):** `viewport.test.ts` – `withinView` an/innerhalb/außerhalb
+      der Grenze je Achse (Grenze eingeschlossen, Ecke sichtbar); Objekte weit
+      ober-/unterhalb des Bots sind sichtbar. (US-2)
+- [x] 11. `state/viewport.ts`: `VIEW_HALF_WIDTH_PX = 400`,
+      `VIEW_HALF_HEIGHT_PX = 540`, `withinView`. (US-2)
+- [x] 12. **Test (rot):** `visiblePlatforms.test.ts` – Plattform weit unter-/oberhalb
+      sichtbar, horizontale Ausschlussgrenze, große Plattform nicht geclippt. (US-2)
+- [x] 13. `visiblePlatforms.ts`: AABB-Overlap gegen das Sicht-Rechteck. (US-2)
+- [x] 14. **Test (rot):** `tiles.test.ts` – `buildNearbyTiles` liefert per Default
+      11×9 mit dem Bot bei `[4][5]`; vollständiges Zell→Tile-Mapping. (US-2)
+- [x] 15. `tiles.ts`: `buildNearbyTiles`-Defaults `width = 11`, `height = 9`. (US-2)
 
 ## F. gapAhead
 
-- [x] 12. **Test (rot):** `gapAhead.test.ts` – kein Gap; Gap voraus (distance≥0);
+- [x] 16. **Test (rot):** `gapAhead.test.ts` – kein Gap; Gap voraus (distance≥0);
       Gap außerhalb `maxDistancePx`; Richtung left/right; Bot ohne Boden. (US-6)
-- [x] 13. `tiles.ts`: kleine pure `isSolidAt(level, col, row)` exportieren (aus
+- [x] 17. `tiles.ts`: kleine pure `isSolidAt(level, col, row)` exportieren (aus
       `tileTypeAt`-Logik, DRY). `state/gapAhead.ts`: `computeGapAhead`. (US-6)
 
 ## G. Builder
 
-- [x] 14. **Test (rot):** `botStateBuilder.test.ts` – Listen leer/sortiert/gefiltert;
+- [x] 18. **Test (rot):** `botStateBuilder.test.ts` – Listen leer/sortiert/gefiltert;
       `dx/dy`-Vorzeichen; `nearest*=[0]`/null; `stompable` nur schnetzler; `warning`
       durchgereicht; `velocity/isSprinting/justRespawned/tookDamage` aus `extras`;
       `worldBounds`; `goalDirection` unverändert. (US-1,2,3,4,5,7)
-- [x] 15. `worldSnapshot.ts`: Hazard-Objekt um `warning`. `botStateBuilder.ts`:
+- [x] 19. `worldSnapshot.ts`: Hazard-Objekt um `warning`. `botStateBuilder.ts`:
       `BotStateExtras`-Param, `toVisibleList`-Helper, `nearest*`, `stompable` aus
       `HAZARD_REGISTRY`, `gapAhead`, `worldBounds`, neue Felder. (US-1..7)
 
 ## H. RaceScene-Verdrahtung (manuell verifiziert, kein Unit-Test)
 
-- [x] 16. `RaceScene.ts`: `BOT_TICK_INTERVAL_MS = 33`. (US-10)
-- [x] 17. `RaceScene.ts`: `lastBotActions: Action[]`; `applyBotActions()` (letzte
+- [x] 20. `RaceScene.ts`: `BOT_TICK_INTERVAL_MS = 33`. (US-10)
+- [x] 21. `RaceScene.ts`: `lastBotActions: Action[]`; `applyBotActions()` (letzte
       horizontale gewinnt, `jump` kombiniert; nutzt `applyMovement`); alten
       `applyBotAction` entfernen; `fireBotTick` reicht `Action[]` durch. (US-9)
-- [x] 18. `RaceScene.ts`: `pendingTookDamage`/`pendingJustRespawned` setzen
+- [x] 22. `RaceScene.ts`: `pendingTookDamage`/`pendingJustRespawned` setzen
       (`applyPitFall`, Hazard-`"hit"`), in `fireBotTick` als `extras` übergeben
       (velocity/isSprinting), nach State-Bau zurücksetzen. `buildSnapshot` liefert
       `warning` je spikehead. (US-4,5,7)
 
 ## I. Doku (US-8)
 
-- [x] 19. `packages/bot-contract`-Kommentare + `current-bot.template.js`: Array-
+- [x] 23. `packages/bot-contract`-Kommentare + `current-bot.template.js`: Array-
       Rückgabe, neue Felder. (US-8)
-- [x] 20. `client/src/bot/AGENTS.md`: Multi-Action/Array, 30 Hz, neue State-Felder,
+- [x] 24. `client/src/bot/AGENTS.md`: Multi-Action/Array, 30 Hz, neue State-Felder,
       Sprint/variable Sprunghöhe, spikehead, `warning`/`stompable`/`gapAhead`/
       `velocity`/`isSprinting`, Fallstricke, Code-Skelett. (US-8)
-- [x] 21. `docs/02-bot-api.md` + `docs/08-hazards-und-utilities.md`: State-Objekt
+- [x] 25. `docs/02-bot-api.md` + `docs/08-hazards-und-utilities.md`: State-Objekt
       real (Pixel), Array-Rückgabe, 30 Hz, `warning`/`stompable` in Bot-API. (US-8)
 
 ## J. Abschluss
 
-- [x] 22. Vollständiger Testlauf (`vitest`), `biome`-Check, `tsc` – alles grün.
-- [x] 23. Abgleich aller Akzeptanzkriterien US-1..US-10.
+- [x] 26. Vollständiger Testlauf (`vitest`), `biome`-Check, `tsc` – alles grün.
+- [x] 27. Abgleich aller Akzeptanzkriterien US-1..US-10.

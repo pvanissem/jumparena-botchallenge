@@ -65,4 +65,17 @@ describe("computeGapAhead", () => {
     expect(gap.present).toBe(true);
     expect(gap.distance).toBe(0);
   });
+
+  it("scans up to the horizontal view range by default", () => {
+    // Boden über col 0..24 (400px), Lücke ab col 25 (x=400). Bot bei col 0.
+    const wide = levelWithGround(0, 24, 20);
+    expect(computeGapAhead(wide, 0, botY, "right").distance).toBe(25 * TILE);
+
+    // Eine Spalte weiter draußen liegt jenseits von VIEW_HALF_WIDTH_PX.
+    const wider = levelWithGround(0, 25, 20);
+    expect(computeGapAhead(wider, 0, botY, "right")).toEqual({
+      present: false,
+      distance: null,
+    });
+  });
 });

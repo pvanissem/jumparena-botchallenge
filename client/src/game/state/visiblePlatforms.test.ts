@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LevelDef } from "../level/types";
-import { VIEW_RADIUS_PX } from "./viewport";
+import { VIEW_HALF_HEIGHT_PX, VIEW_HALF_WIDTH_PX } from "./viewport";
 import { buildVisiblePlatforms } from "./visiblePlatforms";
 
 function makeLevel(overrides: Partial<LevelDef> = {}): LevelDef {
@@ -21,7 +21,7 @@ function makeLevel(overrides: Partial<LevelDef> = {}): LevelDef {
 }
 
 describe("buildVisiblePlatforms", () => {
-  it("includes a platform inside the view radius with dx/dy relative to the bot", () => {
+  it("includes a platform inside the view rect with dx/dy relative to the bot", () => {
     const level = makeLevel({ platforms: [{ x: 0, y: 160, tilesWide: 4 }] });
     const result = buildVisiblePlatforms(level, new Set(), 32, 100);
 
@@ -49,20 +49,46 @@ describe("buildVisiblePlatforms", () => {
     expect(result[0].kind).toBe("ceiling");
   });
 
-  it("excludes a platform entirely outside the view radius", () => {
+  it("excludes a platform entirely outside the horizontal view range", () => {
     const level = makeLevel({
-      platforms: [{ x: VIEW_RADIUS_PX * 3, y: 0, tilesWide: 1 }],
+      platforms: [{ x: VIEW_HALF_WIDTH_PX * 3, y: 0, tilesWide: 1 }],
     });
     const result = buildVisiblePlatforms(level, new Set(), 0, 0);
     expect(result).toEqual([]);
   });
 
-  it("does NOT clip a large platform that merely intersects the view radius", () => {
-    // Plattform beginnt weit außerhalb, ragt aber in den Sichtradius hinein.
+  it("excludes a platform beyond the vertical view range", () => {
+    const level = makeLevel({
+      platforms: [{ x: 0, y: VIEW_HALF_HEIGHT_PX * 2, tilesWide: 1 }],
+    });
+    const result = buildVisiblePlatforms(level, new Set(), 0, 0);
+    expect(result).toEqual([]);
+  });
+
+  it("sees a platform far BELOW the bot (bot standing high on a ledge)", () => {
+    // Kern des Fixes: mit dem alten 320px-Kreis war eine Plattform 400px
+    // tiefer unsichtbar -> surfaceAt()/landingSpot() lieferten nichts.
+    const level = makeLevel({ platforms: [{ x: 0, y: 500, tilesWide: 4 }] });
+    const result = buildVisiblePlatforms(level, new Set(), 0, 100);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].dy).toBe(400);
+  });
+
+  it("sees a platform far ABOVE the bot", () => {
+    const level = makeLevel({ platforms: [{ x: 0, y: 60, tilesWide: 4 }] });
+    const result = buildVisiblePlatforms(level, new Set(), 0, 500);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].dy).toBe(-440);
+  });
+
+  it("does NOT clip a large platform that merely intersects the view rect", () => {
+    // Plattform beginnt weit außerhalb, ragt aber in das Sichtrechteck hinein.
     const level = makeLevel({
       platforms: [{ x: -10000, y: 0, tilesWide: 2000 }], // 32000px breit
     });
-    const result = buildVisiblePlatforms(level, new Set(), 0, VIEW_RADIUS_PX - 1);
+    const result = buildVisiblePlatforms(level, new Set(), 0, VIEW_HALF_HEIGHT_PX - 1);
     expect(result).toHaveLength(1);
     expect(result[0].width).toBe(2000 * 16);
   });

@@ -5,7 +5,12 @@ dem eigentlichen Umsetzungsstart geklärt/entschieden werden sollten.
 
 ## Offene Entscheidungen
 
-- [ ] **Sichtfeld-Größe** im `BotState` (`nearbyTiles`) – wie viele Tiles soll ein Bot "sehen"?
+- [x] **Sichtfeld-Größe** im `BotState` – entschieden: `nearbyTiles` ist **11×9** Tiles
+      (176×144 px), Bot in der Mitte bei `[4][5]`. Objekte (`coins`/`hazards`/`utilities`)
+      und `platforms` liegen im achsenparallelen Rechteck **±400 px horizontal /
+      ±540 px vertikal** (`client/src/game/state/viewport.ts`) – das entspricht dem
+      Kamera-Ausschnitt: die Kamera scrollt wegen `worldHeight: 540` nie vertikal,
+      ein Mensch sieht also stets die volle Level-Höhe.
 - [ ] **Bot-Interaktion:** Bleibt es endgültig bei "keine Infos über andere Bots", oder wird
       später doch ein Wettbewerbs-Element zwischen Bots gewünscht?
 - [ ] **Mehrere Schwierigkeitsgrade** des Bot-State (Einsteiger- vs. Fortgeschrittenen-API)?
