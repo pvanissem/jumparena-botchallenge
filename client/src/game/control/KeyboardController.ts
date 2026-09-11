@@ -3,7 +3,7 @@
  * Abschnitt "control/RacerController.ts".
  */
 import type { Action } from "@arena/bot-contract";
-import type { RacerController } from "./RacerController";
+import type { DirectionalInput, HumanInputSource } from "./RacerController";
 
 interface KeyState {
   isDown: boolean;
@@ -18,18 +18,12 @@ export interface CursorKeysLike {
   shift: KeyState;
 }
 
-/** Rohes, mehrachsiges Tastatur-Eingabesignal für EINEN Frame (Multi-Input:
- *  horizontale Bewegung, Sprung UND Sprint können gleichzeitig aktiv sein).
- *  Bewusst kein Teil des `Action`-Contracts (`@arena/bot-contract` bleibt
- *  unverändert) – nur `RaceScene` nutzt dies für den Tastatur-Sonderpfad. */
-export interface KeyboardInput {
-  dir: -1 | 0 | 1;
-  jump: boolean;
-  /** Ob Shift gehalten wird (nur zusammen mit `dir!==0` als "Sprint" relevant). */
-  sprint: boolean;
-}
+/** Rohes, mehrachsiges Tastatur-Eingabesignal für EINEN Frame – identisch zum
+ *  geräteunabhängigen `DirectionalInput` (siehe `RacerController.ts`), hier nur
+ *  als sprechender Alias für den Tastatur-Pfad erhalten. */
+export type KeyboardInput = DirectionalInput;
 
-export class KeyboardController implements RacerController {
+export class KeyboardController implements HumanInputSource {
   constructor(private readonly keys: CursorKeysLike) {}
 
   /**

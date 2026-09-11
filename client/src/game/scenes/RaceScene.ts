@@ -17,7 +17,7 @@ import { SheetKeys, STATIC_IMAGE_KEYS, spriteScale } from "../assets/spriteSheet
 import { audioSettings } from "../audio/audioSettings";
 import { BotController } from "../control/BotController";
 import { KeyboardController } from "../control/KeyboardController";
-import type { RacerController } from "../control/RacerController";
+import type { HumanInputSource, RacerController } from "../control/RacerController";
 import { spikeheadState } from "../hazards/behaviors";
 import { updateHazard } from "../hazards/factory";
 import { UTILITY_REGISTRY } from "../hazards/registry";
@@ -56,6 +56,13 @@ import { botRevisionForSource } from "../trace/botTraceIdentity";
 import { RunTelemetryLifecycle } from "../trace/runLifecycle";
 import type { BotRunTrace, RacerSummaryInput, RunResult, TraceEventInput } from "../trace/types";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
+import {
+  type AudioFlags,
+  type AudioOption,
+  type ControllerMode,
+  normalizeAudioOption,
+  resolveControllerChoice,
+} from "./raceSceneOptions";
 
 const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
 
@@ -67,7 +74,10 @@ const STOMP_BOUNCE_VELOCITY = -280;
 const RUN_ANIM_THRESHOLD = 1;
 
 export interface RaceSceneInitData {
-  controllerMode: "keyboard" | "bot";
+  controllerMode: ControllerMode;
+  /** Nur bei `controllerMode: "gamepad"`: injizierte menschliche Steuerquelle
+   *  (DIP – die Szene kennt kein Gamepad, nur `HumanInputSource`). */
+  humanInput?: HumanInputSource;
   /** Level-ID aus `LEVEL_REGISTRY` (siehe `level/levelRegistry.ts`). Default
    *  `DEFAULT_LEVEL_ID`, falls nicht angegeben (z.B. bestehende Aufrufer). */
   levelId?: string;
@@ -92,8 +102,10 @@ export interface RaceSceneInitData {
   /** Kamera-Ausschnitt im Canvas. Default: ganzes Canvas (heutiges Verhalten). */
   viewport?: { x: number; y: number; width: number; height: number };
   /** Musik UND Soundeffekte dieser Szene. Default `true` (heutiges Verhalten).
-   *  Im Match für ALLE Racer-Szenen `false`. */
-  audio?: boolean;
+   *  Im Match für ALLE Racer-Szenen `false`. Granular (`{music, sfx}`) im
+   *  `/play`-Modus: Dort laufen zwei Szenen gleichzeitig, die Musik läuft aber
+   *  nur einmal zentral (siehe `PlayBootScene`). */
+  audio?: AudioOption;
   /** MatchBootScene hat den gemeinsamen Cache bereits vollständig geladen. */
   assetsPreloaded?: boolean;
   /** Nur `/dev`: ohne diese explizite Option bleibt Telemetrie vollständig aus. */
@@ -108,10 +120,10 @@ export class RaceScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private racer!: RacerRuntimeState;
   private controller!: RacerController;
-  /** Nicht-null nur im Tastatur-Modus – erlaubt den Multi-Input-Sonderpfad
-   *  (siehe `applyKeyboardInput`), ohne den `RacerController`-Contract für
-   *  Bots zu verändern. */
-  private keyboardController: KeyboardController | null = null;
+  /** Nicht-null nur bei menschlicher Steuerung (Tastatur ODER Gamepad) –
+   *  erlaubt den Multi-Input-Sonderpfad (siehe `applyHumanInput`), ohne den
+   *  `RacerController`-Contract für Bots zu verändern. */
+  private humanInput: HumanInputSource | null = null;
   private botRunner: BotRunner | null = null;
   private elapsedMs = 0;
   private sinceLastBotTick = 0;
@@ -134,7 +146,7 @@ export class RaceScene extends Phaser.Scene {
    *  zwischen Sprüngen (siehe `movement/movement.ts#shouldCutJump`). */
   private jumpStartMs: number | null = null;
   /** Frame-Delta des aktuellen `update()`-Aufrufs – als Feld zwischengespeichert,
-   *  da `applyKeyboardInput`/`applyBotAction`/`applyMovement` es für die
+   *  da `applyHumanInput`/`applyBotAction`/`applyMovement` es für die
    *  Sprint-Rampe brauchen, aber (historisch) kein `delta`-Argument haben. */
   private currentDelta = 0;
   /** Ereignis-Flags für den State des nächsten Bot-Ticks: gesetzt, wenn seit dem
@@ -148,7 +160,7 @@ export class RaceScene extends Phaser.Scene {
   private activatedCheckpointIds = new Set<string>();
   private music: Phaser.Sound.BaseSound | null = null;
   private unsubscribeAudio: (() => void) | null = null;
-  private audioEnabled = true;
+  private audio: AudioFlags = { music: true, sfx: true };
   /** Stellt sicher, dass `haltRacer()` nur einmal wirkt (der Früh-Ausstieg in
    *  `update()` würde es sonst jeden Frame erneut aufrufen). */
   private terminalHandled = false;
@@ -161,7 +173,7 @@ export class RaceScene extends Phaser.Scene {
   init(data: RaceSceneInitData): void {
     this.initData = data;
     this.level = getLevelById(data.levelId ?? DEFAULT_LEVEL_ID);
-    this.audioEnabled = data.audio ?? true;
+    this.audio = normalizeAudioOption(data.audio);
   }
 
   preload(): void {
@@ -250,7 +262,7 @@ export class RaceScene extends Phaser.Scene {
     // zurückgesetzt. Der zusätzliche `applyAudioVolume()`-Aufruf NACH `play()`
     // fängt nur noch den seltenen Fall ab, dass sich die Einstellung zwischen
     // `add()` und `play()` geändert hat.
-    if (this.audioEnabled) {
+    if (this.audio.music) {
       this.music = this.sound.add(AUDIO_KEYS.THEME, {
         loop: true,
         volume: audioSettings.getEffectiveVolume(),
@@ -285,12 +297,19 @@ export class RaceScene extends Phaser.Scene {
   /** Spielt einen kurzen Soundeffekt einmalig mit der aktuellen
    *  Master-Lautstärke ab (Sprung/Collect). */
   private playSfx(key: AudioKey): void {
-    if (!this.audioEnabled) return;
+    if (!this.audio.sfx) return;
     this.sound.play(key, { volume: audioSettings.getEffectiveVolume() });
   }
 
   private createController(): RacerController {
-    if (this.initData.controllerMode === "bot" && this.initData.botSourceCode) {
+    const choice = resolveControllerChoice(this.initData);
+
+    if (choice.kind === "gamepad") {
+      this.humanInput = choice.humanInput;
+      return choice.humanInput;
+    }
+
+    if (choice.kind === "bot") {
       this.botRunner = new BotRunner(createBrowserWorker(), {
         observer: this.telemetry
           ? {
@@ -302,12 +321,13 @@ export class RaceScene extends Phaser.Scene {
             }
           : undefined,
       });
-      this.botRunner.init(this.initData.botSourceCode);
+      this.botRunner.init(choice.botSourceCode);
       return new BotController(this.botRunner);
     }
+
     const keys = this.input.keyboard?.createCursorKeys();
-    this.keyboardController = new KeyboardController(keys as unknown as never);
-    return this.keyboardController;
+    this.humanInput = new KeyboardController(keys as unknown as never);
+    return this.humanInput;
   }
 
   /**
@@ -317,7 +337,7 @@ export class RaceScene extends Phaser.Scene {
    * `RaceSceneInitData.onReady`), da vor Abschluss von `create()` weder
    * `this.input.keyboard` noch die übrige Szene verlässlich existieren.
    */
-  setControllerMode(mode: "keyboard" | "bot", botSourceCode?: string): void {
+  setControllerMode(mode: ControllerMode, botSourceCode?: string): void {
     const unchanged =
       mode === this.initData.controllerMode &&
       (mode === "keyboard" || botSourceCode === this.initData.botSourceCode);
@@ -325,7 +345,7 @@ export class RaceScene extends Phaser.Scene {
 
     this.finishTrace("aborted", "manual-mode");
     this.controller?.dispose();
-    this.keyboardController = null;
+    this.humanInput = null;
     this.botRunner = null;
     this.initData = { ...this.initData, controllerMode: mode, botSourceCode };
     if (mode === "bot" && this.initData.telemetry) {
@@ -386,10 +406,10 @@ export class RaceScene extends Phaser.Scene {
       this.notifyStatus();
     }
 
-    if (this.keyboardController) {
-      // Tastatur: jeden Frame synchron gelesen, Multi-Input (Bewegung +
-      // Sprung gleichzeitig) – siehe bugfix.md, "Root Cause" Punkt 1+2.
-      this.applyKeyboardInput(this.keyboardController);
+    if (this.humanInput) {
+      // Mensch (Tastatur/Gamepad): jeden Frame synchron gelesen, Multi-Input
+      // (Bewegung + Sprung gleichzeitig) – siehe bugfix.md, "Root Cause" 1+2.
+      this.applyHumanInput(this.humanInput);
     } else {
       // Bot: eigenes, langsameres Tick-Raster, nicht-blockierend (siehe
       // `fireBotTick`) – die zuletzt aufgelösten Actions werden bis zum nächsten
@@ -576,9 +596,10 @@ export class RaceScene extends Phaser.Scene {
     }
   }
 
-  /** Mehrachsiger Tastatur-Input: Bewegung, Sprung UND Sprint unabhängig, im selben Frame. */
-  private applyKeyboardInput(keyboard: KeyboardController): void {
-    const { dir, jump, sprint } = keyboard.getInput();
+  /** Mehrachsiger Mensch-Input (Tastatur ODER Gamepad): Bewegung, Sprung UND
+   *  Sprint unabhängig, im selben Frame. */
+  private applyHumanInput(source: HumanInputSource): void {
+    const { dir, jump, sprint } = source.getInput();
     this.applyMovement(dir, sprint, jump);
   }
 

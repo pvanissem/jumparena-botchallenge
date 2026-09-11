@@ -1,0 +1,742 @@
+/**
+ * Stil des `/play`-Modus (Messestand, "Selber spielen") – siehe
+ * `.features/play-mode/design.md`, Abschnitt "Seite & UI".
+ * Nutzt die Farbvariablen aus `theme.css` (Neon-Arcade-Sprache wie
+ * `present-broadcast.css`).
+ */
+
+.play-page {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1vw, 16px);
+  min-height: 100vh;
+  padding: clamp(10px, 1.2vw, 22px);
+  background:
+    radial-gradient(circle at 20% -10%, rgba(56, 232, 255, 0.12), transparent 55%),
+    radial-gradient(circle at 85% 0%, rgba(255, 79, 163, 0.12), transparent 50%), var(--bg-0);
+}
+
+.play-page--calibrating {
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Kopfzeile ---------- */
+
+.play-page__header {
+  --devk-green: #00b34d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 6px 16px;
+  border-bottom: 2px solid var(--devk-green);
+  background: linear-gradient(
+    90deg,
+    rgba(0, 179, 77, 0.22),
+    rgba(87, 255, 143, 0.08) 55%,
+    transparent
+  );
+}
+
+/* ---------- Titel ---------- */
+
+.play-page__title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+  font-size: clamp(14px, 1.8vw, 30px);
+  letter-spacing: 1px;
+  line-height: 1.2;
+}
+
+/* DEVK-Grün als Markenfarbe, im Arcade-Kontext leicht angehoben, damit es
+   auf dunklem Grund leuchtet. */
+.play-page__title-mark {
+  padding: 4px 10px;
+  background: var(--devk-green);
+  color: #04140a;
+  box-shadow: 0 0 22px rgba(0, 179, 77, 0.6);
+}
+
+.play-page__title-main {
+  background: linear-gradient(90deg, var(--neon-green), var(--neon-cyan) 55%, var(--neon-yellow));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 0 14px rgba(87, 255, 143, 0.35));
+}
+
+/* ---------- Ausklappbarer Anschlussbereich ---------- */
+
+.play-page__panel {
+  position: relative;
+}
+
+.play-page__panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 2px solid var(--panel-hi);
+  background: rgba(5, 5, 16, 0.7);
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+  cursor: pointer;
+  user-select: none;
+}
+
+.play-page__panel[open] .play-page__panel-summary {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.play-page__panel-count {
+  padding: 1px 7px;
+  background: var(--neon-green);
+  color: #05050f;
+}
+
+/* Im aufgeklappten Zustand über dem Spielfeld schweben, damit die
+   Spielfläche ihre Höhe behält. */
+.play-page__tools {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: max-content;
+  max-width: 70vw;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--neon-cyan);
+  background: rgba(5, 5, 16, 0.96);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.play-page__audio-hint {
+  color: var(--neon-pink);
+  font-size: clamp(7px, 0.7vw, 10px);
+  animation: play-pulse 1.6s ease-in-out infinite;
+}
+
+/* ---------- Spielfläche mit zwei Stationen ---------- */
+
+.play-page__stage {
+  position: relative;
+  flex: 1;
+  min-height: 52vh;
+  border: 3px solid var(--panel-hi);
+  background: #05050f;
+  overflow: hidden;
+}
+
+.play-page__canvas,
+.play-page__canvas canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.play-page__overlays {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  pointer-events: none;
+}
+
+/* Trennlinie zwischen den beiden Stationen */
+.play-page__overlays::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--neon-cyan) 15%,
+    var(--neon-pink) 85%,
+    transparent
+  );
+  opacity: 0.55;
+}
+
+.play-station {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(6px, 0.8vw, 14px);
+}
+
+/* ---------- HUD ---------- */
+
+.play-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid var(--neon-cyan);
+  background: rgba(5, 5, 16, 0.78);
+  box-shadow: 0 0 18px rgba(56, 232, 255, 0.25);
+  font-size: clamp(7px, 0.72vw, 11px);
+}
+
+.play-hud__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.play-hud__name {
+  color: var(--neon-yellow);
+  letter-spacing: 1px;
+}
+
+.play-hud__lives {
+  letter-spacing: 2px;
+  filter: drop-shadow(0 0 6px rgba(255, 90, 90, 0.6));
+}
+
+.play-hud__level {
+  color: var(--ink-dim);
+}
+
+.play-hud__score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--neon-green);
+}
+
+.play-hud__score strong {
+  color: var(--neon-yellow);
+  font-size: 1.35em;
+}
+
+.play-hud__time {
+  position: relative;
+  height: 10px;
+  border: 2px solid var(--panel-hi);
+  background: #05050f;
+}
+
+.play-hud__time-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--danger), var(--neon-yellow), var(--neon-green));
+  transition: width 120ms linear;
+}
+
+.play-hud__time-label {
+  position: absolute;
+  right: 4px;
+  top: -2px;
+  font-size: 0.85em;
+  color: var(--ink-dim);
+}
+
+.play-hud__legend {
+  margin: 2px 0 0;
+  color: var(--ink-dim);
+  font-size: 0.82em;
+}
+
+/* ---------- Phasen-Overlays ---------- */
+
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px;
+  text-align: center;
+  background: rgba(5, 5, 16, 0.86);
+}
+
+.play-overlay--countdown {
+  background: rgba(5, 5, 16, 0.94);
+}
+
+.play-overlay__eyebrow {
+  margin: 0;
+  color: var(--neon-pink);
+  font-size: clamp(7px, 0.65vw, 10px);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.play-overlay__title {
+  margin: 0;
+  color: var(--neon-yellow);
+  font-size: clamp(14px, 1.7vw, 30px);
+  text-shadow: 4px 4px 0 var(--border-dark);
+}
+
+.play-overlay__score {
+  margin: 0;
+  color: var(--neon-green);
+  font-size: clamp(18px, 2.6vw, 44px);
+  text-shadow: 0 0 24px rgba(87, 255, 143, 0.5);
+}
+
+.play-overlay__hint {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+  line-height: 1.6;
+}
+
+.play-overlay__rank {
+  margin: 0;
+  color: var(--neon-yellow);
+  font-size: clamp(9px, 1vw, 16px);
+  animation: play-pulse 1.2s ease-in-out infinite;
+}
+
+.play-overlay__countdown {
+  margin: 0;
+  color: var(--neon-cyan);
+  font-size: clamp(34px, 6vw, 96px);
+  text-shadow: 0 0 30px rgba(56, 232, 255, 0.65);
+}
+
+.play-overlay--attract .play-overlay__title {
+  animation: play-pulse 1.8s ease-in-out infinite;
+}
+
+.play-overlay--disconnected {
+  background: rgba(40, 5, 12, 0.9);
+}
+
+/* ---------- Namenseingabe ---------- */
+
+.play-name {
+  display: flex;
+  gap: clamp(4px, 0.5vw, 10px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-name__slot {
+  width: clamp(20px, 2.4vw, 42px);
+  padding: clamp(4px, 0.5vw, 10px) 0;
+  border: 2px solid var(--panel-hi);
+  background: #05050f;
+  color: var(--ink);
+  font-size: clamp(11px, 1.3vw, 22px);
+  text-align: center;
+}
+
+.play-name__slot.is-cursor {
+  border-color: var(--neon-yellow);
+  color: var(--neon-yellow);
+  box-shadow: 0 0 14px rgba(255, 210, 63, 0.5);
+  animation: play-pulse 0.9s ease-in-out infinite;
+}
+
+/* ---------- Bestenliste ---------- */
+
+.play-highscores {
+  padding: 10px 16px;
+  border: 3px solid var(--neon-pink);
+  background: rgba(5, 5, 16, 0.8);
+}
+
+.play-highscores__title {
+  margin: 0 0 8px;
+  color: var(--neon-pink);
+  font-size: clamp(9px, 1vw, 15px);
+}
+
+.play-highscores__empty {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+}
+
+.play-highscores__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-highscores__row {
+  display: grid;
+  grid-template-columns: 2.2em 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 3px 6px;
+  font-size: clamp(7px, 0.72vw, 11px);
+  color: var(--ink);
+}
+
+.play-highscores__row.is-highlight {
+  background: rgba(255, 210, 63, 0.16);
+  color: var(--neon-yellow);
+  box-shadow: inset 0 0 0 2px var(--neon-yellow);
+}
+
+.play-highscores__rank {
+  color: var(--neon-cyan);
+}
+
+.play-highscores__levels {
+  color: var(--ink-dim);
+}
+
+.play-highscores__score {
+  color: var(--neon-green);
+  text-align: right;
+}
+
+/* ---------- Kalibrierungs-Assistent ---------- */
+
+.play-calibration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(760px, 92vw);
+  padding: clamp(18px, 2.5vw, 40px);
+  border: 3px solid var(--neon-cyan);
+  background: rgba(5, 5, 16, 0.9);
+  box-shadow: 0 0 40px rgba(56, 232, 255, 0.25);
+  text-align: center;
+}
+
+.play-calibration__title {
+  margin: 0;
+  color: var(--neon-yellow);
+  font-size: clamp(14px, 1.8vw, 26px);
+}
+
+.play-calibration__station {
+  margin: 0;
+  color: var(--neon-pink);
+  font-size: clamp(8px, 0.9vw, 13px);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.play-calibration__step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+  justify-content: center;
+}
+
+.play-calibration__hint {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-calibration__input {
+  margin: 0;
+  color: var(--neon-cyan);
+  font-size: clamp(20px, 3vw, 44px);
+  text-shadow: 0 0 24px rgba(56, 232, 255, 0.6);
+}
+
+.play-calibration__progress {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+}
+
+.play-calibration__error {
+  margin: 0;
+  color: var(--danger);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-calibration__live {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-calibration__live-item {
+  padding: 8px 4px;
+  border: 2px solid var(--panel-hi);
+  background: #05050f;
+  color: var(--ink-dim);
+  font-size: clamp(6px, 0.6vw, 9px);
+}
+
+.play-calibration__live-item.is-active {
+  border-color: var(--neon-green);
+  background: rgba(87, 255, 143, 0.18);
+  color: var(--neon-green);
+}
+
+.play-calibration__actions,
+.play-calibration__footer {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ---------- Buttons ---------- */
+
+.play-button {
+  padding: 10px 18px;
+  border: 2px solid var(--neon-cyan);
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(7px, 0.72vw, 11px);
+  cursor: pointer;
+}
+
+.play-button:hover {
+  background: var(--panel-hi);
+  box-shadow: 0 0 16px rgba(56, 232, 255, 0.35);
+}
+
+.play-button--ghost {
+  border-color: var(--panel-hi);
+  color: var(--ink-dim);
+}
+
+@keyframes play-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.play-calibration__diagnostics {
+  width: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px dashed var(--panel-hi);
+  color: var(--ink-dim);
+  font-size: clamp(6px, 0.55vw, 9px);
+  text-align: left;
+  word-break: break-word;
+}
+
+.play-calibration__diagnostics summary {
+  cursor: pointer;
+  color: var(--neon-cyan);
+}
+
+.play-calibration__diagnostics ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.play-calibration__diagnostics li {
+  padding: 4px 6px;
+  border-left: 3px solid var(--neon-green);
+  background: rgba(87, 255, 143, 0.06);
+  line-height: 1.7;
+}
+
+.play-calibration__diagnostics li[data-usable="false"] {
+  border-left-color: var(--danger);
+  background: rgba(255, 90, 90, 0.08);
+  opacity: 0.8;
+}
+
+/* ---------- Gamepad-Selbsttest (/play/test) ---------- */
+
+.play-test__steps {
+  margin: 0;
+  padding: 12px 16px 12px 34px;
+  border-left: 4px solid var(--neon-yellow);
+  background: rgba(255, 210, 63, 0.08);
+  color: var(--ink);
+  font-size: clamp(8px, 0.8vw, 12px);
+  line-height: 2;
+}
+
+.play-test__stats {
+  margin: 0;
+  padding: 8px 12px;
+  border: 2px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-test__pads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.play-test__pad {
+  padding: 10px 12px;
+  border: 2px solid var(--panel-hi);
+  background: rgba(5, 5, 16, 0.7);
+  font-size: clamp(7px, 0.7vw, 11px);
+  line-height: 1.8;
+  word-break: break-word;
+}
+
+.play-test__pad h2 {
+  margin: 0 0 6px;
+  color: var(--neon-yellow);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-test__values code {
+  color: var(--neon-green);
+  letter-spacing: 1px;
+}
+
+.play-test__empty {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+}
+
+.play-test__events {
+  padding: 10px 12px;
+  border: 2px solid var(--neon-pink);
+  background: rgba(5, 5, 16, 0.7);
+}
+
+.play-test__events h2 {
+  margin: 0 0 8px;
+  color: var(--neon-pink);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-test__events ol {
+  margin: 0;
+  padding: 0 0 0 20px;
+  color: var(--ink);
+  font-size: clamp(7px, 0.7vw, 11px);
+  line-height: 1.8;
+}
+
+.play-test__matrix {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  margin: 8px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.play-test__matrix li {
+  padding: 8px 0;
+  border: 2px solid var(--panel-hi);
+  background: #05050f;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 11px);
+  text-align: center;
+}
+
+.play-test__matrix li[data-seen="true"] {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.play-test__matrix li[data-active="true"] {
+  border-color: var(--neon-green);
+  background: var(--neon-green);
+  color: #05050f;
+}
+
+.play-test__legend {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: clamp(6px, 0.55vw, 9px);
+  line-height: 1.7;
+}
+
+.play-test__hid {
+  padding: 10px 12px;
+  border: 2px solid var(--neon-yellow);
+  background: rgba(255, 210, 63, 0.06);
+}
+
+.play-test__hid h2 {
+  margin: 0 0 8px;
+  color: var(--neon-yellow);
+  font-size: clamp(8px, 0.8vw, 12px);
+}
+
+.play-test__hid h3 {
+  margin: 10px 0 4px;
+  color: var(--ink-dim);
+  font-size: clamp(7px, 0.7vw, 10px);
+}
+
+.play-test__hid ol {
+  margin: 0;
+  padding: 0 0 0 20px;
+  color: var(--ink);
+  font-size: clamp(7px, 0.7vw, 11px);
+  line-height: 1.8;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+/* ---------- Einrichtungs-Bildschirm ---------- */
+
+.play-setup__devices {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.play-setup__devices li {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 2px solid var(--panel-hi);
+  background: #05050f;
+  font-size: clamp(7px, 0.7vw, 11px);
+  text-align: left;
+}
+
+.play-setup__station {
+  color: var(--neon-pink);
+}
+
+.play-setup__label {
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.play-setup__ok {
+  color: var(--neon-green);
+}
