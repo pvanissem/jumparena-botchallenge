@@ -57,6 +57,11 @@ describe("createStaticServer", () => {
     expect(response.body).toBe("<html>fallback</html>");
   });
 
+  it("falls back to index.html for the /code station route", async () => {
+    const response = await get200(`${baseUrl}/code`);
+    expect(response.body).toBe("<html>fallback</html>");
+  });
+
   it("falls back to index.html instead of crashing on a malformed percent-encoding", async () => {
     const response = await get200(`${baseUrl}/%E0%A4%A`);
     expect(response.body).toBe("<html>fallback</html>");
