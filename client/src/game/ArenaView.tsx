@@ -33,6 +33,12 @@ export interface ArenaViewProps {
    *  während des Betriebs nötig - daher bewusst nicht Teil des reaktiven
    *  zweiten Effects unten (analog zu `controlMode` beim Mount). */
   startingLives?: number;
+  /** Zeichnet Phasers Arcade-Debug-Overlay (Hitboxen/Velocity-Vektoren). Nur
+   *  für die Entwickler-Ansicht `/dev` gedacht; am Messestand (`/code`) soll
+   *  die Arena wie ein fertiges Spiel aussehen. Default daher `false`.
+   *  Wird - wie `levelId`/`startingLives` - nur beim Mount ausgewertet, da es
+   *  Teil der Phaser-Game-Config ist. */
+  physicsDebug?: boolean;
   onStatusChange?: (status: ArenaViewStatus) => void;
   telemetry?: { sessionId: string; onTrace: (trace: BotRunTrace) => void };
 }
@@ -42,6 +48,7 @@ export function ArenaView({
   levelId,
   botSourceCode,
   startingLives,
+  physicsDebug = false,
   onStatusChange,
   telemetry,
 }: ArenaViewProps) {
@@ -88,7 +95,7 @@ export function ArenaView({
       audio: { context: getSharedAudioContext() },
       physics: {
         default: "arcade",
-        arcade: { gravity: { x: 0, y: MOVEMENT_TUNING.GRAVITY_Y }, debug: true },
+        arcade: { gravity: { x: 0, y: MOVEMENT_TUNING.GRAVITY_Y }, debug: physicsDebug },
       },
       // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
       // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest
