@@ -37,8 +37,39 @@ Ein frischer Bot bleibt leer, bis ein Besucher einen Wunsch äußert. Die Basis
 arbeitet ausschließlich mit sichtbaren Plattformen, Gefahren und Utilities.
 Es gibt keine fest eingebaute Levelroute und keine Levelauswahl im Botcode.
 
+### Einstieg in die neue Hülle
+
+Lies `current-bot.js` zuerst. Nach einem Betreiber-Reset enthält sie:
+- `weights` und `score(option)`: eine veränderbare Bewertung für Fortschritt,
+  Fruchtpunkte und Dauer; die Skalierungen machen die Größen vergleichbar.
+- `selectMovement(state, options)`: der bewusst leere Entscheidungspunkt.
+  Er gibt zunächst `null` zurück. **Nur Gewichte zu ändern aktiviert den Bot nicht.**
+  Fülle diese Funktion passend zum Besucherwunsch aus: Angebote filtern/bewerten
+  und ein vollständiges Angebot zurückgeben, oder `null` zum Warten.
+- `decide(state, tools)`: setzt eigenes Gedächtnis bei Respawn/Epochwechsel zurück,
+  setzt einen laufenden Auftrag fort und startet die gewählte Bewegung.
+
+Das kommentierte Auswahlbeispiel ist nur der kleinste Einstieg, keine fertige
+Gefahrenstrategie. Für eine ausführlichere Basis lies `visitor-builder.js`:
+Dort stehen auch eine begrenzte Fehlversuchssperre und eine Regel für beobachtete
+Feuerphasen. Übernimm gezielt, was zum Wunsch passt; ersetze vorhandenen Code nicht
+pauschal. Die Vorlage selbst bleibt unverändert, bearbeitet wird `current-bot.js`.
+
+Übersetze Wünsche sichtbar in Verhalten: „mehr Früchte“ verändert die Bewertung,
+„nach 30 Sekunden zum Ziel“ ergänzt eine zeitabhängige Regel, „kein Boingo“ filtert
+entsprechende Angebote. Vorsicht ist kein vorhandenes `risk`-Gewicht: Die API liefert
+keinen Risikowert. Dafür eigene Regeln aus beobachteten Gefahren formulieren und
+im Spiel prüfen. Keine Parameter oder Sicherheitsgarantien erfinden.
+
+Der Agent darf auch `score`, `selectMovement` und die Fortsetzung in `decide`
+umschreiben, eigene Manöver oder rohe Actions verwenden. Das Framework liefert
+Bewegungsangebote und deren Ausführung; die Besucherdatei bestimmt die Strategie.
+Keine Levelnummern, festen Weltkoordinaten oder speziellen Objekt-IDs als Route
+einbauen. Ziel-IDs immer aus der aktuellen Wahrnehmung beziehungsweise den Angeboten
+übernehmen. Ein manuell gewählter Auftrag wird nicht automatisch auf Gefahren geprüft.
+
 `tools.options()` liefert lokale Bewegungsangebote:
-- `command`: ausführbarer walk-, jump- oder boingo-Auftrag;
+- `command`: ausführbarer walk-, jump-, drop- oder boingo-Auftrag;
 - `progress`: Fortschritt in Zielrichtung in Pixeln (Rückweg negativ);
 - `fruitValue`: geschätzte auf der Flugbahn berührte Fruchtpunkte;
 - `durationMs`: geschätzte Bewegungsdauer.

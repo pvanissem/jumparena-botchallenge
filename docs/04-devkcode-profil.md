@@ -97,8 +97,13 @@ Nicht ausgefuehrte Browser-, Last- oder Rechtepruefungen ausdruecklich offenlass
 
 ## Einstieg und Spielprüfung
 
-Die Startvorlage bleibt ohne Verhalten. `visitor-builder.js` enthält die editierbare
-Bewertung wahrnehmungsbasierter Angebote. Die historische `messe-demo.js`-Route
+Die Startvorlage ist eine leere Strategie-Hülle mit `weights`, `score`,
+`selectMovement` und Auftragsverwaltung in `decide`. `selectMovement` liefert
+zunächst `null`; reine Gewichtsänderungen bewegen den Bot daher noch nicht.
+Der Besucher-Agent füllt diese Auswahl passend zum Wunsch aus und darf auch
+Bewertung, eigene Regeln und Auftragsfortsetzung verändern. `visitor-builder.js`
+zeigt eine ausführlichere Bewertung wahrnehmungsbasierter Angebote samt
+Fehlversuchssperre und beobachteten Feuerphasen. Die historische `messe-demo.js`-Route
 ist kein allgemeines Besucherbeispiel. Aktuelle Laufnachweise und Einschränkungen
 stehen in `.features/bot-strategy-layer/environment-navigation.md`.
 
