@@ -383,3 +383,28 @@ describe("fresh visitor template", () => {
     }
   });
 });
+
+
+describe("visitor example hazard handling", () => {
+  const path = "examples/strategies/visitor-builder.js";
+  function danger(input: BotState) {
+    input.hazards = [{ kind: "kugelblitz", dx: 80, dy: -50,
+      active: true, warning: false, stompable: false, vx: 0, vy: 0 }];
+    return input;
+  }
+  it("waits before a new jump even when a nearby hazard is at its turning point", () => {
+    const bot = load(path);
+    expect(observe(bot, danger(passage()))).toEqual({ command: null, result: [] });
+    expect(observe(bot, passage()).command).toMatchObject({ kind: "boingo" });
+  });
+  it("retries a temporarily blocked walk with a fresh ID after the hazard leaves", () => {
+    const bot = load(path);
+    const first = observe(bot).command;
+    expect(observe(bot, danger(state()), {
+      state: "failed", reason: "danger-ahead", commandId: first?.id,
+    })).toEqual({ command: null, result: [] });
+    const retry = observe(bot).command;
+    expect(retry).toMatchObject({ kind: "walk", x: 950 });
+    expect(retry?.id).not.toBe(first?.id);
+  });
+});

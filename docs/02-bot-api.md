@@ -10,17 +10,13 @@ begrenzen die Ausfuehrung, sind aber keine umfassende Sicherheitsgarantie fuer F
 Jeder Bot ist **eine JavaScript-Datei** mit Default-Export. Empfohlener Einstieg:
 
 ```js
-let command = null;
 export default {
   apiVersion: 1,
   frameworkVersion: 2,
   name: "Mein Bot",
   author: "Gast",
   decide(state, tools) {
-    if (state.justRespawned) command = null;
-    if (!command && !state.onGround) return [];
-    command ??= { id: "ziel", kind: "walk", x: state.position.x + state.goalDirection.dx };
-    return tools.run(command);
+    return []; // Frischer Bot: Verhalten erst nach Besucherwunsch ergänzen.
   },
 };
 ```
@@ -141,6 +137,23 @@ Plattform- und Utility-IDs stammen aus sichtbaren Objekten. `holdMs` erlaubt
 Experimente mit kürzerem Sprunghalten (0–1200 ms); ohne Angabe hält der Helfer
 den normalen Sprung bis zum Ende des beobachteten Aufstiegs. Die Physikwerte bleiben unverändert.
 
+**`jump` springt sofort ab.** Der Helfer plant keinen Anlauf und prüft weder
+Erreichbarkeit noch Hindernisse auf der Flugbahn. `sprint: true` baut Tempo erst
+während der Bewegung auf. Benötigt ein Sprung Anlauf, muss die Botstrategie
+vorher einen passenden Laufauftrag ausführen. Nähe allein macht eine Plattform
+nicht erreichbar. Springen ist auch auf die aktuelle Plattform möglich, etwa
+über ein Hindernis; es braucht dafür keine Lücke.
+
+Gefahren anhand ihrer Geometrie und Bewegung beurteilen, nicht nur anhand eines
+Geschwindigkeitsschwellwerts: Ein Kugelblitz bleibt am Umkehrpunkt gefährlich.
+Ein laufender Auftrag darf neu bewertet und ersetzt werden. Blindes Fortsetzen
+ist keine Sicherheitsregel; blindes `[]` im Flug ist ebenfalls kein Ausweichen,
+sondern nimmt die horizontale Steuerung und gegebenenfalls Sprunghalten weg.
+
+Bei `failed` den `reason` auswerten: `danger-ahead` kann vorübergehend sein und
+rechtfertigt kein dauerhaftes Sperren des Ziels. Ein Neuversuch braucht eine neue
+ID. Dauerhafte Hindernisse wie Stacheln verschwinden nicht durch Warten.
+
 Genau ein synchroner `run` ist pro Entscheidung erlaubt; `status()` darf mehrfach
 gelesen werden. Tools sind an die aktuelle Entscheidung gebunden und werden nicht
 gespeichert. Dieselbe ID mit identischen Parametern setzt den Auftrag fort.
@@ -167,7 +180,11 @@ Vollständige editierbare Beispiele liegen unter `examples/strategies/`:
 `visitor-builder.js` wählt einen nahen Boingo und eine höhere Plattform,
 `sprinter.js` bevorzugt Tempo, `collector.js` sammelt nahe Früchte bis zum
 Endspurt, `cautious.js` wartet bei einem nahen aktiven Gegner. Diese Regeln sind
-Besuchercode und dürfen verändert werden. Kein Bot-Build ist erforderlich.
+experimenteller Besuchercode und dürfen verändert werden. Sie sind kein Nachweis
+für sichere Flugbahnen oder vollständige Leveldurchläufe. Insbesondere die einfache
+Wartezone im `visitor-builder.js` kann auch bei einem ungefährlichen Nachbarhindernis
+stehen bleiben; stationäre Hindernisse erfordern eine eigene Überquerungsregel.
+Die explizite Route `messe-demo.js` ist separat für Level 1 erprobt. Kein Bot-Build ist erforderlich.
 
 ### Navigation-Observation
 

@@ -1,8 +1,17 @@
+// Experimentelles API-Beispiel, keine geprüfte Komplettstrategie oder sichere Routenwahl.
 // Besucherregeln: Ziel, Boingo, Tempo und Warteabstand lassen sich hier ändern.
 const preferences = { useBoingo: true, sprint: true, collect: false, hazardDistance: 0 };
 let command = null;
 let attempted = new Set();
 let epoch = null;
+let walkRetry = 0;
+let waitingForDanger = false;
+
+// Bewusst einfache Wartezone, keine Vorhersage einer sicheren Flugbahn.
+function dangerNearby(state) {
+  return state.hazards.some((h) => (h.active || h.warning) &&
+    Math.abs(h.dx) < 260 && Math.abs(h.dy) < 260);
+}
 
 function nextCommand(state) {
   const body = state.navigation.body;
@@ -41,7 +50,7 @@ function nextCommand(state) {
     const fruit = state.coins.find((c) => c.id && Math.abs(c.dx) < 180 && Math.abs(c.dy) < 40 && !attempted.has(`fruit:${c.id}`));
     if (fruit) return { id: `fruit:${fruit.id}`, kind: "walk", x: state.position.x + fruit.dx, sprint: false };
   }
-  const goalId = `goal:${support?.id ?? "ground"}`;
+  const goalId = `goal:${support?.id ?? "ground"}:try:${walkRetry}`;
   if (!attempted.has(goalId)) return { id: goalId, kind: "walk",
     x: state.position.x + state.goalDirection.dx, sprint: preferences.sprint };
   return null;
@@ -55,6 +64,8 @@ export default {
       epoch = state.navigation.epoch;
       command = null;
       attempted = new Set();
+      walkRetry = 0;
+      waitingForDanger = false;
     }
     // Warten ist eine eigene Entscheidung; danach beginnt ein neuer Auftrag.
     const direction = Math.sign(state.goalDirection.dx) || 1;
@@ -66,8 +77,22 @@ export default {
     const status = tools.status();
     if (command && status.state === "running") return tools.run(command);
     if (!state.onGround) return [];
+    if (command && status.commandId === command.id && status.state === "failed" &&
+        command.kind === "walk" && status.reason === "danger-ahead") {
+      walkRetry++;
+      waitingForDanger = true;
+      command = null;
+    }
+    if (waitingForDanger) {
+      if (dangerNearby(state)) return [];
+      waitingForDanger = false;
+    }
     if (command) attempted.add(command.id);
     command = nextCommand(state);
+    if (command && command.kind !== "walk" && dangerNearby(state)) {
+      command = null;
+      return [];
+    }
     return command ? tools.run(command) : [];
   },
 };

@@ -35,7 +35,10 @@ Vorlage; behaupte daher nicht, dass gerade der neue Startbot laeuft.
 
 Der Besucher entscheidet über Ziele, Reihenfolge, Tempo, Risiko und Boingo-Nutzung.
 Die Helfer führen nur konkrete Aufträge aus; es gibt keinen Autoplaner.
-Ein kurzes vollständiges Beispiel ist `examples/strategies/visitor-builder.js`.
+`examples/strategies/visitor-builder.js` zeigt die API-Nutzung, ist aber eine
+experimentelle Heuristik, keine geprüfte Komplettstrategie. Seine Plattformwahl
+und Warteabstände nicht als sichere Navigation übernehmen. `messe-demo.js` ist
+eine explizite, für Level 1 erprobte Route.
 
 - `tools.run({ id, kind: "walk", x, sprint })`: zu einem absoluten x laufen.
 - `tools.run({ id, kind: "jump", platformId, x, sprint, holdMs })`: gezielt springen.
@@ -107,3 +110,15 @@ zwei Beobachtungen und einen zum Wunsch passenden Strategievorschlag nennen.
 Technische Gueltigkeit, spielerische Leistung und Strategiewunsch getrennt bewerten.
 Ein einzelner Lauf beweist keine allgemeine Verbesserung. Nicht ausgefuehrte
 Browser-/Lasttests ausdruecklich als offen benennen.
+
+## Häufige Fehler vermeiden
+
+- `jump` springt sofort; nötigen Anlauf vorher selbst als Laufauftrag wählen.
+- Weder Zielnähe noch `sprint: true` garantieren Erreichbarkeit.
+- Ein Sprung über Stacheln darf auf derselben Plattform landen.
+- Gefahren nicht nur bei hoher Geschwindigkeit beachten: Umkehrpunkte bleiben gefährlich.
+- Laufende Aufträge nicht pauschal als sicher behandeln. `[]` im Flug ist kein Ausweichmanöver.
+- Bei Fehlern `reason` auswerten. Nach vorübergehender Gefahr mit neuer ID erneut versuchen;
+  ein stationäres Hindernis erfordert eine andere Bewegung statt endlosem Warten.
+- Kommentare müssen das tatsächlich implementierte Verhalten beschreiben. Nicht
+  „fehlerfrei“ oder „sichere Flugbahn“ versprechen, ohne den Lauf geprüft zu haben.
