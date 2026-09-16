@@ -26,6 +26,7 @@ function selectMovement(state, options) {
 export default {
   apiVersion: 1,
   frameworkVersion: 2,
+  // Pflicht: Botname und Besucher-Anzeigename erfragen; diese Werte sind nur Platzhalter.
   name: "Mein Bot",
   author: "Gast",
   decide(state, tools) {

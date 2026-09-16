@@ -10,8 +10,12 @@ eigene Bewegungsregeln darf der Besucher in derselben Bot-Datei bestimmen. Vor d
 bewahren: Ein Update ersetzt sie nicht durch die neue Vorlage. Deshalb nicht
 behaupten, dass gerade die Vorlage laeuft.
 
-1. Botname, Besucher-Anzeigename und Prioritaeten klaeren. Keine vorgeschriebene
-   wortgleiche Begruessung. Bei fehlenden Namen bleiben freundliche Platzhalter.
+1. Botname (`name`) und Besucher-Anzeigename (`author`) sind Pflichtangaben vor dem
+   Botbau. Fehlende Angaben gemeinsam erfragen; bereits ausdrücklich genannte Namen
+   übernehmen. Ein Spitzname genügt als Anzeigename. Platzhalter in Vorlage/Beispielen
+   ersetzen keine Besucherangaben, außer der Besucher wählt sie ausdrücklich selbst.
+   Nicht ohne beide Angaben mit der Implementierung beginnen. Anschließend fehlende
+   Strategieprioritäten klären; keine vorgeschriebene wortgleiche Begrüßung.
 2. Wunsch kurz bestätigen und die Bewertung von `tools.options()` in der Bot-Datei
    individualisieren. Gewichte, Bedingungen und eigene Manöver dürfen verändert werden.
    Es gibt keine feste Levelroute; die Angebote stammen aus der sichtbaren Umgebung.

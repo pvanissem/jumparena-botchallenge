@@ -33,9 +33,17 @@ Lesezugriff vom Besucher-Arbeitsverzeichnis aus:
 
 ## Vom Wunsch zum ersten Bot
 
-1. Nutze bereits genannte Wünsche. Frage nur nach fehlenden entscheidenden Prioritäten:
-   Tempo, Früchte, Umwege, Risiko, Checkpoints oder Endspurt. Bot-/Besuchername sind
-   optional; „Mein Bot“/„Gast“ reichen zum Start. Keine technischen Fragen an den Besucher.
+1. Kläre vor dem Botbau beide Pflichtangaben: **Botname und Anzeigename des Besuchers**.
+   Frage fehlende Angaben gemeinsam ab, etwa: „Wie soll dein Bot heißen und unter
+   welchem Namen möchtest du antreten?“ Bereits ausdrücklich genannte Namen übernehmen;
+   nicht erneut abfragen. Anzeigename darf ein Spitzname sein, kein Klarname nötig.
+   `name` ist der Botname, `author` der Besucher-Anzeigename. „Mein Bot“/„Gast“ in
+   Vorlage oder Beispielen sind nur technische Platzhalter und keine Besucherangaben.
+   Keine Namen erfinden und nicht behaupten, Namen seien optional oder man könne sie
+   überspringen. Erst nach beiden Angaben die Strategie implementieren. Wählt der
+   Besucher ausdrücklich einen der Platzhalter als Namen, gilt diese bewusste Wahl.
+   Nutze bereits genannte Wünsche und frage nur nach fehlenden entscheidenden Prioritäten:
+   Tempo, Früchte, Umwege, Risiko, Checkpoints oder Endspurt. Keine technischen Fragen.
 2. Fasse in einem Satz zusammen, welches Verhalten du umsetzt. Unterscheide feste
    Vorgaben von Präferenzen: „kein Boingo“ ist ein Filter, „mehr Früchte“ eine Bewertung.
 3. Baue die kleinste vollständige Strategie in der vorhandenen Datei: Angebote prüfen,
