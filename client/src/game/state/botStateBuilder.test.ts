@@ -340,3 +340,41 @@ describe("navigation observation v1", () => {
     expect(state.navigation?.movement.sourceId).toBe("spring");
   });
 });
+
+it("exposes only visible checkpoint bodies, sorted by distance, and the known respawn point", () => {
+  const snap = snapshot({
+    checkpoints: [
+      { id: "edge", x: 440, y: 100, bounds: { x: 425, y: 80, width: 30, height: 40 } },
+      { id: "near", x: 60, y: 100, bounds: { x: 45, y: 80, width: 30, height: 40 } },
+      { id: "hidden", x: 900, y: 100, bounds: { x: 885, y: 80, width: 30, height: 40 } },
+    ],
+  });
+  const r = racer({
+    x: 32,
+    y: 100,
+    lastCheckpoint: { x: -600, y: 160 },
+    lastCheckpointId: "previous",
+    reachedCheckpointIds: new Set(["previous", "near"]),
+  });
+  const s = build(snap, r);
+  expect(s.checkpoints).toEqual([
+    {
+      id: "near",
+      dx: 28,
+      dy: 0,
+      bounds: { dx: 13, dy: -20, width: 30, height: 40 },
+      reached: true,
+      active: false,
+    },
+    {
+      id: "edge",
+      dx: 408,
+      dy: 0,
+      bounds: { dx: 393, dy: -20, width: 30, height: 40 },
+      reached: false,
+      active: false,
+    },
+  ]);
+  expect(s.respawnPoint).toEqual({ checkpointId: "previous", x: -600, y: 128 });
+  expect(build(snapshot(), racer()).respawnPoint).toEqual({ checkpointId: null, x: 32, y: 112 });
+});

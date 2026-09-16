@@ -106,6 +106,40 @@ type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right
 type DecideResult = Action[];
 ```
 
+## Checkpoints und Respawn
+
+Die Runtime liefert `state.checkpoints` als distanzsortierte Liste sichtbarer Fahnen:
+
+```ts
+interface VisibleCheckpoint {
+  id: string;
+  dx: number; dy: number; // Sprite-Mitte relativ zu state.position
+  bounds: { dx: number; dy: number; width: number; height: number }; // echte Kontaktfläche
+  reached: boolean; // in diesem Lauf bereits erreicht; bleibt nach Tod erhalten
+  active: boolean; // aktuell gesetzter Respawn-Checkpoint
+}
+// Bekannte absolute Wiedererscheinungsposition, auch außerhalb des Sichtfelds:
+// state.respawnPoint = { checkpointId: string | null, x: number, y: number }
+```
+
+Eine Fahne wird geliefert, sobald ihre Kontaktfläche das normale Sichtfeld schneidet.
+Es gibt keine Liste unsichtbarer Checkpoints. `respawnPoint` enthält dagegen bereits
+bekanntes eigenes Wissen: `checkpointId: null` bedeutet, dass noch kein Checkpoint
+aktiviert wurde. x/y sind die tatsächliche Respawn-Position inklusive des bestehenden
+Höhenversatzes, nicht die Bodenposition der Fahne oder die aktuelle Botposition.
+
+Erneutes Berühren eines früheren Checkpoints setzt auch den Respawn-Punkt zurück.
+`reached` und `active` sind deshalb unterschiedliche Angaben. Ein Prüfstart am
+Checkpoint setzt beide passend. Bei einem neuen Lauf wird die Historie zurückgesetzt.
+Für ältere gespeicherte States/Traces sind beide neuen Felder optional; der aktuelle
+Runtime-Builder liefert immer eine Liste (gegebenenfalls leer) und den Respawn-Punkt.
+
+Strategien dürfen Fahnen priorisieren, müssen sie aber tatsächlich berühren:
+Überfliegen allein reicht nicht. Angebote besitzen keinen Checkpoint-Bonus und
+bestätigen keine Aktivierung. `checkpoint.active` beziehungsweise
+`respawnPoint.checkpointId` bestätigen sie nach dem Kontakt. Traces enthalten
+beide neuen Felder für die Diagnose.
+
 ## Wahrnehmungsbasierte Bewegungsangebote
 
 `tools.options()` untersucht ausschließlich den aktuellen sichtbaren State.

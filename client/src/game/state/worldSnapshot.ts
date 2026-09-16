@@ -21,6 +21,7 @@ export interface WorldSnapshot {
   level: LevelDef;
   dynamic: DynamicTileState;
   goalBounds?: WorldRect;
+  checkpoints?: ReadonlyArray<{ id: string; x: number; y: number; bounds: WorldRect }>;
   visibleCoins: ReadonlyArray<{
     id: string;
     x: number;

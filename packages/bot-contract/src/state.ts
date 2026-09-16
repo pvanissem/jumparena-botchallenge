@@ -64,6 +64,23 @@ export interface VisibleHazard {
   vy: number;
 }
 
+/** Sichtbare Checkpoint-Fahne; active bedeutet aktuelles Respawn-Ziel. */
+export interface VisibleCheckpoint {
+  id: string;
+  dx: number;
+  dy: number;
+  bounds: RelativeBounds;
+  reached: boolean;
+  active: boolean;
+}
+
+/** Bekannte tatsächliche Wiedererscheinungsposition, unabhängig vom Sichtfeld. */
+export interface RespawnPoint {
+  checkpointId: string | null;
+  x: number;
+  y: number;
+}
+
 export interface VisibleUtility {
   id?: string;
   bounds?: RelativeBounds;
@@ -173,6 +190,9 @@ export interface BotState {
   coins: VisibleCoin[];
   hazards: VisibleHazard[];
   utilities: VisibleUtility[];
+  /** Neue Runtimes liefern beide Felder immer; optional für ältere States. */
+  checkpoints?: VisibleCheckpoint[];
+  respawnPoint?: RespawnPoint;
 
   goalDirection: { dx: number; dy: number };
   gapAhead: GapAhead;

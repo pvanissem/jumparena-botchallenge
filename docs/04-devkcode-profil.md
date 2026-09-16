@@ -24,8 +24,9 @@ behaupten, dass gerade die Vorlage laeuft.
 4. Speichern: `/code` laedt automatisch neu. Gemeinsam den Bot laufen lassen
    und vorhandene Versuchstraces unter `client/src/bot/runs/` lesen.
 5. Kurz erklaeren, was beobachtet wurde, und eine zum Wunsch passende Verbesserung
-   vorschlagen. Strategieaenderungen nur mit Zustimmung des Besuchers; keine
-   automatische Optimierung oder Erfolgsversprechen.
+   vorschlagen. Konkrete Fehler innerhalb des beauftragten Wunschs selbst beheben;
+   bei anderen strategischen Prioritäten den Besucher entscheiden lassen. Keine
+   Erfolgsversprechen.
 6. Dieselbe Arbeitsdatei unveraendert kopieren/hochladen. Kein Export- oder
    Buildschritt und kein Core-Code im Artefakt.
 
@@ -45,6 +46,7 @@ installierte externe Profilkonfiguration.**
 | `client/src/bot/current-bot.js` | Lesen und Schreiben |
 | lokales Steering, API-Dokumentation, `examples/strategies/` | Nur Lesen |
 | `client/src/bot/runs/` | Nur Lesen |
+| `npm run -s bot:trace`, Skript und importierte Trace-Module | Lokale Read-only-Ausführung / Lesen |
 | Navigation, Framework, Server, Buildskripte, Steering | Keine Schreibrechte |
 
 Profilrechte sind Betreiberarbeit. Die bestehende Vorschau mit ihrer lokalen
@@ -62,6 +64,13 @@ In der Vorschau den Bot laufen lassen und zusehen. Ist die Seite nicht offen,
 den Betreiber bitten, `/code` zu oeffnen; der Agent startet keine GUI selbst.
 
 ## Ergebnisse und Diagnose
+
+Zuerst den [kompakten Trace-Reader](10-trace-reader.md) verwenden: aus dem
+Besucher-Arbeitsverzeichnis `npm --prefix ../../.. run -s bot:trace`.
+`list` zeigt die letzten Versuche, `focus DATEINAME TICK` einen begrenzten Ausschnitt.
+Der Standard sucht nur passende Bot-Quellrevisionen. Der Betreiber muss die
+Read-only-Ausführung im tatsächlichen externen Profil erlauben; Node 22.14+ ist nötig.
+
 
 Vorschau-Traces unter `runs/` umfassen einzelne Versuche zwischen Respawns,
 nicht den Gesamtlauf. Nur tatsaechlich vorhandene Traces auswerten und vor der
@@ -94,6 +103,14 @@ Kein Start, Update oder Vorschau-Lauf ersetzt vorhandenen Besuchercode automatis
 Unit-/Contract-/Runtime-Tests beweisen keine echte Browserphysik oder Standlast.
 Nicht ausgefuehrte Browser-, Last- oder Rechtepruefungen ausdruecklich offenlassen.
 
+
+## Checkpoint-Strategien
+
+Die API liefert sichtbare Fahnen in `state.checkpoints` mit Kontaktfläche,
+`reached` und `active`. `state.respawnPoint` nennt den bekannten Wiedererscheinungspunkt.
+Der Agent kann damit „erst Checkpoint sichern, dann Risiko“ als eigene Regel
+umsetzen; entscheidend ist der beobachtete Kontakt, nicht bloß das Überfliegen.
+Details und Kompatibilität stehen in `docs/02-bot-api.md`.
 
 ## Einstieg und Spielprüfung
 

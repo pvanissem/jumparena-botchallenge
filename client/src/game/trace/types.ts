@@ -51,6 +51,8 @@ export interface TraceTickSample {
   coins: BotState["coins"];
   platforms: BotState["platforms"];
   utilities?: BotState["utilities"];
+  checkpoints?: BotState["checkpoints"];
+  respawnPoint?: BotState["respawnPoint"];
   decision: BotDecisionTrace | null;
 }
 

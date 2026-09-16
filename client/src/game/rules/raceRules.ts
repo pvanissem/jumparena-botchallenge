@@ -63,13 +63,16 @@ export function resolveHazardContact(
  *  er im Terrain und fällt sofort wieder durch (siehe Chat-Verlauf). */
 const RESPAWN_Y_OFFSET = 32;
 
+export function getRespawnPoint(state: RacerRuntimeState) {
+  return { x: state.lastCheckpoint.x, y: state.lastCheckpoint.y - RESPAWN_Y_OFFSET };
+}
+
 function loseLifeAndRespawn(state: RacerRuntimeState): RacerRuntimeState {
   const livesRemaining = state.livesRemaining - 1;
   const outOfLives = livesRemaining <= 0;
   return {
     ...state,
-    x: state.lastCheckpoint.x,
-    y: state.lastCheckpoint.y - RESPAWN_Y_OFFSET,
+    ...getRespawnPoint(state),
     livesRemaining,
     deaths: state.deaths + 1,
     didNotFinish: outOfLives ? true : state.didNotFinish,
@@ -93,7 +96,12 @@ export function applyCheckpointReached(
   state: RacerRuntimeState,
   checkpoint: CheckpointDef
 ): RacerRuntimeState {
-  return { ...state, lastCheckpoint: { x: checkpoint.x, y: checkpoint.y } };
+  return {
+    ...state,
+    lastCheckpoint: { x: checkpoint.x, y: checkpoint.y },
+    lastCheckpointId: checkpoint.id,
+    reachedCheckpointIds: new Set(state.reachedCheckpointIds).add(checkpoint.id),
+  };
 }
 
 export function applyGoalReached(state: RacerRuntimeState): RacerRuntimeState {

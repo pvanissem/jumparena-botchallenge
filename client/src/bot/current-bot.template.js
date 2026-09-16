@@ -15,6 +15,8 @@ function score(option) {
 
 function selectMovement(state, options) {
   // Angebote entstehen aus der Wahrnehmung, nicht aus einer festen Levelroute.
+  // state.checkpoints: sichtbare Fahnen; active bestätigt den gesetzten Checkpoint.
+  // state.respawnPoint: bekannter Wiedererscheinungspunkt, keine Zielroute.
   // Hier eigene Bedingungen ergänzen und ein Angebot (oder null zum Warten) wählen.
   // Einstieg: return options.sort((a, b) => score(b) - score(a))[0] ?? null;
   // Angebote sind Schätzungen: Gegner können sich während eines Manövers bewegen.

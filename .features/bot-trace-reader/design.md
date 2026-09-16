@@ -1,0 +1,6 @@
+# Design
+Pure TypeScript-Projektion im vorhandenen Trace-Modul, dünner Node-CLI-Adapter unter scripts/. Ausführung mit Node 22.14+ Type-Stripping; keine neue Abhängigkeit. Gemeinsame vorhandene Bot-Revision-Funktion verwenden. Kein eigener Analysealgorithmus: vorhandene Findings als Hinweise ausgeben.
+summary: Metadaten, Summary, maximal fünf Findings mit Tickspanne, letzte sechs Events, maximal acht gespeicherte Fenster, Original-Kürzungen und Ausgabe-Auslassungen.
+focus: Samples über Fenster deduplizieren/sortieren; ±15 Ticks, höchstens sieben zeitlich verteilte Samples und ein Snapshot des nächsten vorhandenen Ticks. Fehlender exakter Tick wird benannt. Geometrie pro Objektart begrenzen; Ziel-/relevante Objekt-IDs zuerst. Keine nearbyTiles-Matrix. Harte Ausgabegrenze 12000 Zeichen; bei Überschreitung explizite kompakte Ersatzmeldung statt abgeschnittenem JSON.
+CLI: list, summary [Datei], focus Datei Tick. Ohne Datei neuester Trace der aktuellen Revision. Dateinamen in Ausgaben ermöglichen Folgeaufrufe. Alte Revisionen bei expliziter Datei erlaubt, aber als unpassend markiert. Beschädigte Dateien bei Suche zählen/überspringen; explizite ungültige Datei ergibt Fehler.
+Besuchersteering erklärt den Read-only-Befehl inklusive Aufruf aus client/src/bot und benötigte Profilrechte. Speicher-/Runtime-Performance der Traces wird nicht verändert.

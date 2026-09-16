@@ -46,9 +46,18 @@ export function validateTraceSample(value: unknown, from: number, to: number): b
   )
     return false;
 
-  for (const key of ["platforms", "coins", "hazards", "utilities"]) {
+  if (
+    s.respawnPoint !== undefined &&
+    (!record(s.respawnPoint) ||
+      !point(s.respawnPoint, "x", "y") ||
+      (s.respawnPoint.checkpointId !== null &&
+        (typeof s.respawnPoint.checkpointId !== "string" || !s.respawnPoint.checkpointId.length)))
+  )
+    return false;
+
+  for (const key of ["platforms", "coins", "hazards", "utilities", "checkpoints"]) {
     const list = s[key];
-    if (key === "utilities" && list === undefined) continue;
+    if ((key === "utilities" || key === "checkpoints") && list === undefined) continue;
     if (!Array.isArray(list)) return false;
     for (const object of list) {
       if (
@@ -64,6 +73,16 @@ export function validateTraceSample(value: unknown, from: number, to: number): b
           !["ground", "float", "ceiling", "block"].includes(object.kind as string) ||
           (object.collision !== undefined &&
             !["solid", "one-way-up"].includes(object.collision as string)))
+      )
+        return false;
+      if (
+        key === "checkpoints" &&
+        (typeof object.id !== "string" ||
+          !object.id.length ||
+          !bounds(object.bounds, "dx", "dy") ||
+          typeof object.reached !== "boolean" ||
+          typeof object.active !== "boolean" ||
+          (object.active && !object.reached))
       )
         return false;
       if (key === "coins" && !finite(object.value)) return false;

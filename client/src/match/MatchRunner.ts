@@ -247,6 +247,8 @@ export class MatchRunner {
       deaths: 0,
       timeElapsedMs: 0,
       lastCheckpoint: { x: 0, y: 0 },
+      lastCheckpointId: null,
+      reachedCheckpointIds: new Set<string>(),
       collectedCoinIds: new Set(),
       resolvedBlockIds: new Set(),
       destroyedHazardIds: new Set(),

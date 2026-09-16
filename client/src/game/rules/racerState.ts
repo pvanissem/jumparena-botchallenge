@@ -28,6 +28,8 @@ export interface RacerRuntimeState {
   timeElapsedMs: number;
   /** Position des zuletzt erreichten Checkpoints (Respawn-Ziel). */
   lastCheckpoint: { x: number; y: number };
+  lastCheckpointId: string | null;
+  reachedCheckpointIds: ReadonlySet<string>;
   /** IDs bereits eingesammelter Münzen (inkl. aus aufgelösten Blöcken entstandener). */
   collectedCoinIds: ReadonlySet<string>;
   /** IDs bereits ausgelöster versteckter Blöcke. */
@@ -63,6 +65,8 @@ export function createInitialRacerState(
     lastCheckpoint: checkpoint
       ? { x: checkpoint.x, y: checkpoint.y }
       : { x: level.spawn.x, y: level.spawn.y },
+    lastCheckpointId: checkpoint?.id ?? null,
+    reachedCheckpointIds: new Set(checkpoint ? [checkpoint.id] : []),
     collectedCoinIds: new Set<string>(),
     resolvedBlockIds: new Set<string>(),
     destroyedHazardIds: new Set<string>(),

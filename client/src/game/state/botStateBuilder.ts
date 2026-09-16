@@ -7,6 +7,7 @@ import type { BotState } from "@arena/bot-contract";
 import { HAZARD_REGISTRY } from "../hazards/registry";
 import { buildNearbyTiles, TILE_SIZE } from "../level/tiles";
 import { MOVEMENT_TUNING } from "../movement/movement";
+import { getRespawnPoint } from "../rules/raceRules";
 import type { RacerRuntimeState } from "../rules/racerState";
 import { computeGapAhead } from "./gapAhead";
 import { VIEW_HALF_HEIGHT_PX, VIEW_HALF_WIDTH_PX, withinView } from "./viewport";
@@ -107,6 +108,20 @@ export function buildBotState(
     ...relativeBounds(utility.bounds),
   }));
 
+  const checkpoints = toVisibleList(position, snapshot.checkpoints ?? [], (checkpoint, dx, dy) => ({
+    id: checkpoint.id,
+    dx,
+    dy,
+    bounds: {
+      dx: checkpoint.bounds.x - position.x,
+      dy: checkpoint.bounds.y - position.y,
+      width: checkpoint.bounds.width,
+      height: checkpoint.bounds.height,
+    },
+    reached: racer.reachedCheckpointIds.has(checkpoint.id),
+    active: racer.lastCheckpointId === checkpoint.id,
+  }));
+
   const centerCol = Math.floor(racer.x / TILE_SIZE);
   const centerRow = Math.floor(racer.y / TILE_SIZE);
   const nearbyTiles = buildNearbyTiles(snapshot.level, snapshot.dynamic, centerCol, centerRow);
@@ -183,6 +198,8 @@ export function buildBotState(
     coins,
     hazards,
     utilities,
+    checkpoints,
+    respawnPoint: { checkpointId: racer.lastCheckpointId, ...getRespawnPoint(racer) },
     goalDirection: {
       dx: snapshot.level.goal.x - racer.x,
       dy: snapshot.level.goal.y - racer.y,

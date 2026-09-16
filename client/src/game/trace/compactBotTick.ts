@@ -48,6 +48,8 @@ export function compactBotTick(state: BotState): TraceTickSample {
       width: round2(platform.width),
       height: round2(platform.height),
     })),
+    ...(state.checkpoints ? { checkpoints: structuredClone(state.checkpoints) } : {}),
+    ...(state.respawnPoint ? { respawnPoint: structuredClone(state.respawnPoint) } : {}),
     decision: null,
   };
 }

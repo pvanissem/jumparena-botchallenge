@@ -170,3 +170,16 @@ describe("applyHazardTriggered", () => {
     expect(next.hazardTriggeredAtMs.get("spikehead-1")).toBe(999);
   });
 });
+
+it("remembers reached checkpoints while the last touched flag owns the respawn", () => {
+  const initial = createInitialRacerState(LEVEL);
+  const first = applyCheckpointReached(initial, { id: "a", x: 55, y: 58 });
+  const second = applyCheckpointReached(first, { id: "b", x: 100, y: 80 });
+  const back = applyCheckpointReached(second, { id: "a", x: 55, y: 58 });
+  expect(initial.reachedCheckpointIds.size).toBe(0);
+  expect([...back.reachedCheckpointIds]).toEqual(["a", "b"]);
+  expect(back.lastCheckpointId).toBe("a");
+  const respawned = applyPitFall(back);
+  expect(respawned).toMatchObject({ x: 55, y: 26, lastCheckpointId: "a" });
+  expect([...respawned.reachedCheckpointIds]).toEqual(["a", "b"]);
+});

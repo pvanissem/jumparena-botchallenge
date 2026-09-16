@@ -707,6 +707,19 @@ export class RaceScene extends Phaser.Scene {
         this.world.goal.active && this.world.goal.body?.enable
           ? this.bodyBounds(this.world.goal.body)
           : undefined,
+      checkpoints: (this.world.checkpoints.getChildren() as Phaser.Physics.Arcade.Sprite[]).flatMap(
+        (sprite) => {
+          if (!sprite.active || !sprite.body?.enable) return [];
+          return [
+            {
+              id: sprite.getData("id") as string,
+              x: sprite.x,
+              y: sprite.y,
+              bounds: this.bodyBounds(sprite.body),
+            },
+          ];
+        }
+      ),
       visibleCoins: (this.world.coins.getChildren() as Phaser.Physics.Arcade.Sprite[]).flatMap(
         (c) => {
           const body = c.body;

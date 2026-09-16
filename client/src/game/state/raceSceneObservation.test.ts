@@ -131,6 +131,7 @@ function fixture() {
     world: {
       hazardInstances: hazards,
       coins: { getChildren: () => coins },
+      checkpoints: { getChildren: () => [] },
       blocks: { getChildren: () => [sprite("block", 160, 350)] },
       utilityInstances: [],
       goal: sprite("goal", 1800, 428),

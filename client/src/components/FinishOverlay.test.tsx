@@ -18,6 +18,8 @@ function racer(overrides: Partial<RacerRuntimeState> = {}): RacerRuntimeState {
     deaths: 0,
     timeElapsedMs: 12_345,
     lastCheckpoint: { x: 0, y: 0 },
+    lastCheckpointId: null,
+    reachedCheckpointIds: new Set<string>(),
     collectedCoinIds: new Set(),
     resolvedBlockIds: new Set(),
     destroyedHazardIds: new Set(),

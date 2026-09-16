@@ -79,3 +79,51 @@ it.each(["destroy", "shutdown"])(
     expect(dispose).toHaveBeenCalledTimes(1);
   }
 );
+
+it("passes actual checkpoint bodies from the scene through the bot state", async () => {
+  const { buildBotState } = await import("../state/botStateBuilder");
+  const { scene, checkpoint } = createScene();
+  const flag = {
+    active: true,
+    x: checkpoint.x,
+    y: checkpoint.y - 32,
+    body: { enable: true, x: checkpoint.x - 19, y: checkpoint.y - 54, width: 38, height: 48 },
+    getData: () => checkpoint.id,
+  };
+  Object.assign(scene, {
+    world: {
+      hazardInstances: [],
+      utilityInstances: [],
+      blocks: { getChildren: () => [] },
+      coins: { getChildren: () => [] },
+      checkpoints: { getChildren: () => [flag, { ...flag, active: false }] },
+      goal: { active: false },
+    },
+  });
+  const internal = scene as unknown as {
+    buildSnapshot(): import("../state/worldSnapshot").WorldSnapshot;
+    racer: RacerRuntimeState;
+  };
+  const state = buildBotState(internal.buildSnapshot(), internal.racer, 0, {
+    velocity: { vx: 0, vy: 0 },
+    isSprinting: false,
+    sprintHoldMs: 0,
+    justRespawned: false,
+    tookDamage: false,
+  });
+  expect(state.checkpoints).toEqual([
+    {
+      id: checkpoint.id,
+      dx: 0,
+      dy: 48,
+      bounds: { dx: -19, dy: 26, width: 38, height: 48 },
+      reached: true,
+      active: true,
+    },
+  ]);
+  expect(state.respawnPoint).toEqual({
+    checkpointId: checkpoint.id,
+    x: checkpoint.x,
+    y: checkpoint.y - 32,
+  });
+});

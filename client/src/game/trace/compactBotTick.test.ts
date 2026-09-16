@@ -136,3 +136,49 @@ describe("compactBotTick", () => {
     expect(json).not.toContain('null"}');
   });
 });
+
+it("keeps checkpoint perception and respawn knowledge detached from mutable state", () => {
+  const state = stateFixture();
+  state.checkpoints = [
+    {
+      id: "flag",
+      dx: 40,
+      dy: 0,
+      bounds: { dx: 30, dy: -20, width: 20, height: 40 },
+      reached: true,
+      active: true,
+    },
+  ];
+  state.respawnPoint = { checkpointId: "flag", x: 100, y: 200 };
+  const sample = compactBotTick(state);
+  expect(sample.checkpoints).toEqual(state.checkpoints);
+  expect(sample.respawnPoint).toEqual(state.respawnPoint);
+  state.checkpoints[0].bounds.dx = 999;
+  state.respawnPoint.x = 999;
+  expect(sample.checkpoints?.[0].bounds.dx).toBe(30);
+  expect(sample.respawnPoint?.x).toBe(100);
+});
+
+it("validates checkpoint trace fields while still accepting old samples", async () => {
+  const { validateTraceSample } = await import("./validateTraceSample");
+  const sample = compactBotTick(stateFixture());
+  expect(validateTraceSample(sample, 7, 7)).toBe(true);
+  const checkpoints = [
+    {
+      id: "flag",
+      dx: 40,
+      dy: 0,
+      bounds: { dx: 30, dy: -20, width: 20, height: 40 },
+      reached: true,
+      active: false,
+    },
+  ];
+  const respawnPoint = { checkpointId: null, x: 10, y: 20 };
+  expect(validateTraceSample({ ...sample, checkpoints, respawnPoint }, 7, 7)).toBe(true);
+  expect(
+    validateTraceSample({ ...sample, checkpoints: [{ ...checkpoints[0], active: "yes" }] }, 7, 7)
+  ).toBe(false);
+  expect(
+    validateTraceSample({ ...sample, respawnPoint: { ...respawnPoint, x: Infinity } }, 7, 7)
+  ).toBe(false);
+});
