@@ -118,16 +118,17 @@ describe("BotRunner lifecycle", () => {
     }
   );
 
-  it("preserves the default 5ms roundtrip deadline", async () => {
+  it("allows 99ms roundtrips but stops at the default 100ms watchdog", async () => {
     const { runner } = setup(true);
     const settled = vi.fn();
     const pending = runner.tick(sampleState);
     void pending.then(settled);
-    await vi.advanceTimersByTimeAsync(4);
+    await vi.advanceTimersByTimeAsync(99);
     expect(settled).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     await expect(pending).resolves.toEqual([]);
     expect(runner.consecutiveFailureCount).toBe(1);
+    expect(runner.status).toBe("paused");
   });
 
   it("correlates epoch and state tick separately from request IDs", async () => {

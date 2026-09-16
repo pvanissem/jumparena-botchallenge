@@ -296,7 +296,7 @@ export function predictPath(state, opts) {
     const phaseCutGlobalSec = phaseCutSec !== null ? phaseStartSec + phaseCutSec : null;
     const searchEndSec =
       phaseCutGlobalSec !== null
-        ? Math.min(maxSec, phaseCutGlobalSec) - phaseStartSeca
+        ? Math.min(maxSec, phaseCutGlobalSec) - phaseStartSec
         : maxSec - phaseStartSec;
 
     const collision = findEarliestCrossing(

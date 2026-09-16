@@ -21,13 +21,17 @@ import type { ArenaViewStatus } from "../game/ArenaView";
 import { ArenaView } from "../game/ArenaView";
 import { useAudioUnlockHint } from "../game/audio/useAudioUnlockHint";
 import { useArenaControls } from "../game/control/useArenaControls";
-import { LEVEL_REGISTRY } from "../game/level/levelRegistry";
+import { getLevelById, LEVEL_REGISTRY } from "../game/level/levelRegistry";
 import type { RacerRuntimeState } from "../game/rules/racerState";
 import { writeBotTrace } from "../game/trace/writeBotTrace";
 
 type BotDiagnosis = Pick<
   ArenaViewStatus,
-  "pausedReasonKind" | "pausedReason" | "lastRuntimeError" | "consecutiveFailureCount"
+  | "pausedReasonKind"
+  | "pausedReason"
+  | "lastRuntimeError"
+  | "consecutiveFailureCount"
+  | "navigation"
 >;
 
 export interface ArenaPageProps {
@@ -55,18 +59,18 @@ function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
     case "worker-error":
       return `🔴 Bot-Worker fehlgeschlagen: ${diagnosis.pausedReason}`;
     case "too-many-failures":
-      return "🔴 Bot pausiert: reagiert nicht rechtzeitig / wirft wiederholt Fehler";
+      return `🔴 ${diagnosis.pausedReason ?? "Bot gestoppt: Entscheidung fehlgeschlagen"}`;
     case "disposed":
       return "🔴 Bot beendet";
     case null:
-      return diagnosis.lastRuntimeError
-        ? `🟠 Bot läuft, wirft aber Fehler: ${diagnosis.lastRuntimeError} (${diagnosis.consecutiveFailureCount}/10 in Folge)`
-        : "🟢 Bot läuft";
+      return "🟢 Bot läuft";
   }
 }
 
 export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: ArenaPageProps) {
   const { mode, setMode, levelId, setLevelId } = useArenaControls();
+  const [startCheckpointId, setStartCheckpointId] = useState("");
+  const checkpoints = getLevelById(levelId).checkpoints;
   // Browser-Autoplay-Policy: Lautstärke/Mute wirken sich erst hörbar aus,
   // sobald der AudioContext durch eine Nutzer-Geste entsperrt wurde (siehe
   // `.features/game-audio-unlock-hint/bugfix.md`). Bis dahin scheint der
@@ -126,9 +130,11 @@ export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: Are
           {showLevelSelect && (
             <select
               className="pixel-select"
+              aria-label="Level"
               value={levelId}
               onChange={(e) => {
                 setLevelId(e.target.value);
+                setStartCheckpointId("");
                 restart();
               }}
             >
@@ -139,6 +145,23 @@ export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: Are
               ))}
             </select>
           )}
+
+          <select
+            className="pixel-select"
+            aria-label="Startpunkt"
+            value={startCheckpointId}
+            onChange={(event) => {
+              setStartCheckpointId(event.target.value);
+              restart();
+            }}
+          >
+            <option value="">Start: Levelanfang</option>
+            {checkpoints.map((checkpoint, index) => (
+              <option key={checkpoint.id} value={checkpoint.id}>
+                Start: Checkpoint {index + 1} (x={checkpoint.x})
+              </option>
+            ))}
+          </select>
 
           <button type="button" className="pixel-btn pixel-btn--accent" onClick={restart}>
             ↻ Neu
@@ -159,6 +182,12 @@ export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: Are
           {mode === "bot" && diagnosis && (
             <span className="pixel-status">{renderBotDiagnosis(diagnosis)}</span>
           )}
+          {physicsDebug && mode === "bot" && diagnosis?.navigation && (
+            <span className="pixel-status">
+              Auftrag: {diagnosis.navigation.planId ?? "–"} · Phase: {diagnosis.navigation.phase} ·
+              Grund: {diagnosis.navigation.reason}
+            </span>
+          )}
           {mode === "bot" && traceStatus === "saved" && (
             <span className="pixel-status">📝 Trace gespeichert</span>
           )}
@@ -175,6 +204,7 @@ export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: Are
             physicsDebug={physicsDebug}
             botSourceCode={mode === "bot" ? currentBotSource : undefined}
             startingLives={UNLIMITED_LIVES}
+            startCheckpointId={startCheckpointId || undefined}
             telemetry={
               mode === "bot"
                 ? {
@@ -195,6 +225,7 @@ export function ArenaPage({ showLevelSelect = false, physicsDebug = false }: Are
                 pausedReason: s.pausedReason,
                 lastRuntimeError: s.lastRuntimeError,
                 consecutiveFailureCount: s.consecutiveFailureCount,
+                navigation: s.navigation,
               });
             }}
           />

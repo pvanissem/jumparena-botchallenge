@@ -1,6 +1,41 @@
 # Tasks: Verlaessliche Messe-Bots
 
+## Aktuelle Nutzerkorrektur: vollständiger Einzelbot-Lauf
+
+Der Nutzer verlangt ausdrücklich die Arbeit in `/dev` an einem sinnvoll
+spielenden Bot über das ganze unveränderte Spiel. Turniertests sind dafür
+kein Abnahmekriterium. Isolierte Boingo-Erfolge belegen nur diesen Mechanismus.
+Die offen lesbare Beispielstrategie darf konkret für Level 1 aufgebaut und
+anhand vollständiger Läufe korrigiert werden; Strategie bleibt Besuchercode,
+Bewegungsausführung bleibt im kleinen Framework.
+
+
 ## Status
+
+### Beauftragte autonome Umsetzung v2
+
+- [x] V2-1. Contract und Controller testgetrieben: walk/jump/boingo, Status,
+  Besitzwechsel, Invalidierung und beobachtete Landung.
+- [x] V2-2. Worker mit run/status, 100-ms-Watchdog, Fehlerstopp und Impulsbeobachtung.
+- [x] V2-3. Bestehende Artefakte prüfen, Vorlage/current-bot und Doku umstellen;
+  v1 klar ablehnen, ungenutzten Planner entfernen.
+- [x] V2-4. Echte Spielprüfung, unabhängiges Review, Gesamttests/Build;
+  tatsächliche Reichweite und verbleibende Grenzen dokumentieren.
+
+
+
+### Aktuelle Fortsetzung: Besucher-Manöver (zur Umsetzung beauftragt)
+
+- [x] A. Rote Tests für `move`, `continue`, `status`, `cancel` im Navigationskern;
+  additive Contract-Typen und geprüfte Einzelmanöver implementieren. Eigene
+  Ziele dürfen Rückwege enthalten; kein automatischer Ersatz für Ablehnungen.
+- [x] B. Rote Worker-Tests für tickgebundene Tools, Motorbesitz und eigene Actions;
+  Runtime anbinden und Kompatibilität alter Bots prüfen.
+- [x] C. Roter Artefakt-Test für durch Bot-Code gewählte Boingo-/Plattformziele;
+  Beispiel und `current-bot.js` umbauen, Steering/API-Doku auf Handlungsfreiheit
+  und explizite Planübergabe korrigieren.
+- [x] D. Gezielte und volle Tests, Build, unabhängiges Review, bestehende
+  Browser-Vorschau prüfen und tatsächliche Ergebnisse/Restprobleme dokumentieren.
 
 - [x] 30. Urspruengliches Level 1 fuer `/code` wiederherstellen
   Explizit vom Nutzer beauftragt: neues Messelevel und Registry-Eintraege
@@ -333,3 +368,13 @@ Verbleibende Arbeit und Nachweisgrenzen:
 - Task 27: Besucherprofilrechte, 15-20-Minuten-Nutzerreise und die geforderte
   Quote von mindestens neun Zielerreichungen aus zehn Laeufen je Referenzbot
   sind nicht nachgewiesen. Das Feature ist noch nicht als messereif abgenommen.
+
+
+## Abschluss v2 am 16.09.2026
+
+Vollständige Level-1-Läufe in `/dev` bis zum Ziel; letzte Fassung 44,850 s,
+ohne Respawn oder technischen Fehler. Nachweis: [abnahme-v2.md](abnahme-v2.md).
+1.171 Tests in 136 Dateien und gesamter Workspace-Build erfolgreich.
+Startvorlage, Arbeitsbot und explizites Messe-Beispiel verwenden dieselbe
+editierbare Route. Unabhängiges Abschlussreview ohne kritische Findings.
+Keine Commits oder Veröffentlichung.

@@ -3,11 +3,11 @@
  * `docs/09-bot-artefakt-und-turnier.md`.
  */
 
-import type { ToolsApi } from "./navigation";
+import type { ControlTools as ToolsApi } from "./commands";
 import type { BotState, DecideResult } from "./state";
 
 export const SUPPORTED_API_VERSION = 1 as const;
-export const SUPPORTED_FRAMEWORK_VERSION = 1 as const;
+export const SUPPORTED_FRAMEWORK_VERSION = 2 as const;
 
 interface BotMetadata {
   apiVersion: typeof SUPPORTED_API_VERSION;

@@ -34,7 +34,7 @@ describe("RaceScene with the real browser worker adapter", () => {
     internals.initData = {
       controllerMode: "bot",
       botSourceCode:
-        "export default { apiVersion: 1, frameworkVersion: 1, decide() { return []; } };",
+        "export default { apiVersion: 1, frameworkVersion: 2, decide() { return []; } };",
     };
     Object.assign(scene, { physics: { world: { pause: vi.fn() } } });
     // Only the native Worker and Phaser shell are mocked, not the adapter or runner.
@@ -47,7 +47,7 @@ describe("RaceScene with the real browser worker adapter", () => {
       expect(setOnMessage).toHaveBeenCalledTimes(1);
       expect(internals.botReady).toBe(false);
       expect(() =>
-        setOnMessage.mock.calls[0][0]({ data: { type: "module-ready", frameworkVersion: 1 } })
+        setOnMessage.mock.calls[0][0]({ data: { type: "module-ready", frameworkVersion: 2 } })
       ).not.toThrow();
       await expect(internals.botRunner.whenReady()).resolves.toBe(true);
       expect(internals.botReady).toBe(true);

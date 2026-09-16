@@ -1,7 +1,8 @@
 import {
   type BotModule,
   type BotState,
-  type ChooseRoute,
+  type ControlCommand,
+  type ControlStatus,
   type DecideResult,
   type ToolsApi,
   validateBotModule,
@@ -9,29 +10,29 @@ import {
 import { validateNavigationDiagnostic } from "../game/trace/navigationDiagnostic";
 import type { HostToWorkerMessage, WorkerToHostMessage } from "./workerLike";
 
-/** Structural injection boundary for @arena/bot-navigation's createNavigator. */
-export interface WorkerNavigator {
-  decide(state: BotState, choose?: ChooseRoute): DecideResult;
-  getDiagnostics(): unknown;
+/** Structural injection boundary for the observation-driven movement controller. */
+export interface WorkerMovementController {
+  run(state: BotState, command: ControlCommand): DecideResult;
+  status(state: BotState): ControlStatus;
   reset(): void;
 }
 
-export type NavigatorFactory = () => WorkerNavigator;
+export type MovementControllerFactory = () => WorkerMovementController;
 
-export function createBotWorkerRuntime(createNavigator?: NavigatorFactory) {
+export function createBotWorkerRuntime(createController?: MovementControllerFactory) {
   let bot: BotModule | null = null;
-  let navigator: WorkerNavigator | null = null;
+  let controller: WorkerMovementController | null = null;
 
   return {
     init(candidate: unknown): WorkerToHostMessage {
       bot = null;
-      navigator = null;
+      controller = null;
       const validation = validateBotModule(candidate);
       if (!validation.valid) return { type: "module-invalid", reason: validation.reason };
       try {
-        if (validation.module.frameworkVersion === 1) {
-          if (!createNavigator) throw new Error("Navigator-Factory ist noch nicht angeschlossen");
-          navigator = createNavigator();
+        if (validation.module.frameworkVersion === 2) {
+          if (!createController) throw new Error("Controller-Factory ist noch nicht angeschlossen");
+          controller = createController();
         }
         bot = validation.module;
         return {
@@ -52,38 +53,69 @@ export function createBotWorkerRuntime(createNavigator?: NavigatorFactory) {
       let active = true;
       let used = false;
       let navigationActions: DecideResult | undefined;
+      let command: ControlCommand | undefined;
       try {
         if (!bot) throw new Error("Bot-Modul ist nicht bereit");
         let actions: unknown;
-        if (bot.frameworkVersion === 1) {
-          const currentNavigator = navigator;
-          if (!currentNavigator) throw new Error("Navigator ist nicht bereit");
+        if (bot.frameworkVersion === 2) {
+          const current = controller;
+          if (!current) throw new Error("Controller ist nicht bereit");
+          // Observe contacts/respawn before the visitor chooses its next command.
+          current.status(state);
+          const assertActive = () => {
+            if (!active) throw new Error("Tools sind nur synchron innerhalb von decide gueltig");
+          };
           const tools: ToolsApi = Object.freeze({
-            navigate(options?: { choose?: ChooseRoute }): DecideResult {
-              if (!active)
-                throw new Error("navigate ist nur synchron innerhalb von decide gueltig");
-              if (used) throw new Error("navigate darf pro Tick nur einmal aufgerufen werden");
+            run: (next: ControlCommand) => {
+              assertActive();
+              if (used) throw new Error("run darf pro Tick nur einmal aufgerufen werden");
               used = true;
-              if (state.navigation?.version !== 1) {
-                throw new Error("navigate benoetigt navigation.version 1");
-              }
-              const result = currentNavigator.decide(state, options?.choose);
+              command = { ...next };
+              const result = current.run(state, next);
               navigationActions = [...result];
               return result;
+            },
+            status: () => {
+              assertActive();
+              return current.status(state);
             },
           });
           const decide = bot.decide;
           actions = decide(state, tools);
         } else {
-          // Keep both the legacy arity and its unbound invocation unchanged.
           const decide = bot.decide;
           actions = decide(state);
         }
         active = false;
-        const raw = used ? navigator?.getDiagnostics() : undefined;
-        const navigation = validateNavigationDiagnostic(
-          raw && typeof raw === "object" ? { ...raw, navigationActions } : undefined
-        );
+        const status = used ? controller?.status(state) : undefined;
+        // Preserve the existing trace schema without inventing a route or search budget.
+        const navigation =
+          status &&
+          validateNavigationDiagnostic({
+            targetId: command && command.kind !== "walk" ? command.platformId : null,
+            routeId: null,
+            planId: status.commandId,
+            phase:
+              status.state === "failed"
+                ? "blocked"
+                : status.state === "running"
+                  ? "execute"
+                  : "wait",
+            reason: status.reason ?? status.phase ?? status.state,
+            relevantObjectIds:
+              command?.kind === "boingo"
+                ? [command.utilityId, command.platformId]
+                : command?.kind === "jump"
+                  ? [command.platformId]
+                  : [],
+            navigationActions,
+          });
+        if (
+          bot.frameworkVersion === 2 &&
+          (!used || JSON.stringify(actions) !== JSON.stringify(navigationActions))
+        ) {
+          controller?.reset();
+        }
         return { type: "action", ...correlation, actions, ...(navigation ? { navigation } : {}) };
       } catch (error) {
         return { type: "error", ...correlation, message: String(error) };

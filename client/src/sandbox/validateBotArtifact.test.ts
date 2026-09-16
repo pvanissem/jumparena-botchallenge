@@ -34,24 +34,24 @@ describe("validateBotArtifact", () => {
   it.each([1, 2])("uses the shared runtime validation for frameworkVersion %s", async (version) => {
     const { worker, emit, received } = createControllableWorker();
     const runtime = createBotWorkerRuntime(() => ({
-      decide: () => [],
-      getDiagnostics: () => null,
+      run: () => [],
+      status: () => ({ commandId: null, state: "idle" as const, phase: null, reason: null }),
       reset() {},
     }));
     const source = `export default { apiVersion: 1, frameworkVersion: ${version}, decide() { return []; } };`;
     const result = validateBotArtifact(source, "tools.js", () => worker);
     emit(runtime.init({ apiVersion: 1, frameworkVersion: version, decide: () => [] }));
     expect(received).toEqual([{ type: "init", code: source }]);
-    if (version === 1)
+    if (version === 2)
       await expect(result).resolves.toMatchObject({
         valid: true,
         name: "tools",
-        frameworkVersion: 1,
+        frameworkVersion: 2,
       });
     else
       await expect(result).resolves.toEqual({
         valid: false,
-        reason: "frameworkVersion 2 nicht unterstützt",
+        reason: "frameworkVersion 1 nicht unterstützt",
       });
   });
 

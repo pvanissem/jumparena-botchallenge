@@ -1,5 +1,7 @@
 # 02 – Bot-API (State/Action-Contract)
 
+> Aktueller Reset-Stand (16.09.2026): Das Besucher-Template liefert ausschließlich `[]` und startet keine Bewegung. Die fertige Level-1-Route liegt separat in `examples/strategies/messe-demo.js`. Dies ersetzt frühere Aussagen zur laufenden Standardvorlage.
+
 Der versionierte Contract liegt in `packages/bot-contract/src/`. Guard und Worker
 begrenzen die Ausfuehrung, sind aber keine umfassende Sicherheitsgarantie fuer Fremdcode.
 
@@ -8,19 +10,17 @@ begrenzen die Ausfuehrung, sind aber keine umfassende Sicherheitsgarantie fuer F
 Jeder Bot ist **eine JavaScript-Datei** mit Default-Export. Empfohlener Einstieg:
 
 ```js
-function choose(context, options) {
-  const goals = options.filter((option) => option.target.kind === "goal");
-  goals.sort((a, b) => b.route.goalProgressPx - a.route.goalProgressPx || a.id.localeCompare(b.id));
-  return goals[0]?.id ?? null;
-}
-
+let command = null;
 export default {
   apiVersion: 1,
-  frameworkVersion: 1,
+  frameworkVersion: 2,
   name: "Mein Bot",
   author: "Gast",
   decide(state, tools) {
-    return tools.navigate({ choose });
+    if (state.justRespawned) command = null;
+    if (!command && !state.onGround) return [];
+    command ??= { id: "ziel", kind: "walk", x: state.position.x + state.goalDirection.dx };
+    return tools.run(command);
   },
 };
 ```
@@ -33,7 +33,7 @@ export default {
 - Laeuft im Web Worker; Browser-/Netzwerkzugriffe sind im Bot verboten.
   Eigene Closure-Variablen und Hilfsfunktionen in derselben Datei sind erlaubt.
 - Alte Bots ohne `frameworkVersion` behalten `decide(state)` und den Low-Level-
-  Action-Contract. Unbekannte Framework-Versionen werden vor dem Lauf abgelehnt.
+  Action-Contract. Framework-Version 1 ist inkompatibel und muss neu erzeugt oder gezielt auf Version 2 migriert werden. Unbekannte Versionen werden vor dem Lauf abgelehnt.
 
 Bearbeitet wird nur `client/src/bot/current-bot.js`. Speichern laedt die
 bestehende Vorschau `/code` automatisch neu; dort den Bot laufen lassen und
@@ -110,66 +110,64 @@ type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right
 type DecideResult = Action[];
 ```
 
-## Framework-Tools, Version 1
+## Bewegungshelfer, Framework-Version 2
 
-Navigation kommt aus `@arena/bot-navigation` im Worker, nicht aus kopierten
-Helfern im Template. Der Contract heisst `ToolsApi`:
+Die Bot-Datei entscheidet über Ziel, Risiko, Boingo-Nutzung und Fortsetzung.
+`@arena/bot-navigation` führt nur den gewählten Auftrag aus. Es gibt keinen
+Autoplaner und keine automatisch vorgeschlagenen Ersatzrouten.
 
 ```ts
-interface ToolsApi {
-  readonly navigate: (options?: { choose?: ChooseRoute }) => Action[];
+type ControlCommand =
+  | { id: string; kind: "walk"; x: number; sprint?: boolean }
+  | { id: string; kind: "jump"; platformId: string;
+      x?: number; sprint?: boolean; holdMs?: number }
+  | { id: string; kind: "boingo"; utilityId: string; platformId: string;
+      x?: number; sprint?: boolean };
+interface ControlStatus {
+  commandId: string | null;
+  state: "idle" | "running" | "succeeded" | "failed";
+  phase: "approach" | "launch" | "flight" | "landing" | null;
+  reason: string | null;
 }
-type ChooseRoute = (context: StrategyContext, options: readonly RouteOption[]) => string | null;
-interface StrategyContext {
-  timeElapsedMs: number;
-  timeRemainingMs: number;
-  livesRemaining: number;
-  justRespawned: boolean;
-  previousTargetId: string | null;
+interface ControlTools {
+  readonly run: (command: ControlCommand) => Action[];
+  readonly status: () => ControlStatus;
 }
-interface RouteOption {
-  id: string;
-  target: {
-    id: string;
-    kind: "coin" | "goal";
-    position: { x: number; y: number };
-    value: number;
-  };
-  route: {
-    id: string;
-    estimatedDurationMs: number;
-    detourPx: number;
-    expectedFruitValue: number;
-    goalProgressPx: number;
-    risk: number;
-    landingMarginPx: number;
-    mechanics: Array<"walk" | "jump" | "drop" | "boingo" | "stomp">;
-    scope: "target-reachable" | "local-progress";
-  };
-}
+// ToolsApi ist ein Alias für ControlTools.
 ```
 
-`navigate` ist synchron, an den aktuellen State gebunden und genau einmal pro
-`decide` erlaubt. Jeder Worker besitzt eine eigene persistente Navigatorinstanz.
-Vor der ersten Entscheidung wartet die Laufzeit auf `module-ready`, damit
-Modul und Tools bereitstehen; das Tick-Budget misst nicht den Modulstart.
-`choose` laeuft an sicheren Entscheidungsgrenzen; laufende Manoever werden nicht
-mit jeder neuen Frucht unterbrochen. Die Rueckgabe sind angebotene **Options-IDs**,
-keine Actions, Ziel-IDs oder selbstgebauten Plaene. Context/Optionen sind Kopien.
-Gib die Actions von `navigate` unveraendert zurueck, ohne eigene Motorikreflexe.
+`x` ist absolut; bei Sprung und Boingo ist die Plattformmitte der Standard.
+Plattform- und Utility-IDs stammen aus sichtbaren Objekten. `holdMs` erlaubt
+Experimente mit kürzerem Sprunghalten (0–1200 ms); ohne Angabe hält der Helfer
+den normalen Sprung bis zum Ende des beobachteten Aufstiegs. Die Physikwerte bleiben unverändert.
 
-`null` waehlt die bekannte Ziel-Fortsetzung mit niedrigem Risiko und Fortschritt.
-Eine unbekannte ID meldet einen Hinweis und nutzt denselben Fallback. Das ist
-kein Veto: Auch herausgefilterte Optionen koennen im Fallback wieder vorkommen.
-`risk` ist ein relativer Kostenwert, keine Sterbewahrscheinlichkeit. Bekannte
-Kollisionen werden ausgeschlossen, dynamische Prognosen bleiben unsicher.
-`target-reachable` fuer Fruechte verlangt Einsammelkontakt und tragfaehige
-Fortsetzung; `local-progress` verspricht nur einen lokalen Teilweg. Ohne
-bekannte Fortsetzung wird `blocked` diagnostiziert, kein blinder Sprung erzwungen.
+Genau ein synchroner `run` ist pro Entscheidung erlaubt; `status()` darf mehrfach
+gelesen werden. Tools sind an die aktuelle Entscheidung gebunden und werden nicht
+gespeichert. Dieselbe ID mit identischen Parametern setzt den Auftrag fort.
+Erfolg und Fehler bleiben für diese ID bestehen. Für einen absichtlichen
+Neuversuch oder andere Parameter eine neue ID wählen. Eine neue ID ersetzt den
+aktuellen Auftrag auch im Flug; sie erzeugt keinen zusätzlichen Luftsprung.
+Geänderte Parameter unter der aktuellen ID sind ein Botfehler.
 
-Vollstaendige Beispiele: `examples/strategies/sprinter.js`, `collector.js` und
-`cautious.js`. Sie zeigen Fortschritt/Zeit, Fruchtwert/Zusatzzeit mit Endspurt
-und Lebensbedingung sowie Risiko/Landepuffer. Kein Bot-Build ist erforderlich.
+`status()` verarbeitet die aktuelle Beobachtung bereits vor `decide`. Die
+Bot-Datei hält ihren Auftrag in einer Closure und entscheidet bei Erfolg oder
+Fehler selbst über die Fortsetzung. Ohne `run` oder mit abweichend zurückgegebenen
+Actions endet die Helferausführung; `return []` bedeutet Warten/Stoppen.
+Respawn/Epoch-Wechsel setzt den Helfer zurück; eigene Closure-Variablen muss der
+Bot ebenfalls zurücksetzen.
+
+Laufen stoppt bei fehlendem Boden, Gefahr oder ausbleibendem Fortschritt mit
+einem Fehler. Es wählt keinen Sprung. Springen und Boingo verlangen echte
+Impuls-/Landungsbeobachtungen; Landung auf einer anderen Plattform ist ein Fehler.
+Boingo steuert nur bis zum tatsächlichen Impuls zum Zwischenziel und danach
+zur gewählten Plattform. Unerreichbare Aufträge dürfen scheitern. Die Helfer
+sind keine Garantie für sichere Flugbahnen oder Gegnerbegegnungen.
+
+Vollständige editierbare Beispiele liegen unter `examples/strategies/`:
+`visitor-builder.js` wählt einen nahen Boingo und eine höhere Plattform,
+`sprinter.js` bevorzugt Tempo, `collector.js` sammelt nahe Früchte bis zum
+Endspurt, `cautious.js` wartet bei einem nahen aktiven Gegner. Diese Regeln sind
+Besuchercode und dürfen verändert werden. Kein Bot-Build ist erforderlich.
 
 ### Navigation-Observation
 
@@ -177,7 +175,11 @@ und Lebensbedingung sowie Risiko/Landepuffer. Kein Bot-Build ist erforderlich.
 `observedAtMs`, `physicsStepMs`, den absoluten realen `body`, `viewport`, optional
 `goalBounds`, `boingoJumpVelocity` und `stompJumpVelocity`. `movement` enthaelt
 `jumpStartedAtMs`, `impulseKind`, `impulseAtMs` und `sourceId`.
-Fehlende Observation-Version 1 ist fuer `navigate` ein API-Fehler.
+`lastImpulse` hält optional den letzten tatsächlichen Impuls fest:
+`{ sequence, kind: "jump" | "boingo" | "stomp", atMs, sourceId }` oder `null`.
+Er bleibt nach der Landung erhalten; seine Sequenz zählt innerhalb einer Epoch
+ab 1. Respawn/Epoch-Wechsel löscht ihn. `movement` beschreibt dagegen nur die
+aktuelle Bewegungsphase. Für die Helfer wird Observation-Version 1 benötigt.
 
 Sichtbare Objekte besitzen optional stabile `id`s und relative `bounds`
 (`dx`, `dy`, `width`, `height`). Position und Legacy-Distanzen behalten ihre
@@ -218,10 +220,12 @@ Landungsnachweis. One-Way-Plattformen kollidieren nur von oben beim Fallen.
    ignoriert; ein nicht-Array/fehlender Rückgabewert → Bot macht in diesem Tick nichts (`[]`),
    keine Disqualifikation (Fehlertoleranz
    für's Publikum wichtiger als Strenge).
-5. **Performance-Limit:** Der produktive Worker-Roundtrip hat 5 ms Budget. Bots, die das
-   Zeitlimit überschreiten, werden für den jeweiligen Tick übersprungen (Ergebnis: `idle`).
-    Bei wiederholter Überschreitung (10x in Folge) → Bot wird fuer den Lauf
-   pausiert (kein hartes Disqualifizieren während des Rennens, aus Fairness-/Show-Gründen).
+5. **Watchdog:** Ein vorläufiger 100-ms-Watchdog schützt vor hängenden Bots;
+   er ist kein Rechenzeitbudget. Timeout oder Laufzeitfehler stoppt den Bot für
+   den Lauf, löscht gehaltene Actions und ignoriert verspätete Antworten.
+   Es gibt keinen automatischen Wiederanlauf. Die Initialisierung hat einen
+   separaten Timeout. Höchstens eine Workeranfrage ist gleichzeitig offen;
+   das garantiert weder identische Frameraten noch bitgenaue Wiederholbarkeit.
 
 ## Offene Detailfragen (siehe auch 07-offene-punkte.md)
 

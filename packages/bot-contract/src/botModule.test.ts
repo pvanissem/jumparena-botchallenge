@@ -10,11 +10,11 @@ function validCandidate(overrides: Record<string, unknown> = {}) {
 }
 
 describe("validateBotModule", () => {
-  it("accepts frameworkVersion 1 without changing apiVersion", () => {
-    expect(validateBotModule(validCandidate({ frameworkVersion: 1 })).valid).toBe(true);
+  it("accepts frameworkVersion 2 without changing apiVersion", () => {
+    expect(validateBotModule(validCandidate({ frameworkVersion: 2 })).valid).toBe(true);
   });
 
-  it.each([2, 0, "1", null, false])("rejects unsupported frameworkVersion %p", (version) => {
+  it.each([1, 3, 0, "2", null, false])("rejects unsupported frameworkVersion %p", (version) => {
     expect(validateBotModule(validCandidate({ frameworkVersion: version }))).toEqual({
       valid: false,
       reason: `frameworkVersion ${String(version)} nicht unterstützt`,

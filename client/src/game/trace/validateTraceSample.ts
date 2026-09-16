@@ -1,4 +1,6 @@
-import { ACTIONS } from "@arena/bot-contract/src/state";
+// The Vite config bundles this validator in Node; include the TS source rather
+// than externalizing a workspace package that Node cannot load directly.
+import { ACTIONS } from "../../../../packages/bot-contract/src/state";
 import { validateNavigationDiagnostic } from "./navigationDiagnostic";
 
 const record = (v: unknown): v is Record<string, unknown> =>
@@ -95,6 +97,17 @@ export function validateTraceSample(value: unknown, from: number, to: number): b
       !record(n.movement)
     )
       return false;
+    if (n.lastImpulse !== undefined && n.lastImpulse !== null) {
+      const impulse = n.lastImpulse;
+      if (
+        !record(impulse) ||
+        !index(impulse.sequence) ||
+        !["jump", "boingo", "stomp"].includes(impulse.kind as string) ||
+        !finite(impulse.atMs) ||
+        (impulse.sourceId !== null && typeof impulse.sourceId !== "string")
+      )
+        return false;
+    }
     const m = n.movement;
     if (
       !["jump", "boingo", "stomp", "none"].includes(m.impulseKind as string) ||

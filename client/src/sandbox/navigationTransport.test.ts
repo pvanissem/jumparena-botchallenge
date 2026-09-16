@@ -1,5 +1,5 @@
 import type { Action, ToolsApi } from "@arena/bot-contract";
-import { createNavigator } from "@arena/bot-navigation";
+import { createMovementController } from "@arena/bot-navigation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BotRunRecorder } from "../game/trace/BotRunRecorder";
 import { validateNavigationDiagnostic } from "../game/trace/navigationDiagnostic";
@@ -9,37 +9,43 @@ import { createBotWorkerRuntime } from "./botWorkerRuntime";
 import { FakeWorker } from "./testUtils/FakeWorker";
 import { navigation, sampleState } from "./testUtils/sampleState";
 
+const command = { id: "walk", kind: "walk" as const, x: 300 };
+const controlStatus = {
+  commandId: "walk",
+  state: "running" as const,
+  phase: "approach" as const,
+  reason: null,
+};
 const state = { ...sampleState, navigation };
 const request = { type: "tick" as const, tick: 0, stateTick: 42, epoch: 2, stateFrame: 10, state };
 const diagnostic = {
-  targetId: "goal",
-  routeId: "route-1",
-  planId: "plan-1",
+  targetId: null,
+  routeId: null,
+  planId: "walk",
   phase: "execute",
-  reason: "route-selected",
-  relevantObjectIds: ["floor"],
-  searchBudgetStatus: "available",
+  reason: "approach",
+  relevantObjectIds: [],
 };
 const code =
-  "export default { apiVersion: 1, frameworkVersion: 1, decide(s, t) { return t.navigate(); } };";
+  "export default { apiVersion: 1, frameworkVersion: 2, decide(s, t) { return t.run({id:'walk',kind:'walk',x:300}); } };";
 
 describe("navigation transport", () => {
   afterEach(() => vi.useRealTimers());
 
-  function setup(raw: unknown = diagnostic) {
-    const getDiagnostics = vi.fn(() => raw);
-    const decide = vi.fn((): Action[] => ["right"]);
-    const runtime = createBotWorkerRuntime(() => ({ decide, getDiagnostics, reset() {} }));
-    return { runtime, getDiagnostics, decide };
+  function setup() {
+    const status = vi.fn(() => controlStatus);
+    const run = vi.fn((): Action[] => ["right"]);
+    const runtime = createBotWorkerRuntime(() => ({ run, status, reset() {} }));
+    return { runtime, status, run };
   }
 
   it("reads diagnostics once after navigation and snapshots actions before bot mutation", () => {
-    const { runtime, getDiagnostics, decide } = setup();
+    const { runtime, status, run } = setup();
     runtime.init({
       apiVersion: 1,
-      frameworkVersion: 1,
+      frameworkVersion: 2,
       decide: (_: unknown, tools: ToolsApi) => {
-        const actions = tools.navigate();
+        const actions = tools.run(command);
         actions[0] = "left";
         return actions;
       },
@@ -51,55 +57,34 @@ describe("navigation transport", () => {
       actions: ["left"],
       navigation: { ...diagnostic, navigationActions: ["right"] },
     });
-    expect(getDiagnostics).toHaveBeenCalledTimes(1);
-    expect(decide).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenCalled();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("never invents navigation for legacy bots or ticks that did not navigate", () => {
-    const { runtime, getDiagnostics } = setup();
+    const { runtime, status } = setup();
     runtime.init({
       apiVersion: 1,
-      frameworkVersion: 1,
-      decide: (_: unknown, tools: ToolsApi) => tools.navigate(),
+      frameworkVersion: 2,
+      decide: (_: unknown, tools: ToolsApi) => tools.run(command),
     });
     runtime.tick(request);
-    runtime.init({ apiVersion: 1, frameworkVersion: 1, decide: () => [] });
+    runtime.init({ apiVersion: 1, frameworkVersion: 2, decide: () => [] });
     expect(runtime.tick(request)).not.toHaveProperty("navigation");
     runtime.init({ apiVersion: 1, decide: () => [] });
     expect(runtime.tick(request)).not.toHaveProperty("navigation");
-    expect(getDiagnostics).toHaveBeenCalledTimes(1);
-  });
-
-  it("expires tools before reading diagnostics", () => {
-    let saved: ToolsApi | undefined;
-    const runtime = createBotWorkerRuntime(() => ({
-      decide: () => [],
-      reset() {},
-      getDiagnostics() {
-        expect(() => saved?.navigate()).toThrow(/synchron/);
-        return diagnostic;
-      },
-    }));
-    runtime.init({
-      apiVersion: 1,
-      frameworkVersion: 1,
-      decide: (_: unknown, tools: ToolsApi) => {
-        saved = tools;
-        return tools.navigate();
-      },
-    });
-    expect(runtime.tick(request)).toMatchObject({ type: "action", navigation: diagnostic });
+    expect(status).toHaveBeenCalled();
   });
 
   it("does not carry diagnostics from a previous tick into a skipped or failed decision", () => {
-    const { runtime, getDiagnostics } = setup();
+    const { runtime, status } = setup();
     let mode = "navigate";
     runtime.init({
       apiVersion: 1,
-      frameworkVersion: 1,
+      frameworkVersion: 2,
       decide: (_: unknown, tools: ToolsApi) => {
         if (mode === "skip") return [];
-        const actions = tools.navigate();
+        const actions = tools.run(command);
         if (mode === "error") throw new Error("strategy failed");
         return actions;
       },
@@ -111,20 +96,13 @@ describe("navigation transport", () => {
     const failed = runtime.tick({ ...request, tick: 2 });
     expect(failed).toMatchObject({ type: "error", stateTick: 42, epoch: 2, stateFrame: 10 });
     expect(failed).not.toHaveProperty("navigation");
-    expect(getDiagnostics).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenCalled();
   });
 
   it.each([
     { ...diagnostic, extra: "unknown" },
     { ...diagnostic, relevantObjectIds: Array(32).fill("x".repeat(128)) },
-  ])("drops invalid/oversized diagnostics before transport and again at the host", (raw) => {
-    const { runtime } = setup(raw);
-    runtime.init({
-      apiVersion: 1,
-      frameworkVersion: 1,
-      decide: (_: unknown, tools: ToolsApi) => tools.navigate(),
-    });
-    expect(runtime.tick(request)).not.toHaveProperty("navigation");
+  ])("drops invalid/oversized diagnostics at the host", (raw) => {
     const worker = new FakeWorker();
     const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
     const runner = new BotRunner(worker, { observer });
@@ -192,7 +170,7 @@ describe("navigation transport", () => {
       expect(worker.sentMessages.at(-1)).toMatchObject({ stateTick: 42, epoch: 2, stateFrame: 10 });
       input.tick = 99;
       input.navigation.frame = 99;
-      if (kind === "timeout") await vi.advanceTimersByTimeAsync(5);
+      if (kind === "timeout") await vi.advanceTimersByTimeAsync(100);
       else {
         worker.emit({
           type: "action",
@@ -230,7 +208,7 @@ describe("navigation transport", () => {
     }
   );
 
-  it("smoke: real navigator flows through pure runtime, runner and recorder", async () => {
+  it("smoke: real controller flows through pure runtime, runner and recorder", async () => {
     const input = {
       ...state,
       goalDirection: { dx: 950, dy: 280 },
@@ -252,7 +230,7 @@ describe("navigation transport", () => {
         viewport: { x: 0, y: 0, width: 1100, height: 600 },
       },
     };
-    const runtime = createBotWorkerRuntime(createNavigator);
+    const runtime = createBotWorkerRuntime(createMovementController);
     const worker = new FakeWorker();
     const recorder = new BotRunRecorder({
       levelId: "test",
@@ -271,8 +249,8 @@ describe("navigation transport", () => {
         message.type === "init"
           ? runtime.init({
               apiVersion: 1,
-              frameworkVersion: 1,
-              decide: (_: unknown, tools: ToolsApi) => tools.navigate(),
+              frameworkVersion: 2,
+              decide: (_: unknown, tools: ToolsApi) => tools.run(command),
             })
           : runtime.tick(message)
       );

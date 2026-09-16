@@ -21,7 +21,7 @@ describe("browser worker adapter", () => {
     const wrapper = vi.fn((event) => saved(event));
     worker.onmessage = wrapper;
     expect(worker.onmessage).toBe(wrapper);
-    const event = { data: { type: "module-ready" as const, frameworkVersion: 1 as const } };
+    const event = { data: { type: "module-ready" as const, frameworkVersion: 2 as const } };
     native.onmessage?.(event);
     expect(wrapper.mock.calls).toEqual([[event]]);
     expect(original.mock.calls).toEqual([[event]]);

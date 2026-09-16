@@ -14,25 +14,7 @@ export interface WorldRect {
   height: number;
 }
 
-/** Structural until the additive contract is published by its owner. */
-export interface NavigationObservation {
-  version: 1;
-  epoch: number;
-  frame: number;
-  observedAtMs: number;
-  physicsStepMs: number;
-  body: WorldRect;
-  movement: {
-    jumpStartedAtMs: number | null;
-    impulseKind: "jump" | "boingo" | "stomp" | "none";
-    impulseAtMs: number | null;
-    sourceId: string | null;
-  };
-  viewport: WorldRect;
-  goalBounds?: WorldRect;
-  boingoJumpVelocity: number;
-  stompJumpVelocity: number;
-}
+export type { NavigationObservation } from "@arena/bot-contract";
 
 export interface WorldSnapshot {
   levelId?: string;

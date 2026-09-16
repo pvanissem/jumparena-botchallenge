@@ -1,5 +1,5 @@
 // Besucherregeln: Ziel, Boingo, Tempo und Warteabstand lassen sich hier ändern.
-const preferences = { useBoingo: true, sprint: false, collect: true, hazardDistance: 0 };
+const preferences = { useBoingo: true, sprint: true, collect: false, hazardDistance: 0 };
 let command = null;
 let attempted = new Set();
 let epoch = null;
@@ -48,7 +48,7 @@ function nextCommand(state) {
 }
 
 export default {
-  apiVersion: 1, frameworkVersion: 2, name: "Sammler", author: "Gast",
+  apiVersion: 1, frameworkVersion: 2, name: "Messe-Werkstatt", author: "Gast",
   decide(state, tools) {
     if (!state.navigation) return [];
     if (epoch !== state.navigation.epoch || state.justRespawned) {

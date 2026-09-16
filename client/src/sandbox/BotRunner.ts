@@ -14,12 +14,10 @@ export interface BotRunnerObserver {
 }
 
 export interface BotRunnerOptions {
-  /** Zeitlimit pro Tick in ms, Default 5 (siehe docs/02-bot-api.md). */
+  /** Lokaler Roundtrip-Watchdog pro Entscheidung, Default 100 ms. */
   timeoutMs?: number;
   /** Separate deadline for loading/validating the module, default 2000 ms. */
   initTimeoutMs?: number;
-  /** Schwelle aufeinanderfolgender Fehlversuche, Default 10 (siehe docs/09). */
-  maxConsecutiveFailures?: number;
   observer?: BotRunnerObserver;
 }
 
@@ -39,8 +37,7 @@ export type BotRunnerPauseReasonKind =
   | "too-many-failures"
   | "disposed";
 
-const DEFAULT_TIMEOUT_MS = 5;
-const DEFAULT_MAX_CONSECUTIVE_FAILURES = 10;
+const DEFAULT_TIMEOUT_MS = 100;
 
 function isValidAction(value: unknown): value is Action {
   return typeof value === "string" && (ACTIONS as readonly string[]).includes(value);
@@ -60,7 +57,6 @@ function normalizeActions(value: unknown): Action[] {
 export class BotRunner {
   private readonly timeoutMs: number;
   private readonly initTimeoutMs: number;
-  private readonly maxConsecutiveFailures: number;
   private readonly observer: BotRunnerObserver | undefined;
 
   private runnerStatus: BotRunnerStatus = "running";
@@ -92,8 +88,6 @@ export class BotRunner {
   ) {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.initTimeoutMs = options.initTimeoutMs ?? 2000;
-    this.maxConsecutiveFailures =
-      options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES;
     this.observer = options.observer;
     this.worker.onmessage = (event) => this.handleWorkerMessage(event.data);
     this.worker.onerror = (event) => this.pause("worker-error", event.message);
@@ -112,15 +106,12 @@ export class BotRunner {
     return this.reasonKind;
   }
 
-  /** Fehlertext der letzten `decide()`-Laufzeitausnahme, `null` sobald ein
-   *  nachfolgender Tick wieder erfolgreich war (siehe `registerSuccess()`). */
+  /** Fehlertext der Laufzeitausnahme, die den Bot gestoppt hat. */
   get lastRuntimeError(): string | null {
     return this.runtimeError;
   }
 
-  /** Anzahl aufeinanderfolgender Fehlversuche (Timeout/Error/ungültige
-   *  Action) seit dem letzten Erfolg - für eine frühzeitige UI-Warnung vor
-   *  dem harten Kill bei `maxConsecutiveFailures`. */
+  /** Anzahl fehlgeschlagener Entscheidungen: Der erste Fehler stoppt den Bot. */
   get consecutiveFailureCount(): number {
     return this.consecutiveFailures;
   }
@@ -261,9 +252,12 @@ export class BotRunner {
       this.runtimeError = errorMessage;
     }
     this.consecutiveFailures += 1;
-    if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
-      this.pause("too-many-failures", "zu viele Fehlversuche in Folge");
-    }
+    this.pause(
+      "too-many-failures",
+      errorMessage === null
+        ? `Bot gestoppt: Watchdog-Timeout nach ${this.timeoutMs} ms`
+        : `Bot gestoppt: ${errorMessage}`
+    );
   }
 
   private registerSuccess(): void {

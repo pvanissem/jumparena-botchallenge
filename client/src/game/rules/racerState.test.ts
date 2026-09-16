@@ -25,6 +25,42 @@ describe("createInitialRacerState", () => {
     expect(state.lastCheckpoint).toEqual(LEVEL.spawn);
   });
 
+  it("starts above an existing checkpoint with fresh world progress and its real respawn position", () => {
+    const level = { ...LEVEL, checkpoints: [{ id: "checkpoint", x: 70, y: 90 }] };
+    const state = createInitialRacerState(level, 4, "checkpoint");
+    expect(state).toMatchObject({
+      x: 70,
+      y: 10,
+      lastCheckpoint: { x: 70, y: 90 },
+      livesRemaining: 4,
+      coinsCollected: 0,
+      fruitScore: 0,
+      deaths: 0,
+      timeElapsedMs: 0,
+    });
+    expect(state.collectedCoinIds.size).toBe(0);
+    expect(state.resolvedBlockIds.size).toBe(0);
+    expect(state.destroyedHazardIds.size).toBe(0);
+    expect(state.hazardTriggeredAtMs.size).toBe(0);
+    expect(level.spawn).toEqual({ x: 42, y: 58 });
+  });
+
+  it("falls back to the normal start if a checkpoint is absent from the chosen level", () => {
+    expect(createInitialRacerState(LEVEL, 3, "missing")).toMatchObject({
+      x: 42,
+      y: 58,
+      lastCheckpoint: { x: 42, y: 58 },
+    });
+  });
+
+  it("does not claim ground contact before physics at spawn or checkpoint", () => {
+    expect(createInitialRacerState(LEVEL).onGround).toBe(false);
+    expect(
+      createInitialRacerState({ ...LEVEL, checkpoints: [{ id: "cp", x: 70, y: 90 }] }, 3, "cp")
+        .onGround
+    ).toBe(false);
+  });
+
   it("starts with full lives, alive, not finished", () => {
     const state = createInitialRacerState(LEVEL);
     expect(state.livesRemaining).toBe(LIVES_PER_RUN);

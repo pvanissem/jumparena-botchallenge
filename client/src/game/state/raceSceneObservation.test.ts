@@ -8,6 +8,8 @@ import { tileTypeAt } from "../level/tiles";
 import type { LevelDef } from "../level/types";
 import { MOVEMENT_TUNING, rampedSprintSpeed } from "../movement/movement";
 import { createInitialRacerState } from "../rules/racerState";
+import { compactBotTick } from "../trace/compactBotTick";
+import { validateTraceSample } from "../trace/validateTraceSample";
 import type { WorldSnapshot } from "./worldSnapshot";
 
 vi.mock("phaser", () => ({
@@ -251,6 +253,19 @@ describe("RaceScene live observation", () => {
     expect(s.buildSnapshot().hazards[0].vx).toBe(100);
   });
 
+  it("first tick ignores overlap-only touching from a checkpoint while the body is falling", async () => {
+    const { s, body } = fixture();
+    body.blocked.down = false;
+    body.touching.down = true;
+    body.velocity.y = 15;
+    s.fireBotTick();
+    await s.pendingDecision;
+    const state = vi.mocked(s.controller.getNextActions).mock.calls[0][0].botState;
+    expect(state.onGround).toBe(false);
+    s.applyMovement(0, false, true);
+    expect(body.velocity.y).toBe(15);
+  });
+
   it("synchronizes position/ground before observing and exposes scaled world body", async () => {
     const { s, body } = fixture();
     s.sinceLastBotTick = 33;
@@ -285,7 +300,62 @@ describe("RaceScene worker lifecycle (unit wiring only)", () => {
     return { ...f, worker };
   }
 
-  it("uses the regular 5 ms worker budget and emits only normal status fields", async () => {
+  it.each(["pause", "respawn", "raw"])(
+    "reports command diagnostics without telemetry and clears them on %s",
+    async (reason) => {
+      const { s, worker, onStatusChange } = start();
+      worker.emit({ type: "module-ready" });
+      await s.botRunner?.whenReady();
+      const navigation = {
+        targetId: "ledge",
+        routeId: null,
+        planId: "bonus",
+        phase: "blocked",
+        reason: "gap-ahead",
+        relevantObjectIds: ["ledge"],
+        navigationActions: [],
+      };
+      s.fireBotTick();
+      let request = worker.sentMessages.at(-1);
+      if (request?.type !== "tick") throw Error("expected tick");
+      worker.emit({
+        type: "action",
+        tick: request.tick,
+        stateTick: request.stateTick,
+        epoch: request.epoch,
+        stateFrame: request.stateFrame,
+        actions: [],
+        navigation,
+      });
+      await s.pendingDecision;
+      expect(onStatusChange).toHaveBeenLastCalledWith(expect.objectContaining({ navigation }));
+      s.preparePhysics(0, 16);
+      s.notifyStatus();
+      expect(onStatusChange).toHaveBeenLastCalledWith(expect.objectContaining({ navigation }));
+      if (reason === "pause") worker.onerror?.({ message: "failure" });
+      else if (reason === "respawn") {
+        s.markDamageAndRespawn();
+        s.notifyStatus();
+      } else {
+        s.fireBotTick();
+        request = worker.sentMessages.at(-1);
+        if (request?.type !== "tick") throw Error("expected tick");
+        worker.emit({
+          type: "action",
+          tick: request.tick,
+          stateTick: request.stateTick,
+          epoch: request.epoch,
+          stateFrame: request.stateFrame,
+          actions: ["right"],
+        });
+        await s.pendingDecision;
+      }
+      expect(onStatusChange.mock.calls.at(-1)?.[0].navigation).toBeUndefined();
+      s.controller.dispose();
+    }
+  );
+
+  it("uses the 100 ms watchdog and stops on its first timeout and emits only normal status fields", async () => {
     vi.useFakeTimers();
     const { s, worker, onStatusChange } = start();
     worker.emit({ type: "module-ready" });
@@ -307,7 +377,7 @@ describe("RaceScene worker lifecycle (unit wiring only)", () => {
       consecutiveFailureCount: 0,
     });
     s.fireBotTick();
-    await vi.advanceTimersByTimeAsync(4);
+    await vi.advanceTimersByTimeAsync(99);
     expect(s.botRunner?.consecutiveFailureCount).toBe(0);
     expect(s.pendingDecision).not.toBeNull();
     await vi.advanceTimersByTimeAsync(1);
@@ -316,8 +386,55 @@ describe("RaceScene worker lifecycle (unit wiring only)", () => {
       expect.objectContaining({ consecutiveFailureCount: 1 })
     );
     expect(s.pendingDecision).toBeNull();
+    expect((s as unknown as { lastDecision: unknown }).lastDecision).toBeNull();
     s.controller.dispose();
   });
+
+  it.each([false, true])(
+    "clears held actions on worker failure between decisions, telemetry=%s",
+    async (withTelemetry) => {
+      const { scene, s, worker, body, onStatusChange } = start();
+      if (withTelemetry) {
+        s.controller.dispose();
+        Object.assign(scene, {
+          telemetry: {
+            current: { recordDecision: vi.fn(), recordState: vi.fn(), recordEvent: vi.fn() },
+            finish: vi.fn(),
+          },
+        });
+        s.controller = s.createController();
+      }
+      worker.emit({ type: "module-ready" });
+      await s.botRunner?.whenReady();
+      s.fireBotTick();
+      const request = worker.sentMessages.at(-1);
+      if (request?.type !== "tick") throw Error("expected tick");
+      worker.emit({
+        type: "action",
+        tick: request.tick,
+        stateTick: request.stateTick,
+        epoch: request.epoch,
+        stateFrame: request.stateFrame,
+        actions: ["sprint-right", "jump"],
+      });
+      await s.pendingDecision;
+      expect(s.pendingDecision).toBeNull();
+      s.preparePhysics(0, 16);
+      expect(body.velocity.x).toBeGreaterThan(0);
+      worker.onerror?.({ message: "asynchronous failure" });
+      expect(s.lastBotActions).toEqual([]);
+      expect((scene as unknown as { lastDecision: unknown }).lastDecision).toBeNull();
+      expect(onStatusChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          pausedReasonKind: "worker-error",
+          pausedReason: "asynchronous failure",
+        })
+      );
+      s.preparePhysics(16, 16);
+      expect(body.velocity.x).toBe(0);
+      s.controller.dispose();
+    }
+  );
 
   it("freezes physics, time, frames, hazards and observations until module-ready", async () => {
     const { scene, s, worker, hazards, body } = start();
@@ -758,6 +875,115 @@ describe("Scene input/physics scheduling (mock world, not a physics proof)", () 
 });
 
 describe("RaceScene sprint and external impulses", () => {
+  it.each(["jump", "boingo", "stomp"] as const)(
+    "retains the last actual %s across landing and clears it on respawn",
+    async (kind) => {
+      const { s, body } = fixture();
+      if (kind === "jump") s.applyMovement(1, false, true);
+      else {
+        body.velocity.y = 100;
+        if (kind === "boingo") s.onUtilityOverlap(sprite("spring", 80, 460, "boingo"));
+        else {
+          Object.assign(s, { playVanishEffect: vi.fn() });
+          s.onHazardOverlap(sprite("patrol", 80, 460));
+        }
+      }
+      // The complete impulse and landing can fall between two bot decisions.
+      body.velocity.y = 0;
+      s.elapsedMs = 800;
+      s.fireBotTick();
+      await s.pendingDecision;
+      const first = vi.mocked(s.controller.getNextActions).mock.calls[0][0].botState;
+      expect(first.navigation).toMatchObject({
+        movement: { impulseKind: "none" },
+        lastImpulse: {
+          sequence: 1,
+          kind,
+          atMs: 100,
+          sourceId: kind === "jump" ? null : kind === "boingo" ? "spring" : "patrol",
+        },
+      });
+      s.fireBotTick();
+      await s.pendingDecision;
+      expect(
+        vi.mocked(s.controller.getNextActions).mock.calls[1][0].botState.navigation
+      ).toMatchObject({ lastImpulse: first.navigation?.lastImpulse });
+      s.markDamageAndRespawn();
+      s.fireBotTick();
+      await s.pendingDecision;
+      expect(
+        vi.mocked(s.controller.getNextActions).mock.calls[2][0].botState.navigation
+      ).toMatchObject({ epoch: 1, lastImpulse: null });
+      s.applyMovement(1, false, true);
+      s.fireBotTick();
+      await s.pendingDecision;
+      expect(
+        vi.mocked(s.controller.getNextActions).mock.calls[3][0].botState.navigation
+      ).toMatchObject({ lastImpulse: { sequence: 1, kind: "jump", atMs: 800 } });
+    }
+  );
+
+  it("increments impulse sequence only for actual impulses and isolates earlier observations", async () => {
+    const { s, body } = fixture();
+    s.applyMovement(1, false, true);
+    s.fireBotTick();
+    await s.pendingDecision;
+    const first = vi.mocked(s.controller.getNextActions).mock.calls[0][0].botState;
+    body.blocked.down = false;
+    s.applyMovement(1, false, true);
+    s.onUtilityOverlap(sprite("spring", 80, 460, "boingo"));
+    s.fireBotTick();
+    await s.pendingDecision;
+    expect(
+      vi.mocked(s.controller.getNextActions).mock.calls[1][0].botState.navigation
+    ).toMatchObject({ lastImpulse: { sequence: 1, kind: "jump" } });
+    body.velocity.y = 100;
+    s.elapsedMs = 500;
+    s.onUtilityOverlap(sprite("spring", 80, 460, "boingo"));
+    s.fireBotTick();
+    await s.pendingDecision;
+    expect(
+      vi.mocked(s.controller.getNextActions).mock.calls[2][0].botState.navigation
+    ).toMatchObject({
+      lastImpulse: { sequence: 2, kind: "boingo", atMs: 500, sourceId: "spring" },
+    });
+    expect(first.navigation).toMatchObject({
+      lastImpulse: { sequence: 1, kind: "jump", atMs: 100 },
+    });
+  });
+
+  it.each([
+    { sequence: -1 },
+    { sequence: 1.5 },
+    { kind: "none" },
+    { atMs: Number.NaN },
+    { sourceId: 42 },
+  ])("rejects malformed persistent impulse evidence in traces: %j", async (invalid) => {
+    const { s } = fixture();
+    s.applyMovement(1, false, true);
+    s.fireBotTick();
+    await s.pendingDecision;
+    const state = vi.mocked(s.controller.getNextActions).mock.calls[0][0].botState;
+    const sample = compactBotTick(state);
+    expect(sample.navigation?.lastImpulse).toEqual({
+      sequence: 1,
+      kind: "jump",
+      atMs: 100,
+      sourceId: null,
+    });
+    expect(validateTraceSample(sample, 0, 0)).toBe(true);
+    const impulse = sample.navigation?.lastImpulse;
+    if (!impulse) throw new Error("missing impulse evidence");
+    Object.assign(impulse, invalid);
+    expect(validateTraceSample(sample, 0, 0)).toBe(false);
+    expect(state.navigation?.lastImpulse).toEqual({
+      sequence: 1,
+      kind: "jump",
+      atMs: 100,
+      sourceId: null,
+    });
+  });
+
   it("resets sprint on idle, walking and reversal", () => {
     const { s } = fixture();
     s.applyMovement(1, true, false);

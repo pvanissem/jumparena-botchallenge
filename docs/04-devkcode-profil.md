@@ -4,18 +4,22 @@
 
 Ein Besucher beschreibt in 15-20 Minuten seine Strategie. Der Agent bearbeitet
 genau `client/src/bot/current-bot.js`: eine direkt abgebbare JavaScript-Datei
-mit Metadaten, `apiVersion: 1`, `frameworkVersion: 1` und `decide(state, tools)`.
-Navigation, Sprungphysik und Recovery kommen aus dem Framework, nicht aus einer
-zweiten Besucherdatei. Vor dem Bearbeiten die vorhandene Arbeitsdatei lesen und
+mit Metadaten, `apiVersion: 1`, `frameworkVersion: 2` und `decide(state, tools)`.
+Gepruefte Bewegungshelfer kommen aus dem Framework. Ziele, Boingo-Nutzung und
+eigene Bewegungsregeln darf der Besucher in derselben Bot-Datei bestimmen. Vor dem Bearbeiten die vorhandene Arbeitsdatei lesen und
 bewahren: Ein Update ersetzt sie nicht durch die neue Vorlage. Deshalb nicht
 behaupten, dass gerade die Vorlage laeuft.
 
 1. Botname, Besucher-Anzeigename und Prioritaeten klaeren. Keine vorgeschriebene
    wortgleiche Begruessung. Bei fehlenden Namen bleiben freundliche Platzhalter.
-2. Wunsch kurz bestaetigen und `choose(context, options)` individualisieren:
-   Fruchtwert, Umweg, Risiko, Fortschritt/Zeit, Leben oder Endspurt.
-3. `tools.navigate({ choose })` einmal synchron aufrufen und dessen Actions
-   unveraendert zurueckgeben. Keine konkurrierenden Richtungs-/Sprungreflexe.
+2. Wunsch kurz bestätigen und konkrete Ziel-, Warte-, Sprung- oder Boingo-Regeln
+   in der Bot-Datei individualisieren. Es gibt keinen Autoplaner.
+3. Pro Tick höchstens `tools.run(command)` verwenden und dessen Actions
+   unverändert zurückgeben. `tools.status()` ist vor der Entscheidung aktuell.
+   Gleiche ID/Parameter setzen fort, neue ID ersetzt bewusst den Auftrag.
+   Erfolg/Fehler bleiben bis zu einer neuen ID bestehen. Eigene rohe Actions
+   und `return []` beenden den bisherigen Auftrag. Eigene Closure-Zustände
+   bei Respawn/Epoch-Wechsel zurücksetzen.
 4. Speichern: `/code` laedt automatisch neu. Gemeinsam den Bot laufen lassen
    und vorhandene Versuchstraces unter `client/src/bot/runs/` lesen.
 5. Kurz erklaeren, was beobachtet wurde, und eine zum Wunsch passende Verbesserung
@@ -25,7 +29,7 @@ behaupten, dass gerade die Vorlage laeuft.
    Buildschritt und kein Core-Code im Artefakt.
 
 API: [02-bot-api.md](02-bot-api.md). Vollstaendige Referenzen:
-`examples/strategies/sprinter.js`, `collector.js`, `cautious.js`.
+`examples/strategies/visitor-builder.js`, `sprinter.js`, `collector.js`, `cautious.js`.
 Verbindliches kurzes Besucher-Steering: `client/src/bot/AGENTS.md`.
 
 ## Profilrechte
@@ -75,8 +79,9 @@ bewerten; aus einem Lauf keine allgemeine Leistungssteigerung ableiten.
 
 Vorschau, Upload und Turnier benoetigen denselben Framework-Release.
 Dieser wird vor einer Turnierserie eingefroren; ein Update kann unveraenderte
-Bot-Dateien anders laufen lassen. Die Navigation bleibt im Framework,
-nicht als Bibliothek in der Besucherdatei.
+Bot-Dateien anders laufen lassen. Die Bewegungshelfer bleiben im Framework; die Strategie gehört in die Besucherdatei.
+Framework-v1-Bots müssen gezielt migriert oder neu erzeugt werden. Reine Action-Bots
+ohne Framework-Version bleiben nutzbar.
 
 Nur der Betreiber fuehrt zwischen Sessions explizit `npm run reset-bot` aus,
 nachdem die fertige Bot-Datei gesichert wurde. Das kopiert die Vorlage bytegenau
@@ -87,3 +92,17 @@ Kein Start, Update oder Vorschau-Lauf ersetzt vorhandenen Besuchercode automatis
 
 Unit-/Contract-/Runtime-Tests beweisen keine echte Browserphysik oder Standlast.
 Nicht ausgefuehrte Browser-, Last- oder Rechtepruefungen ausdruecklich offenlassen.
+
+
+## Geprüfter Einstieg für Level 1
+
+Die Startvorlage und `examples/strategies/messe-demo.js` enthalten eine offene
+Beispielroute für Level 1. Sie wurde in vollständigen `/dev`-Läufen bis zum Ziel
+geprüft. Ziele, Tempo, Sprunghalten und Wartepunkte stehen direkt in der Datei;
+Checkpoint-Markierungen bleiben beim Einfügen zusätzlicher Schritte erhalten.
+Andere Beispiele zeigen alternative Regeln, haben aber nicht denselben
+Voll-Lauf-Nachweis. Die Framework-Helfer wählen keine Route.
+
+In `/dev` zeigt die Toolbar den aktuellen Auftrag und dessen Grund. Mit
+„Startpunkt“ lässt sich eine schwierige Stelle ab einem bestehenden Checkpoint
+in frischer Welt wiederholen; „Neu“ startet denselben ausgewählten Abschnitt.

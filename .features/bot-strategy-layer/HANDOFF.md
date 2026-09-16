@@ -1,4 +1,54 @@
+# Aktueller Stand: v2-Werkzeugkasten und vollständiger /dev-Lauf
+
+Die Abschnitte darunter sind historische Übergaben. Aktuell gilt
+[abnahme-v2.md](abnahme-v2.md): run/status mit walk/jump/boingo,
+alter Planner entfernt, Framework-Version 2. Level 1 wurde in vollständigen
+echten /dev-Läufen mehrfach abgeschlossen, zuletzt 44,850 s ohne Respawn.
+Startvorlage und current-bot sind die offene Level-1-Beispielroute.
+1.171 Tests + Workspace-Build grün. Nutzer verlangt autonome Arbeit,
+keine Freigabeschleifen und den Fokus auf /dev statt Turniertests.
+
 # Uebergabe: Zwischenstand, nicht als messereif abgenommen
+
+## Fortsetzung 2026-09-16
+
+Der Nutzer hat die Übernahme der Stash-Erfahrungen in die Framework-Navigation
+und den Umbau der lokalen `current-bot.js` ausdrücklich beauftragt. Der folgende
+alte Stopp beschreibt die vorherige Übergabe, nicht diesen neuen Auftrag.
+Aktueller Änderungsumfang, Testnachweise und verbleibende Live-Probleme stehen
+im Abschnitt „Fortsetzung am 2026-09-16“ von `bugfix.md`. Weiterhin keine
+Leveländerung und keine zusätzliche Testplattform. Noch nicht messereif.
+
+## Besucher-Manöver: implementierte Fortsetzung
+
+Nach „ja bitte mach es besser“ sind eigene Manöver additiv verfügbar:
+`tools.move`, `continue`, `status`, `cancel`; `navigate` bleibt optional.
+`move` akzeptiert eine sichtbare Plattform, absolutes Landeziel und optional
+Boingo/Sprung/Sprint/Sprungdauer. Ablehnungen liefern einen Grund und keine
+Ersatzroute. Rohe Actions übernehmen die Kontrolle und löschen den alten Plan.
+Der Besucher-Agent darf diese Entscheidungen in `current-bot.js` ändern;
+Steering und API-Doku sind entsprechend korrigiert.
+
+`examples/strategies/visitor-builder.js` ist das neue editierbare Beispiel und
+liegt auch in der lokalen, ignorierten `current-bot.js` (Messe-Werkstatt).
+Die frühere Besucherdatei bleibt unter
+`/private/tmp/coin-quest-current-bot-before-messe-mix-20260916.js` gesichert.
+Stash und Remote bleiben unverändert; Änderungen sind noch nicht committet.
+
+Verifikation: 1.239 Tests in 143 Dateien erfolgreich, Workspace-Build erfolgreich,
+`git diff --check` sauber. Unabhängiges Review fand einen zwischen zwei
+Beobachtungen vollständig abgeschlossenen kurzen Sprung; Regression zuerst rot,
+danach Fix und komplette Prüfung grün. Boingo-Zielwahl und geänderte Auswahl nur
+über Besucher-Code sind durch den echten Worker/Navigator getestet, ebenso
+Raw-Action-Übernahme, Abbruch, Tick-Budget und Respawn.
+
+Live: `/code` lädt Revision `bot-c19a9fb8`, ohne technische Botfehler in den
+geprüften Traces. Lauf `2026-09-16T07:40:05.494Z` wartete zunächst längere Zeit
+auf einer kleinen Plattform, kam dann weiter und starb nach rund 47 s am
+Kugelblitz bei x≈1027 (58 Fruchtpunkte). Andere aktuelle Läufe kamen bis hinter
+x=3500 und starben an Gegnern. Kein Nachweis einer zuverlässigen Zielankunft
+oder allgemeinen Leistungssteigerung. Die belegte Verbesserung ist der nun
+wirksame Eingriff aus der Besucherdatei, nicht ein fertig gelöstes Level.
 
 ## Nutzerauftrag und Grenzen
 

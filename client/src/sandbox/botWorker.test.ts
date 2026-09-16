@@ -1,4 +1,4 @@
-import { createNavigator } from "@arena/bot-navigation";
+import { createMovementController } from "@arena/bot-navigation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { navigation, sampleState } from "./testUtils/sampleState";
 import type { HostToWorkerMessage } from "./workerLike";
@@ -9,10 +9,10 @@ vi.mock("./botWorkerRuntime", () => ({
 }));
 
 describe("worker entry point", () => {
-  it("injects the real navigator into the production runtime", async () => {
+  it("injects the real movement controller into the production runtime", async () => {
     vi.stubGlobal("self", {});
     await import("./botWorker");
-    expect(factory).toHaveBeenLastCalledWith(createNavigator);
+    expect(factory).toHaveBeenLastCalledWith(createMovementController);
   });
   afterEach(() => {
     vi.unstubAllGlobals();

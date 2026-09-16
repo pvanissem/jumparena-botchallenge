@@ -53,7 +53,13 @@ import type { NavigationObservation, WorldRect, WorldSnapshot } from "../state/w
 import { BotRunRecorder } from "../trace/BotRunRecorder";
 import { botRevisionForSource } from "../trace/botTraceIdentity";
 import { RunTelemetryLifecycle } from "../trace/runLifecycle";
-import type { BotRunTrace, RacerSummaryInput, RunResult, TraceEventInput } from "../trace/types";
+import type {
+  BotRunTrace,
+  NavigationDiagnostic,
+  RacerSummaryInput,
+  RunResult,
+  TraceEventInput,
+} from "../trace/types";
 import { type BuiltWorld, buildWorld, WORLD_DEPTH } from "../world/worldBuilder";
 
 const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
@@ -77,12 +83,15 @@ export interface RaceSceneInitData {
    *  beim Ausprobieren nicht durch "keine Leben mehr"/DNF vorzeitig stoppt -
    *  im späteren Turniermodus bleibt der reguläre Wert relevant. */
   startingLives?: number;
+  /** Optionaler Prüfstart an einem bestehenden Checkpoint in einer frischen Welt. */
+  startCheckpointId?: string;
   onStatusChange?: (status: {
     racer: RacerRuntimeState;
     pausedReason: string | null;
     pausedReasonKind: BotRunnerPauseReasonKind | null;
     lastRuntimeError: string | null;
     consecutiveFailureCount: number;
+    navigation?: NavigationDiagnostic;
   }) => void;
   /** Wird einmalig am Ende von `create()` aufgerufen - erlaubt Aufrufern
    *  (z.B. `ArenaView`), erst danach sicher `setControllerMode(...)`
@@ -130,11 +139,13 @@ export class RaceScene extends Phaser.Scene {
   /** Zuletzt vom Bot gelieferte Actions – werden jeden Frame erneut angewendet,
    *  bis der nächste Bot-Tick neue liefert (nicht-blockierend). */
   private lastBotActions: Action[] = [];
+  private lastNavigationDiagnostic: NavigationDiagnostic | undefined;
   /** Wie lange ununterbrochen in dieselbe Richtung gesprintet wurde (siehe
    *  `movement/movement.ts#rampedSprintSpeed`) – 0, solange nicht gesprintet
    *  wird. */
   private sprintHoldMs = 0;
   private sprintDirection: -1 | 0 | 1 = 0;
+  private lastImpulse: NavigationObservation["lastImpulse"] = null;
   private impulse: NavigationObservation["movement"] = {
     jumpStartedAtMs: null,
     impulseKind: "none",
@@ -184,7 +195,11 @@ export class RaceScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.racer = createInitialRacerState(this.level, this.initData.startingLives);
+    this.racer = createInitialRacerState(
+      this.level,
+      this.initData.startingLives,
+      this.initData.startCheckpointId
+    );
     this.elapsedMs = 0;
     this.sinceLastBotTick = 0;
     this.tickCounter = 0;
@@ -291,6 +306,7 @@ export class RaceScene extends Phaser.Scene {
     this.events.on("preupdate", this.preparePhysics, this);
     this.events.on("postupdate", this.observeAndAct, this);
     this.events.once("shutdown", this.shutdown, this);
+    this.events.once("destroy", this.shutdown, this);
     this.initData.onReady?.();
   }
 
@@ -316,22 +332,25 @@ export class RaceScene extends Phaser.Scene {
       this.awaitingBotPhysics = true;
       this.physics.world.pause();
       this.botRunner = new BotRunner(createBrowserWorker(), {
-        observer: this.telemetry
-          ? {
-              onDecision: (result) => {
-                if (this.pendingState?.generation !== this.generation) return;
-                this.telemetry?.current?.recordDecision({
-                  ...result,
-                  tick: this.pendingState.tick,
-                });
-              },
-              onPaused: (reason, message) => {
-                if (reason === "disposed") return;
-                this.recordTraceEvent("bot-paused", { reason, message });
-                this.finishTrace("bot-paused", reason);
-              },
-            }
-          : undefined,
+        observer: {
+          onDecision: (result) => {
+            if (this.pendingState?.generation !== this.generation) return;
+            this.lastNavigationDiagnostic = result.kind === "ok" ? result.navigation : undefined;
+            this.telemetry?.current?.recordDecision({
+              ...result,
+              tick: this.pendingState.tick,
+            });
+          },
+          onPaused: (reason, message) => {
+            this.lastBotActions = [];
+            this.lastDecision = null;
+            this.lastNavigationDiagnostic = undefined;
+            if (reason === "disposed") return;
+            this.notifyStatus();
+            this.recordTraceEvent("bot-paused", { reason, message });
+            this.finishTrace("bot-paused", reason);
+          },
+        },
       });
       const runner = this.botRunner;
       runner.init(this.initData.botSourceCode);
@@ -563,6 +582,7 @@ export class RaceScene extends Phaser.Scene {
         physicsStepMs: 1000 / this.physics.world.fps,
         body: this.bodyBounds(body),
         movement: { ...this.impulse, jumpStartedAtMs: this.jumpStartMs },
+        lastImpulse: this.lastImpulse ? { ...this.lastImpulse } : null,
       },
     });
     this.telemetry?.current?.recordState(botState);
@@ -577,7 +597,12 @@ export class RaceScene extends Phaser.Scene {
     this.pendingState = { tick: botState.tick, generation };
     const pending = Promise.resolve(this.controller.getNextActions({ botState }))
       .then((actions) => {
-        if (generation !== this.generation || isRacerTerminal(this.racer)) return;
+        if (
+          generation !== this.generation ||
+          isRacerTerminal(this.racer) ||
+          this.botRunner?.status === "paused"
+        )
+          return;
         this.lastBotActions = actions;
         this.lastDecision = {
           stateTick: botState.tick,
@@ -598,10 +623,12 @@ export class RaceScene extends Phaser.Scene {
   private invalidateObservation(): void {
     this.generation += 1;
     this.epoch += 1;
+    this.lastImpulse = null;
     this.previousHazardPositions.clear();
     this.previousHazardTickElapsedMs = null;
     this.lastBotActions = [];
     this.lastDecision = null;
+    this.lastNavigationDiagnostic = undefined;
     this.sprintHoldMs = 0;
     this.sprintDirection = 0;
     this.jumpStartMs = null;
@@ -828,7 +855,7 @@ export class RaceScene extends Phaser.Scene {
       body.velocity.y < 0
     )
       return;
-    const onGround = body.blocked.down || body.touching.down;
+    const onGround = body.blocked.down;
     this.racer = { ...this.racer, onGround };
 
     if (onGround && this.jumpStartMs !== null) {
@@ -843,6 +870,12 @@ export class RaceScene extends Phaser.Scene {
         jumpStartedAtMs: this.elapsedMs,
         impulseKind: "jump",
         impulseAtMs: this.elapsedMs,
+        sourceId: null,
+      };
+      this.lastImpulse = {
+        sequence: (this.lastImpulse?.sequence ?? 0) + 1,
+        kind: "jump",
+        atMs: this.elapsedMs,
         sourceId: null,
       };
       this.playSfx(AUDIO_KEYS.JUMP);
@@ -862,7 +895,7 @@ export class RaceScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const vx = body.velocity.x;
     const vy = body.velocity.y;
-    const onGround = body.blocked.down || body.touching.down;
+    const onGround = body.blocked.down;
 
     this.player.setFlipX(this.racer.facing === "left");
 
@@ -886,7 +919,9 @@ export class RaceScene extends Phaser.Scene {
       ...this.racer,
       x: this.player.x,
       y: this.player.y,
-      onGround: body.blocked.down || body.touching.down,
+      // Overlap-only contacts (e.g. checkpoint flags) also set touching.down.
+      // All supporting level colliders are static; only blocked.down proves support.
+      onGround: body.blocked.down,
     };
     if (this.racer.onGround && body.velocity.y >= 0) {
       this.jumpStartMs = null;
@@ -991,6 +1026,12 @@ export class RaceScene extends Phaser.Scene {
       impulseAtMs: this.elapsedMs,
       sourceId: utility.getData("id") as string,
     };
+    this.lastImpulse = {
+      sequence: (this.lastImpulse?.sequence ?? 0) + 1,
+      kind: "boingo",
+      atMs: this.elapsedMs,
+      sourceId: utility.getData("id") as string,
+    };
     this.playSfx(AUDIO_KEYS.BOINGO);
 
     const kind = utility.getData("kind") as UtilityKind;
@@ -1022,6 +1063,12 @@ export class RaceScene extends Phaser.Scene {
         jumpStartedAtMs: null,
         impulseKind: "stomp",
         impulseAtMs: this.elapsedMs,
+        sourceId: id,
+      };
+      this.lastImpulse = {
+        sequence: (this.lastImpulse?.sequence ?? 0) + 1,
+        kind: "stomp",
+        atMs: this.elapsedMs,
         sourceId: id,
       };
       this.playVanishEffect(hazard.x, hazard.y);
@@ -1075,6 +1122,7 @@ export class RaceScene extends Phaser.Scene {
       pausedReasonKind: normalStop ? null : (runner?.pausedReasonKind ?? null),
       lastRuntimeError: runner?.lastRuntimeError ?? null,
       consecutiveFailureCount: runner?.consecutiveFailureCount ?? 0,
+      ...(this.lastNavigationDiagnostic ? { navigation: this.lastNavigationDiagnostic } : {}),
     });
   }
 
@@ -1105,6 +1153,8 @@ export class RaceScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.events.off("shutdown", this.shutdown, this);
+    this.events.off("destroy", this.shutdown, this);
     this.botReady = false;
     this.events.off("preupdate", this.preparePhysics, this);
     this.events.off("postupdate", this.observeAndAct, this);

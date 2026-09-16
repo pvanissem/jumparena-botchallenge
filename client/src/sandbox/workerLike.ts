@@ -48,5 +48,5 @@ export type WorkerToHostMessage =
       author?: string;
       color?: string;
       /** Optional declaration from the validated module, absent for legacy bots. */
-      frameworkVersion?: 1;
+      frameworkVersion?: 2;
     };

@@ -173,37 +173,56 @@ describe("BotRunner.tick", () => {
     });
   });
 
-  it("reports runtime errors and timeouts without changing their idle result", async () => {
-    vi.useFakeTimers();
-    try {
-      const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
-      const observedRunner = new BotRunner(worker, { observer });
-      observedRunner.init(VALID_CODE);
-      worker.emit({ type: "module-ready" });
-      const errorPromise = observedRunner.tick(SAMPLE_STATE);
-      worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
-      await expect(errorPromise).resolves.toEqual([]);
-      const timeoutPromise = observedRunner.tick(SAMPLE_STATE);
-      await vi.advanceTimersByTimeAsync(10);
-      await expect(timeoutPromise).resolves.toEqual([]);
+  it.each(["runtime-error", "timeout"])(
+    "reports and permanently stops on the first %s",
+    async (kind) => {
+      vi.useFakeTimers();
+      try {
+        const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
+        const observedRunner = new BotRunner(worker, { observer });
+        observedRunner.init(VALID_CODE);
+        worker.emit({ type: "module-ready" });
+        const success = observedRunner.tick(SAMPLE_STATE);
+        worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["right", "jump"] });
+        await expect(success).resolves.toEqual(["right", "jump"]);
+        observer.onDecision.mockClear();
 
-      expect(observer.onDecision).toHaveBeenNthCalledWith(1, {
-        tick: 0,
-        stateTick: 0,
-        kind: "runtime-error",
-        actions: [],
-        message: "boom",
-      });
-      expect(observer.onDecision).toHaveBeenNthCalledWith(2, {
-        tick: 1,
-        stateTick: 0,
-        kind: "timeout",
-        actions: [],
-      });
-    } finally {
-      vi.useRealTimers();
+        const pending = observedRunner.tick(SAMPLE_STATE);
+        const failedTick = lastSentTick(worker);
+        if (kind === "runtime-error") {
+          worker.emit({ type: "error", tick: failedTick, message: "boom" });
+        } else {
+          await vi.advanceTimersByTimeAsync(100);
+        }
+        await expect(pending).resolves.toEqual([]);
+        expect(observedRunner.status).toBe("paused");
+        expect(observedRunner.consecutiveFailureCount).toBe(1);
+        expect(worker.terminate).toHaveBeenCalledTimes(1);
+        expect(observer.onDecision).toHaveBeenCalledWith({
+          tick: 1,
+          stateTick: 0,
+          stateFrame: undefined,
+          epoch: undefined,
+          kind,
+          actions: [],
+          ...(kind === "runtime-error" ? { message: "boom" } : {}),
+        });
+        expect(observer.onPaused).toHaveBeenCalledTimes(1);
+
+        worker.postMessage.mockClear();
+        worker.emit({ type: "action", tick: failedTick, actions: ["right"] });
+        worker.emit({ type: "module-ready" });
+        await expect(observedRunner.tick(SAMPLE_STATE)).resolves.toEqual([]);
+        expect(worker.postMessage).not.toHaveBeenCalled();
+        expect(observer.onDecision).toHaveBeenCalledTimes(1);
+        expect(observedRunner.lastRuntimeError).toBe(kind === "runtime-error" ? "boom" : null);
+        observedRunner.dispose();
+        expect(worker.terminate).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     }
-  });
+  );
 
   it("filters out invalid actions and keeps the valid ones", async () => {
     const promise = runner.tick(SAMPLE_STATE);
@@ -227,7 +246,7 @@ describe("BotRunner.tick", () => {
     vi.useFakeTimers();
     try {
       const promise = runner.tick(SAMPLE_STATE);
-      await vi.advanceTimersByTimeAsync(10);
+      await vi.advanceTimersByTimeAsync(100);
       await expect(promise).resolves.toEqual([]);
     } finally {
       vi.useRealTimers();
@@ -247,36 +266,7 @@ describe("BotRunner.tick", () => {
     await promise;
 
     expect(runner.lastRuntimeError).toBe("boom");
-    expect(runner.status).toBe("running");
-  });
-
-  it("clears lastRuntimeError after a subsequent successful tick", async () => {
-    const failedPromise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
-    await failedPromise;
-
-    const successPromise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
-    await successPromise;
-
-    expect(runner.lastRuntimeError).toBeNull();
-  });
-
-  it("tracks consecutiveFailureCount and resets it on success", async () => {
-    const first = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
-    await first;
-    const second = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom again" });
-    await second;
-
-    expect(runner.consecutiveFailureCount).toBe(2);
-
-    const successPromise = runner.tick(SAMPLE_STATE);
-    worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
-    await successPromise;
-
-    expect(runner.consecutiveFailureCount).toBe(0);
+    expect(runner.status).toBe("paused");
   });
 
   it("resolves with an empty list (no failure) when all returned actions are invalid", async () => {
@@ -285,94 +275,6 @@ describe("BotRunner.tick", () => {
 
     await expect(promise).resolves.toEqual([]);
     expect(runner.consecutiveFailureCount).toBe(0);
-  });
-
-  it("resets the failure counter after a success between failures", async () => {
-    vi.useFakeTimers();
-    try {
-      // 9 Fehlversuche (unterhalb der Default-Schwelle von 10).
-      for (let i = 0; i < 9; i++) {
-        const promise = runner.tick(SAMPLE_STATE);
-        await vi.advanceTimersByTimeAsync(10);
-        await promise;
-      }
-
-      // Ein Erfolg dazwischen.
-      const successPromise = runner.tick(SAMPLE_STATE);
-      worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["left"] });
-      await successPromise;
-
-      // Erneut mehrere Fehlversuche unterhalb der Schwelle - kein Kill.
-      for (let i = 0; i < 9; i++) {
-        const promise = runner.tick(SAMPLE_STATE);
-        await vi.advanceTimersByTimeAsync(10);
-        await promise;
-      }
-
-      expect(worker.terminate).not.toHaveBeenCalled();
-      expect(runner.status).toBe("running");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("terminates the worker and pauses after maxConsecutiveFailures", async () => {
-    vi.useFakeTimers();
-    try {
-      for (let i = 0; i < 10; i++) {
-        const promise = runner.tick(SAMPLE_STATE);
-        await vi.advanceTimersByTimeAsync(10);
-        await promise;
-      }
-
-      expect(worker.terminate).toHaveBeenCalledTimes(1);
-      expect(runner.status).toBe("paused");
-      expect(runner.pausedReason).toBeTruthy();
-      expect(runner.pausedReasonKind).toBe("too-many-failures");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("returns idle immediately without contacting the worker once paused", async () => {
-    vi.useFakeTimers();
-    try {
-      for (let i = 0; i < 10; i++) {
-        const promise = runner.tick(SAMPLE_STATE);
-        await vi.advanceTimersByTimeAsync(10);
-        await promise;
-      }
-    } finally {
-      vi.useRealTimers();
-    }
-
-    worker.postMessage.mockClear();
-    const actions = await runner.tick(SAMPLE_STATE);
-
-    expect(actions).toEqual([]);
-    expect(worker.postMessage).not.toHaveBeenCalled();
-  });
-
-  it("ignores a late response for an already timed-out tick", async () => {
-    vi.useFakeTimers();
-    try {
-      const firstPromise = runner.tick(SAMPLE_STATE);
-      const firstSentTick = lastSentTick(worker);
-      await vi.advanceTimersByTimeAsync(10);
-      await expect(firstPromise).resolves.toEqual([]);
-
-      const secondPromise = runner.tick(SAMPLE_STATE);
-      const secondSentTick = lastSentTick(worker);
-
-      // Verspätete Antwort auf den ERSTEN (bereits abgeschlossenen) Tick.
-      worker.emit({ type: "action", tick: firstSentTick, actions: ["left"] });
-      // Der zweite, noch offene Tick darf davon nicht beeinflusst werden.
-      worker.emit({ type: "action", tick: secondSentTick, actions: ["right"] });
-
-      await expect(secondPromise).resolves.toEqual(["right"]);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
 

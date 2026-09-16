@@ -26,72 +26,56 @@ Vorlage; behaupte daher nicht, dass gerade der neue Startbot laeuft.
   Betreiberaktion, nicht eigenmaechtig durch den Agenten.
 - Keine Imports, Netzwerk-/Browserzugriffe, dynamische Codeauswertung oder
   fremden Bibliotheken in der Bot-Datei. Der statische Guard prueft auch Kommentare.
-- `apiVersion: 1`, `frameworkVersion: 1`, nichtleere `name`/`author` und ein
+- `apiVersion: 1`, `frameworkVersion: 2`, nichtleere `name`/`author` und ein
   synchrones `decide(state, tools)` bilden den empfohlenen Modulvertrag.
   Maximale Dateigroesse: 200.000 Bytes. Alte Bots ohne Framework-Version bleiben
   Low-Level-Bots; vorhandenen Besuchercode nicht ungefragt ersetzen.
 
-## Strategie statt Motorik
+## Strategie und konkrete Aufträge
 
-```js
-function choose(context, options) {
-  const goals = options.filter((option) => option.target.kind === "goal");
-  goals.sort((a, b) => b.route.goalProgressPx - a.route.goalProgressPx || a.id.localeCompare(b.id));
-  return goals[0]?.id ?? null;
-}
+Der Besucher entscheidet über Ziele, Reihenfolge, Tempo, Risiko und Boingo-Nutzung.
+Die Helfer führen nur konkrete Aufträge aus; es gibt keinen Autoplaner.
+Ein kurzes vollständiges Beispiel ist `examples/strategies/visitor-builder.js`.
 
-export default {
-  apiVersion: 1,
-  frameworkVersion: 1,
-  name: "Mein Bot",
-  author: "Gast",
-  decide(state, tools) {
-    return tools.navigate({ choose });
-  },
-};
-```
+- `tools.run({ id, kind: "walk", x, sprint })`: zu einem absoluten x laufen.
+- `tools.run({ id, kind: "jump", platformId, x, sprint, holdMs })`: gezielt springen.
+- `tools.run({ id, kind: "boingo", utilityId, platformId, x, sprint })`: den
+  gewählten Boingo nutzen und auf der gewählten Plattform landen.
+- Bei Sprung/Boingo ist `x` optional, Standard ist die Plattformmitte.
+  IDs kommen aus dem sichtbaren State. Keine Levelkoordinaten auswendig lernen.
 
-`tools.navigate({ choose })` erzeugt Actions fuer den aktuellen State. Gib sie
-unveraendert zurueck. Genau ein synchroner Aufruf pro `decide`; keine eigenen
-Sprungzaehler, Richtungsreflexe oder gefaelschten Ziel-States daneben.
-Der Worker stellt die Tools bereit, ihr Quellcode gehoert nicht in die Bot-Datei.
+`tools.status()` zeigt `commandId`, `state` (`idle`, `running`, `succeeded`,
+`failed`), `phase` und `reason`. Es wird vor der Botentscheidung aus der aktuellen
+Beobachtung aktualisiert. Genau ein `run` pro Entscheidung; Status darf mehrfach
+gelesen werden. Tools nicht speichern.
 
-`choose(context, options)` wird nur an sicheren Entscheidungspunkten aufgerufen,
-nicht zwingend jeden Tick. Laufende Manoever besitzt das Framework. Eigene
-Bewertungen, Bedingungen und Closure-Zustaende in derselben Datei sind erlaubt.
+Die Bot-Datei hält ihren aktuellen Auftrag selbst. Gleiche ID und Parameter
+setzen ihn fort. Eine neue ID ersetzt den Auftrag, auch im Flug. Geänderte
+Parameter unter der aktuellen ID sind ein Fehler. Erfolg und Fehler bleiben für
+diese ID stehen: Ein bewusster Neuversuch braucht eine neue ID. Nach einem Fehler
+darf der Besucher warten oder eine andere beobachtete Alternative auswählen.
+Ohne `run` oder mit abweichend zurückgegebenen Actions endet der alte Auftrag.
+`return []` ist Warten/Stoppen. Eigene rohe Actions sind ausdrücklich erlaubt.
+Respawn/Epoch-Wechsel setzt die Helfer zurück; eigene Closure-Variablen ebenfalls
+zurücksetzen. Eine neue ID erzeugt keinen zusätzlichen Luftsprung.
 
-| Eingabe | Bedeutung |
-| --- | --- |
-| `context.timeElapsedMs`, `timeRemainingMs` | Laufzeit und Restzeit in ms |
-| `context.livesRemaining` | Aktuelle Leben, nicht fest auf drei programmieren |
-| `context.justRespawned`, `previousTargetId` | Neustart nach Tod, bisheriges Ziel |
-| `option.id` | Diese angebotene ID zurueckgeben, nicht die Ziel- oder Routen-ID |
-| `option.target` | `id`, `kind: "coin" | "goal"`, absolute `position`, `value` |
-| `option.route` | `id`, `estimatedDurationMs`, `detourPx`, `expectedFruitValue`, `goalProgressPx` |
-| `option.route.risk`, `landingMarginPx` | Relative Risikokosten und seitlicher Landepuffer |
-| `option.route.mechanics` | `walk`, `jump`, `drop`, `boingo`, `stomp` |
-| `option.route.scope` | `target-reachable` oder nur `local-progress` |
+Die Helfer garantieren keine sichere Route. `failed` und `reason` erklären
+beispielsweise ein fehlendes Ziel oder eine falsche Landung. Keine Erfolge aus
+berechneten Flugbahnen ableiten. Der letzte tatsächliche Impuls ist in
+`state.navigation.lastImpulse` auch nach der Landung lesbar.
 
-`null` waehlt den Framework-Standard: bekannte Ziel-Fortsetzung mit wenig Risiko
-und Fortschritt. Eine unbekannte ID erzeugt einen Hinweis und denselben Fallback.
-`null` ist kein Veto gegen Bewegung. Beispielsweise kann bei ausschliesslich
-angebotenen Stomp-Routen auch der Fallback einen Stomp waehlen.
-Optionen sind lokale Prognosen, keine Garantie fuer unsichtbares Gelaende.
-`risk` ist keine Sterbewahrscheinlichkeit. Ohne bekannte Fortsetzung kann die
-Navigation `blocked` melden; niemals einen blinden Sprung erzwingen.
+## Individuelle Regeln
 
-## Individuelle Prioritaeten
+- Sprinter: Sprint und direkte Zielbewegung; sichtbare Plattformziele selbst wählen.
+- Sammler: nahe Früchte mit kleiner Höhendifferenz aufsuchen; ab 65 Sekunden oder
+  dem letzten Leben zum Ziel weitergehen.
+- Vorsichtiger: bei einem nahen aktiven Gegner warten und langsamer laufen.
+- Boingo-Wunsch: sichtbaren Boingo und höhere Zielplattform ausdrücklich auswählen.
 
-- Sprinter: Ziel-Fortschritt pro geschaetzter Zeit, keine gezielten Sammelumwege.
-- Sammler: erreichbarer Fruchtwert pro Zusatzzeit, maximal 320 px Umweg;
-  ab 65 s, bei hoechstens 25 s Restzeit oder letztem Leben Ziel-Fortsetzung.
-- Vorsichtiger: geringstes Risiko, dann Landepuffer, dann Fortschritt;
-  im Callback keine geplanten Stomps auswaehlen.
-
-Die Referenzdateien sind komplette abgebbare Bots, keine festen
-Persoenlichkeits-Schalter. Setze mindestens eine echte Auswahlpraeferenz aus dem
-Gespraech um. Verwende beobachtete Optionen statt auswendig gelernter Levelpositionen.
-Fruchtpunkte, Zielzeit und Todesabzuege zaehlen; schnell ist nicht automatisch besser.
+Das sind Beispiele, keine festen Persönlichkeitsschalter. Mindestens eine echte
+Regel aus dem Gespräch umsetzen. Fruchtpunkte, Zielzeit und Todesabzüge zählen;
+schnell ist nicht automatisch besser. Vorhandene v1-Framework-Bots müssen gezielt
+auf v2 migriert werden. Reine Action-Bots bleiben möglich.
 
 ## Ausprobieren und erklaeren
 

@@ -1,6 +1,57 @@
 # Design: Verlaessliche Messe-Bots
 
+## Aktuelle Nutzerkorrektur: vollständiger Einzelbot-Lauf
+
+Der Nutzer verlangt ausdrücklich die Arbeit in `/dev` an einem sinnvoll
+spielenden Bot über das ganze unveränderte Spiel. Turniertests sind dafür
+kein Abnahmekriterium. Isolierte Boingo-Erfolge belegen nur diesen Mechanismus.
+Die offen lesbare Beispielstrategie darf konkret für Level 1 aufgebaut und
+anhand vollständiger Läufe korrigiert werden; Strategie bleibt Besuchercode,
+Bewegungsausführung bleibt im kleinen Framework.
+
+
 ## Status
+
+### Freigegebene Umsetzung v2
+
+Verbindlicher aktueller Entwurf: [neuentwurf.md](neuentwurf.md). Der Nutzer hat
+nach dessen Vorstellung die Umsetzung ausdrücklich autonom beauftragt. Die
+historischen v1-Abschnitte unten beschreiben den abzulösenden Stand.
+`ToolsApi` besteht künftig aus `run(command)` und `status()`; Ausführung in einem
+kleinen zustandsbehafteten Controller innerhalb des vorhandenen Pakets.
+Tests zuerst für Ownership, Beobachtungen und einfache Bewegungen; anschließend
+Worker, Impulse und Vorlage anbinden. Keine neue Infrastruktur/Level/Physik.
+
+
+
+### Umsetzung der freigegebenen Besucher-Manöver
+
+Additiv zu `tools.navigate({ choose })` erhält `ToolsApi`:
+`move(command)`, `continue()`, `status()` und `cancel()`.
+Ein `MovementCommand` enthält `id`, `platformId`, optional absolutes `x`,
+`jump`, `sprint`, `holdMs` und `viaUtilityId`. Ohne x wird die Plattformmitte
+angesteuert. IDs beziehen sich ausschließlich auf sichtbare State-Objekte.
+
+`move` prüft genau diesen Wunsch mit dem bestehenden Predictor (maximal 256
+Schritte). Nur eine nachgewiesene Landung auf der gewünschten Plattform und,
+falls angegeben, Kontakt mit dem gewünschten Boingo erzeugt einen aktiven Plan.
+`index.ts` verwendet dieselbe Ausführung/Sicherheitsprüfung wie automatische
+Pläne. Eigene Manöver werden bei Landung beendet, nicht automatisch ersetzt.
+`status` liefert `busy`, `commandId`, `state` (idle/running/completed/blocked)
+und `reason`; `continue` setzt den aktuellen Plan fort. Ein neues Manöver bei
+laufendem Plan verlangt zuerst `cancel`. Gleiche IDs dürfen laufende identische
+Manöver wiederholen; abgeschlossene IDs werden nicht automatisch neu gestartet.
+
+Worker-Tools bleiben tickgebunden. Höchstens ein Motoraufruf (`navigate`,
+`move`, `continue`) pro Tick; `cancel` ist davor erlaubt. Eigene Actions ohne
+Motoraufruf verwerfen den bisherigen Plan. Epoch-/Respawn-Wechsel setzen
+Status bereits vor dessen Abfrage zurück. Alte API-v1-Bots bleiben unverändert.
+
+Tests: gewünschte Plattform unabhängig von Fortschritt, Boingo-Kontakt,
+Ablehnung unbekannter/unerreichbarer Ziele, Planbesitz/Abbruch/Respawn und
+Worker-Lebensdauer. Beispielbot wählt selbst Plattformen und Trampoline anhand
+Geometrie; Regression zeigt Wirkung reiner Besucher-Codeänderungen. Danach
+Gesamttests/Build und Live-Lauf in vorhandener Vorschau, ohne Erfolgsquote.
 
 Aktuelle Levelvorgabe: Keine Levelaenderungen. `/code` verwendet wieder
 `level-one`; `level-messe` und seine Registry-Eintraege entfallen auf

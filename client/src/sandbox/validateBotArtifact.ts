@@ -3,7 +3,7 @@ import { createBrowserWorker } from "./createBrowserWorker";
 import type { WorkerLike, WorkerToHostMessage } from "./workerLike";
 
 export type BotArtifactValidation =
-  | { valid: true; name: string; author: string; color?: string; frameworkVersion?: 1 }
+  | { valid: true; name: string; author: string; color?: string; frameworkVersion?: 2 }
   | { valid: false; reason: string };
 
 /**

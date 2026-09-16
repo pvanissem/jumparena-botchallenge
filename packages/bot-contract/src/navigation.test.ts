@@ -3,8 +3,6 @@ import type {
   BotModule,
   BotState,
   NavigationObservation,
-  RouteOption,
-  StrategyContext,
   ToolsApi,
   VisibleCoin,
   VisibleHazard,
@@ -74,16 +72,10 @@ describe("additive navigation contract", () => {
     const old: BotModule = { apiVersion: 1, decide: () => [] };
     const bot: BotModule = {
       apiVersion: 1,
-      frameworkVersion: 1,
+      frameworkVersion: 2,
       decide(_state, tools) {
         expectTypeOf(tools).toEqualTypeOf<ToolsApi>();
-        return tools.navigate({
-          choose(context, options) {
-            expectTypeOf(context).toEqualTypeOf<StrategyContext>();
-            expectTypeOf(options).toEqualTypeOf<readonly RouteOption[]>();
-            return options[0]?.id ?? null;
-          },
-        });
+        return tools.run({ id: "walk-1", kind: "walk", x: 150 });
       },
     };
     expect(old.apiVersion).toBe(bot.apiVersion);

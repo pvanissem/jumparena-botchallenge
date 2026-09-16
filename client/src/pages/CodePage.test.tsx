@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArenaViewProps } from "../game/ArenaView";
 import { DEFAULT_LEVEL_ID, LEVEL_REGISTRY } from "../game/level/levelRegistry";
@@ -22,8 +22,8 @@ afterEach(cleanup);
 
 describe("CodePage (/code, Messestand)", () => {
   it("zeigt keine Level-Auswahl", () => {
-    const { container } = render(<CodePage />);
-    expect(container.querySelector(".pixel-select")).toBeNull();
+    render(<CodePage />);
+    expect(screen.queryByRole("combobox", { name: "Level" })).toBeNull();
   });
 
   it("startet Level 1, auch nach Moduswechsel und Neustart", () => {
@@ -55,9 +55,11 @@ describe("DevPage (/dev, Entwickler-Ansicht) bleibt unverändert", () => {
     render(<DevPage />);
     expect(screen.getByTestId("arena-view").dataset.levelId).toBe(DEFAULT_LEVEL_ID);
     expect(DEFAULT_LEVEL_ID).toBe("level-one");
-    const select = screen.getByRole("combobox");
+    const select = screen.getByRole("combobox", { name: "Level" });
     expect(
-      screen.getAllByRole("option").map((option) => (option as HTMLOptionElement).value)
+      within(select)
+        .getAllByRole("option")
+        .map((option) => (option as HTMLOptionElement).value)
     ).toEqual(LEVEL_REGISTRY.map((entry) => entry.id));
     for (const levelId of ["level-two", "toolkit-test", "level-one"]) {
       fireEvent.change(select, { target: { value: levelId } });

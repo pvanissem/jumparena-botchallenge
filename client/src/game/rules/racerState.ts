@@ -43,13 +43,15 @@ export interface RacerRuntimeState {
 
 export function createInitialRacerState(
   level: LevelDef,
-  startingLives: number = LIVES_PER_RUN
+  startingLives: number = LIVES_PER_RUN,
+  startCheckpointId?: string
 ): RacerRuntimeState {
+  const checkpoint = level.checkpoints.find((entry) => entry.id === startCheckpointId);
   return {
-    x: level.spawn.x,
-    y: level.spawn.y,
+    x: checkpoint?.x ?? level.spawn.x,
+    y: checkpoint ? checkpoint.y - 80 : level.spawn.y,
     facing: "right",
-    onGround: true,
+    onGround: false,
     isAlive: true,
     finished: false,
     didNotFinish: false,
@@ -58,7 +60,9 @@ export function createInitialRacerState(
     livesRemaining: startingLives,
     deaths: 0,
     timeElapsedMs: 0,
-    lastCheckpoint: { x: level.spawn.x, y: level.spawn.y },
+    lastCheckpoint: checkpoint
+      ? { x: checkpoint.x, y: checkpoint.y }
+      : { x: level.spawn.x, y: level.spawn.y },
     collectedCoinIds: new Set<string>(),
     resolvedBlockIds: new Set<string>(),
     destroyedHazardIds: new Set<string>(),

@@ -7,11 +7,11 @@
  *
  * Die synchrone Ausfuehrung ist in der reinen botWorkerRuntime unit-getestet.
  */
-import { createNavigator } from "@arena/bot-navigation";
+import { createMovementController } from "@arena/bot-navigation";
 import { createBotWorkerRuntime } from "./botWorkerRuntime";
 import type { HostToWorkerMessage } from "./workerLike";
 
-const runtime = createBotWorkerRuntime(createNavigator);
+const runtime = createBotWorkerRuntime(createMovementController);
 let initializing = false;
 
 async function handleInit(code: string): Promise<void> {

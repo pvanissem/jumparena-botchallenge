@@ -1,4 +1,4 @@
-import type { BotState, VisiblePlatform } from "@arena/bot-contract";
+import type { BotState, NavigationObservation, VisiblePlatform } from "@arena/bot-contract";
 
 export function platform(
   id: string,
@@ -13,7 +13,7 @@ export function platform(
 
 // position deliberately differs from the body origin. All object bounds are
 // relative to position, NOT to navigation.body.
-export function fixture(): BotState {
+export function fixture(): BotState & { navigation: NavigationObservation } {
   return {
     tick: 0,
     position: { x: 0, y: 0 },

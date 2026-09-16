@@ -10,7 +10,7 @@ import { installKeyboardCaptureGuard } from "./input/keyboardCaptureGuard";
 import { createPhysicsConfig } from "./physicsConfig";
 import type { RacerRuntimeState } from "./rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
-import type { BotRunTrace } from "./trace/types";
+import type { BotRunTrace, NavigationDiagnostic } from "./trace/types";
 
 export interface ArenaViewStatus {
   racer: RacerRuntimeState;
@@ -18,6 +18,7 @@ export interface ArenaViewStatus {
   pausedReasonKind: BotRunnerPauseReasonKind | null;
   lastRuntimeError: string | null;
   consecutiveFailureCount: number;
+  navigation?: NavigationDiagnostic;
 }
 
 export interface ArenaViewProps {
@@ -33,6 +34,8 @@ export interface ArenaViewProps {
    *  während des Betriebs nötig - daher bewusst nicht Teil des reaktiven
    *  zweiten Effects unten (analog zu `controlMode` beim Mount). */
   startingLives?: number;
+  /** Bestehender Checkpoint für diesen Neustart; nur beim Mount ausgewertet. */
+  startCheckpointId?: string;
   /** Zeichnet Phasers Arcade-Debug-Overlay (Hitboxen/Velocity-Vektoren). Nur
    *  für die Entwickler-Ansicht `/dev` gedacht; am Messestand (`/code`) soll
    *  die Arena wie ein fertiges Spiel aussehen. Default daher `false`.
@@ -48,6 +51,7 @@ export function ArenaView({
   levelId,
   botSourceCode,
   startingLives,
+  startCheckpointId,
   physicsDebug = false,
   onStatusChange,
   telemetry,
@@ -81,73 +85,97 @@ export function ArenaView({
   // behandelt.
   // biome-ignore lint/correctness/useExhaustiveDependencies: bewusst nur beim Mount ausführen, siehe Kommentar oben
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      width: 800,
-      height: 540,
-      parent: containerRef.current,
-      // Geteilter AudioContext über alle Neu-Mounts hinweg (siehe
-      // `sharedAudioContext.ts`) - verhindert, dass jeder Level-Wechsel/
-      // Neustart einen frischen, erneut zu entsperrenden AudioContext
-      // erzeugt.
-      audio: { context: getSharedAudioContext() },
-      physics: createPhysicsConfig(physicsDebug),
-      // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
-      // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest
-      // übernimmt der Guard oben.
-      input: {
-        keyboard: {
-          capture: [
-            Phaser.Input.Keyboard.KeyCodes.LEFT,
-            Phaser.Input.Keyboard.KeyCodes.RIGHT,
-            Phaser.Input.Keyboard.KeyCodes.UP,
-            Phaser.Input.Keyboard.KeyCodes.DOWN,
-            Phaser.Input.Keyboard.KeyCodes.SPACE,
-            Phaser.Input.Keyboard.KeyCodes.SHIFT,
-          ],
+    let cancelled = false;
+    let ownedGame: Phaser.Game | null = null;
+    // StrictMode replays effects synchronously. Cancel its probe before Phaser
+    // allocates a renderer or starts asynchronous texture/scene loaders.
+    queueMicrotask(() => {
+      if (cancelled || !containerRef.current) return;
+      const game = new Phaser.Game({
+        type: Phaser.AUTO,
+        width: 800,
+        height: 540,
+        parent: containerRef.current,
+        // Geteilter AudioContext über alle Neu-Mounts hinweg (siehe
+        // `sharedAudioContext.ts`) - verhindert, dass jeder Level-Wechsel/
+        // Neustart einen frischen, erneut zu entsperrenden AudioContext
+        // erzeugt.
+        audio: { context: getSharedAudioContext() },
+        physics: createPhysicsConfig(physicsDebug),
+        // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
+        // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest
+        // übernimmt der Guard oben.
+        input: {
+          keyboard: {
+            capture: [
+              Phaser.Input.Keyboard.KeyCodes.LEFT,
+              Phaser.Input.Keyboard.KeyCodes.RIGHT,
+              Phaser.Input.Keyboard.KeyCodes.UP,
+              Phaser.Input.Keyboard.KeyCodes.DOWN,
+              Phaser.Input.Keyboard.KeyCodes.SPACE,
+              Phaser.Input.Keyboard.KeyCodes.SHIFT,
+            ],
+          },
         },
-      },
-      scene: [RaceScene],
+        scene: [RaceScene],
+      });
+      ownedGame = game;
+      gameRef.current = game;
+
+      game.scene.start("RaceScene", {
+        controllerMode: controlMode,
+        levelId,
+        botSourceCode,
+        startingLives,
+        startCheckpointId,
+        onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) => {
+          if (!cancelled) onStatusChangeRef.current?.(status);
+        },
+        telemetry: telemetry
+          ? {
+              ...telemetry,
+              onTrace: (trace) => {
+                if (!cancelled) telemetry.onTrace(trace);
+              },
+            }
+          : undefined,
+        onReady: () => {
+          const readyScene = game.scene.getScene("RaceScene") as RaceScene;
+          if (cancelled) {
+            readyScene.shutdown();
+            game.destroy(true);
+            return;
+          }
+          sceneRef.current = readyScene;
+
+          // Schluckt die Spieltasten auf DOM-Ebene (siehe
+          // `.features/keyboard-input-capture/bugfix.md`). Phasers eigenes
+          // Capture greift bei Modifier-Kombis wie Sprint (Shift + Pfeil) nicht.
+          // Bewusst ERST hier: Der Guard muss nach Phasers KeyboardManager
+          // registriert werden, sonst sieht Phaser die Events als bereits
+          // `defaultPrevented` und ignoriert sie komplett.
+          uninstallKeyboardGuardRef.current?.();
+          uninstallKeyboardGuardRef.current = installKeyboardCaptureGuard();
+
+          if (pendingModeRef.current) {
+            sceneRef.current.setControllerMode(
+              pendingModeRef.current.mode,
+              pendingModeRef.current.botSourceCode
+            );
+            pendingModeRef.current = null;
+          }
+        },
+      } satisfies RaceSceneInitData);
     });
-    gameRef.current = game;
-
-    game.scene.start("RaceScene", {
-      controllerMode: controlMode,
-      levelId,
-      botSourceCode,
-      startingLives,
-      onStatusChange: (status: Parameters<NonNullable<ArenaViewProps["onStatusChange"]>>[0]) =>
-        onStatusChangeRef.current?.(status),
-      telemetry,
-      onReady: () => {
-        sceneRef.current = game.scene.getScene("RaceScene") as RaceScene;
-
-        // Schluckt die Spieltasten auf DOM-Ebene (siehe
-        // `.features/keyboard-input-capture/bugfix.md`). Phasers eigenes
-        // Capture greift bei Modifier-Kombis wie Sprint (Shift + Pfeil) nicht.
-        // Bewusst ERST hier: Der Guard muss nach Phasers KeyboardManager
-        // registriert werden, sonst sieht Phaser die Events als bereits
-        // `defaultPrevented` und ignoriert sie komplett.
-        uninstallKeyboardGuardRef.current?.();
-        uninstallKeyboardGuardRef.current = installKeyboardCaptureGuard();
-
-        if (pendingModeRef.current) {
-          sceneRef.current.setControllerMode(
-            pendingModeRef.current.mode,
-            pendingModeRef.current.botSourceCode
-          );
-          pendingModeRef.current = null;
-        }
-      },
-    } satisfies RaceSceneInitData);
 
     return () => {
+      // Finish the live trace and stop its worker before deferred Game.destroy.
+      sceneRef.current?.shutdown();
+      cancelled = true;
       uninstallKeyboardGuardRef.current?.();
       uninstallKeyboardGuardRef.current = null;
       sceneRef.current = null;
-      game.destroy(true);
+      ownedGame?.destroy(true);
       gameRef.current = null;
     };
   }, []);

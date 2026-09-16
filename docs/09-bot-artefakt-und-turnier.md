@@ -11,18 +11,13 @@ Default-Export:
 ```js
 export default {
   apiVersion: 1,
-  frameworkVersion: 1,
+  frameworkVersion: 2,
   name: "Blitz-Bot",
   author: "Anna",
   color: "#ff5da2",
   decide(state, tools) {
-    return tools.navigate({
-      choose(context, options) {
-        const goals = options.filter((option) => option.target.kind === "goal");
-        goals.sort((a, b) => b.route.goalProgressPx - a.route.goalProgressPx || a.id.localeCompare(b.id));
-        return goals[0]?.id ?? null;
-      },
-    });
+    if (!state.onGround) return [];
+    return tools.run({ id: "erste-strecke", kind: "walk", x: 200 });
   },
 };
 ```
@@ -31,7 +26,7 @@ export default {
   technisch optional, Besucherbots erhalten aber nichtleere Namen.
 - `apiVersion` schützt über einen mehrstündigen Event vor echten Breaking
   Changes: Bots aus Runde 1 laufen auch in Runde 20.
-- `frameworkVersion: 1` fordert die Tools-API aus [02-bot-api.md](02-bot-api.md)
+- `frameworkVersion: 2` fordert die Tools-API aus [02-bot-api.md](02-bot-api.md)
   an. Ohne dieses Feld laufen alte v1-Bots weiter mit `decide(state)` und
   `Action[]` als Rueckgabe. Unbekannte Framework-Versionen werden abgelehnt.
 - Arbeitsdatei, Vorschau und Upload verwenden dieselben unveraenderten
@@ -40,7 +35,8 @@ export default {
 - Die kurze Vorlage `current-bot.template.js` und die kompletten Bots unter
   `examples/strategies/` brauchen keine beigelegte Bibliothek. Navigation gehoert
   zum Betreiber-Framework und wird jedem Tools-Bot separat im Worker bereitgestellt.
-  Alte Beispieldateien bleiben unveraendert; Bestandsbots werden nicht migriert.
+  Reine Action-Bots bleiben kompatibel. Framework-v1-Bots werden ausdrücklich
+  abgelehnt und müssen auf run/status umgestellt werden.
 
 ### Gemeinsamer Framework-Release
 
@@ -109,14 +105,14 @@ Jeder Bot läuft in einem **eigenen Web Worker** (Modul-Worker):
    einen beobachteten `BotState`, der Worker antwortet mit `Action[]`.
    Maximal eine Anfrage ist gleichzeitig offen. State-Tick, Epoche und
    Anwendungsframe werden korreliert; veraltete Antworten werden verworfen.
-4. **Fehlertoleranz**: Laufzeitfehler → `idle` für diesen Tick. Verpasst der
-   Worker zu viele Ticks in Folge (vermutlich Endlosschleife), wird er per
-   `worker.terminate()` **hart beendet** und der Bot pausiert – kein
-   Einfrieren des Stands, kein hartes Disqualifizieren.
+4. **Fehlerstopp**: Beim ersten Laufzeitfehler oder Timeout wird der Worker
+   terminiert, der Bot gestoppt und jede gehaltene Action gelöscht. Ein
+   Neustart erfolgt ausdrücklich über die vorhandene Vorschau.
 
 Der harte Kill ist der Grund, warum echter Fremd-Code zwingend im Worker läuft
 (nicht im Main-Thread): nur so lässt sich eine echte Endlosschleife stoppen.
-Das produktive Roundtrip-Budget betraegt 5 ms. Guard und Worker sind begrenzte
+Der lokale Roundtrip-Watchdog beträgt 100 ms; die Initialisierung hat separat
+2000 ms. Das ist ein Hängerschutz, kein gemessenes Rechenzeitbudget. Guard und Worker sind begrenzte
 Schutzmassnahmen, keine umfassende Isolation beliebigen Fremdcodes.
 
 ## Turniermodus

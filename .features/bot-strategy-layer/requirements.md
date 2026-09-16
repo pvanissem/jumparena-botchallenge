@@ -1,6 +1,64 @@
 # Requirements: Verlaessliche Messe-Bots
 
+> Aktueller Reset-Stand (16.09.2026): Das Besucher-Template liefert ausschließlich `[]` und startet keine Bewegung. Die fertige Level-1-Route liegt separat in `examples/strategies/messe-demo.js`. Dies ersetzt frühere Aussagen zur laufenden Standardvorlage.
+
+## Aktuelle Nutzerkorrektur: vollständiger Einzelbot-Lauf
+
+Der Nutzer verlangt ausdrücklich die Arbeit in `/dev` an einem sinnvoll
+spielenden Bot über das ganze unveränderte Spiel. Turniertests sind dafür
+kein Abnahmekriterium. Isolierte Boingo-Erfolge belegen nur diesen Mechanismus.
+Die offen lesbare Beispielstrategie darf konkret für Level 1 aufgebaut und
+anhand vollständiger Läufe korrigiert werden; Strategie bleibt Besuchercode,
+Bewegungsausführung bleibt im kleinen Framework.
+
+
 ## Status
+
+### Freigegebener Neuentwurf: lokaler Bewegungswerkzeugkasten v2
+
+Der Nutzer hat nach Vorstellung von `neuentwurf.md` ausdrücklich die autonome
+Umsetzung ohne weitere Rückfragen beauftragt. Diese Fortsetzung ersetzt die
+vorherige v1-Navigation als Zielarchitektur. Spiel/Level bleiben erhalten.
+
+- WHEN ein Besucher einen Lauf-, Sprung- oder Boingo-Befehl wählt SHALL DAS SYSTEM
+  ausschließlich diesen Befehl anhand echter Beobachtungen ausführen und Status melden.
+- WHEN ein Befehl endet SHALL DAS SYSTEM Erfolg/Fehler bis zur nächsten Befehls-ID
+  erhalten; keine versteckte Ersatzroute oder automatischer Neustart.
+- WHEN der Bot rohe Actions oder eine neue Befehls-ID liefert SHALL DAS SYSTEM den
+  alten Auftrag abgeben; bei Respawn alle aktiven Bewegungen zurücksetzen.
+- WHEN ein Impuls zwischen Botabfragen stattfindet SHALL DAS SYSTEM seine Quelle
+  und Zeit bis zur folgenden Beobachtung verfügbar halten.
+- WHEN eine Entscheidung 100 ms überschreitet oder einen Laufzeitfehler wirft SHALL
+  DAS SYSTEM den lokalen Bot stoppen, Inputs löschen und späte Antworten verwerfen.
+- WHEN die Umstellung abgeschlossen ist SHALL DAS SYSTEM eine Ein-Datei-Vorlage,
+  kurze API-Doku und unveränderte bestehende Vorschau verwenden; v1-Artefakte
+  verständlich ablehnen, reine Action-Bots weiter ausführen.
+- WHEN Zuverlässigkeit behauptet wird SHALL sie an echten Spielbewegungen geprüft
+  sein; Unit-Tests allein belegen keinen erfolgreichen Messeablauf.
+
+
+
+### Freigegebene Fortsetzung: Besucher steuern eigene Manöver
+
+Am 2026-09-16 hat der Nutzer „Navigation als optionale Hilfe, zugängliche
+Bewegungsbausteine, eigene Ziele/Manöverfolgen in der Bot-Datei“ mit „ja bitte
+mach es besser“ zur Umsetzung beauftragt. Die folgenden Kriterien ersetzen
+die bisherige Beschränkung auf bereits angebotene Routen:
+
+- WHEN der Bot eine sichtbare Plattform und optional ein Boingo wählt SHALL
+  DAS SYSTEM das eigene Manöver unabhängig von automatisch angebotenen Routen
+  prüfen und ausführen können.
+- WHEN ein Manöver läuft SHALL DAS SYSTEM Status, Fortsetzen und bewussten
+  Abbruch anbieten; konkurrierende neue Manöver werden nicht still übernommen.
+- WHEN die Prognose scheitert SHALL DAS SYSTEM einen Ablehnungsgrund liefern
+  und kein anderes Ziel stillschweigend ausführen.
+- WHEN der Bot eigene Actions zurückgibt SHALL DAS SYSTEM das erlauben und
+  den alten Framework-Plan nicht später unbemerkt fortsetzen.
+- WHEN ein Respawn erfolgt SHALL DAS SYSTEM alte Manöver verwerfen.
+- WHEN nur die Bot-Datei verändert wird SHALL DAS SYSTEM die gezielte Auswahl
+  einer anderen Plattform/Boingo-Kombination ermöglichen, ohne Frameworkänderung.
+
+Eine Datei, vorhandenes `/code`, unveränderte Level und Physik bleiben Vorgaben.
 
 Weitere verbindliche Nutzerkorrektur: Levelaenderungen sind nicht im Scope.
 `/code` verwendet wieder das urspruengliche `level-one`; das neu eingefuehrte

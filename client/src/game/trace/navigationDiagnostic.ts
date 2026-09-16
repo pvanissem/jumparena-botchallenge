@@ -1,4 +1,4 @@
-import { ACTIONS, type Action } from "@arena/bot-contract/src/state";
+import { ACTIONS, type Action } from "../../../../packages/bot-contract/src/state";
 import type { NavigationDiagnostic } from "./types";
 
 export const MAX_NAVIGATION_DIAGNOSTIC_BYTES = 2 * 1024;

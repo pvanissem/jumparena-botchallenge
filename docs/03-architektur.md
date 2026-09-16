@@ -7,9 +7,9 @@ current-bot.js (eine unveraenderte Datei)
   -> Vorschau /code / manueller Upload
   -> Guard + Browser-Modul-Worker + Modulvalidierung
   -> module-ready
-  -> decide(state, tools) bei frameworkVersion: 1
-       tools.navigate({ choose }) -> @arena/bot-navigation
-     oder decide(state) fuer alte v1-Bots
+  -> decide(state, tools) bei frameworkVersion: 2
+       tools.run(command) / tools.status() -> @arena/bot-navigation
+     oder decide(state) fuer Bots ohne Framework-Version
   -> Action[] + optionale Navigationsdiagnose
   -> korrelierte Anwendung in folgenden RaceScene-Physikschritten
 ```
@@ -23,8 +23,8 @@ ein Bot-Intervall von etwa 33 ms. Die Spiellogik bleibt vollstaendig im Browser.
 
 | Komponente | Verantwortung |
 | --- | --- |
-| `packages/bot-contract/` | State, Actions, Modulvalidierung, `ToolsApi`, `RouteOption` und Guard |
-| `packages/bot-navigation/` | Reiner lokaler Planner, Bewegungsprognose, Planbesitz und begrenzte Recovery |
+| `packages/bot-contract/` | State, Actions, Modulvalidierung, `ToolsApi`, `ControlCommand`, `ControlStatus` und Guard |
+| `packages/bot-navigation/` | Beobachteter Ablauf für walk/jump/boingo und eindeutiger Befehlsbesitz |
 | `client/src/sandbox/` | Modul-Worker, Ready-Barriere, Timeouts, versionierte Tools je Bot |
 | `client/src/game/state/` | Snapshot realer Bodies/Objekte und additive Navigation-Observation |
 | `client/src/game/scenes/RaceScene.ts` | Gemeinsame Spielregeln fuer Vorschau und Match |
@@ -34,8 +34,9 @@ ein Bot-Intervall von etwa 33 ms. Die Spiellogik bleibt vollstaendig im Browser.
 
 Navigation hat keine Phaser-, DOM- oder Netzwerkabhaengigkeit. Sie wird mit dem
 Framework gebaut und im Worker bereitgestellt, **nicht** in Besucherdateien
-kopiert. `choose` bewertet lokale Ziele/Routen an sicheren Entscheidungsgrenzen;
-die Navigatorinstanz besitzt das laufende Manoever. Der unveraenderte
+kopiert. Der Besuchercode wählt Ziele und Regeln. Der Controller führt jeweils
+einen expliziten Auftrag aus und meldet beobachteten Erfolg oder Fehler. Es gibt
+keinen Planner und keine zweite Physiksimulation. Der unveraenderte
 Low-Level-Action-Vertrag bleibt fuer Bots ohne Framework-Version erhalten.
 Details: [02-bot-api.md](02-bot-api.md).
 
@@ -47,6 +48,8 @@ nicht bei Kollisionscallbacks. Respawn/Controllerwechsel setzen die Historie
 zurueck. Verbleibende Block-Collider und freigelegte Fruechte bleiben sichtbar.
 Die optionale Navigation-Observation beschreibt effektive Body-Geometrie,
 solide/One-Way-Kollision, Epoche, Frame, Physikraster und externe Impulse.
+`lastImpulse` bewahrt den letzten echten Impuls mit Sequenznummer auch nach
+der Landung auf; ein Epoch-Wechsel setzt ihn zurück.
 
 Vor dem ersten Tick wartet die Laufzeit auf `module-ready`: Modul und Tools
 muessen geladen sein, bevor das Tick-Budget gilt.
@@ -54,8 +57,8 @@ Arcade verwendet Fixedstep mit 60 Hz; Botentscheidungen laufen etwa alle 33 ms.
 Es gibt maximal eine ausstehende Workeranfrage. State-Tick, Worker-Request,
 Epoche und tatsaechlicher Anwendungsframe sind unterschiedliche Groessen.
 Spaete/veraltete Antworten werden nicht einer neuen Szene oder Revision
-zugeschrieben. Produktives Roundtrip-Limit: 5 ms, wiederholte Fehler pausieren
-den Bot. Guard und Worker sind keine umfassende Fremdcode-Sicherheitsgarantie.
+zugeschrieben. Lokaler Roundtrip-Watchdog: 100 ms. Der erste Timeout oder Laufzeitfehler
+stoppt den Bot, terminiert den Worker und löscht gehaltene Actions. Guard und Worker sind keine umfassende Fremdcode-Sicherheitsgarantie.
 
 ## Ausprobieren und Feedback
 
