@@ -12,8 +12,9 @@ behaupten, dass gerade die Vorlage laeuft.
 
 1. Botname, Besucher-Anzeigename und Prioritaeten klaeren. Keine vorgeschriebene
    wortgleiche Begruessung. Bei fehlenden Namen bleiben freundliche Platzhalter.
-2. Wunsch kurz bestätigen und konkrete Ziel-, Warte-, Sprung- oder Boingo-Regeln
-   in der Bot-Datei individualisieren. Es gibt keinen Autoplaner.
+2. Wunsch kurz bestätigen und die Bewertung von `tools.options()` in der Bot-Datei
+   individualisieren. Gewichte, Bedingungen und eigene Manöver dürfen verändert werden.
+   Es gibt keine feste Levelroute; die Angebote stammen aus der sichtbaren Umgebung.
 3. Pro Tick höchstens `tools.run(command)` verwenden und dessen Actions
    unverändert zurückgeben. `tools.status()` ist vor der Entscheidung aktuell.
    Gleiche ID/Parameter setzen fort, neue ID ersetzt bewusst den Auftrag.
@@ -29,7 +30,7 @@ behaupten, dass gerade die Vorlage laeuft.
    Buildschritt und kein Core-Code im Artefakt.
 
 API: [02-bot-api.md](02-bot-api.md). Vollstaendige Referenzen:
-`examples/strategies/visitor-builder.js`, `sprinter.js`, `collector.js`, `cautious.js`.
+`examples/strategies/visitor-builder.js`, `sprinter.js`, `collector.js`.
 Verbindliches kurzes Besucher-Steering: `client/src/bot/AGENTS.md`.
 
 ## Profilrechte
@@ -94,14 +95,12 @@ Unit-/Contract-/Runtime-Tests beweisen keine echte Browserphysik oder Standlast.
 Nicht ausgefuehrte Browser-, Last- oder Rechtepruefungen ausdruecklich offenlassen.
 
 
-## Geprüfter Einstieg für Level 1
+## Einstieg und Spielprüfung
 
-Die Startvorlage und `examples/strategies/messe-demo.js` enthalten eine offene
-Beispielroute für Level 1. Sie wurde in vollständigen `/dev`-Läufen bis zum Ziel
-geprüft. Ziele, Tempo, Sprunghalten und Wartepunkte stehen direkt in der Datei;
-Checkpoint-Markierungen bleiben beim Einfügen zusätzlicher Schritte erhalten.
-Andere Beispiele zeigen alternative Regeln, haben aber nicht denselben
-Voll-Lauf-Nachweis. Die Framework-Helfer wählen keine Route.
+Die Startvorlage bleibt ohne Verhalten. `visitor-builder.js` enthält die editierbare
+Bewertung wahrnehmungsbasierter Angebote. Die historische `messe-demo.js`-Route
+ist kein allgemeines Besucherbeispiel. Aktuelle Laufnachweise und Einschränkungen
+stehen in `.features/bot-strategy-layer/environment-navigation.md`.
 
 In `/dev` zeigt die Toolbar den aktuellen Auftrag und dessen Grund. Mit
 „Startpunkt“ lässt sich eine schwierige Stelle ab einem bestehenden Checkpoint

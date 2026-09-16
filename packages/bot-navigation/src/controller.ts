@@ -27,10 +27,16 @@ function valid(c: ControlCommand) {
     typeof c.id !== "string" ||
     !c.id.trim() ||
     c.id.length > 80 ||
-    !["walk", "jump", "boingo"].includes(c.kind)
+    !["walk", "jump", "boingo", "drop"].includes(c.kind)
   )
     return false;
   if (c.sprint !== undefined && typeof c.sprint !== "boolean") return false;
+  if (
+    c.kind === "jump" &&
+    c.runUpMs !== undefined &&
+    (!Number.isFinite(c.runUpMs) || c.runUpMs < 0 || c.runUpMs > 500)
+  )
+    return false;
   if (c.kind === "walk") return Number.isFinite(c.x);
   return (
     typeof c.platformId === "string" &&
@@ -185,7 +191,8 @@ export function createMovementController() {
         return;
       }
       aim = command.x ?? p.x + p.width / 2;
-      if (aim < p.x + b.width / 2 + 8 || aim > p.x + p.width - b.width / 2 - 8) {
+      const edgeMargin = Math.min(8, Math.max(1, (p.width - b.width) / 2));
+      if (aim < p.x + b.width / 2 + edgeMargin || aim > p.x + p.width - b.width / 2 - edgeMargin) {
         fail("target-too-narrow");
         return;
       }
@@ -270,7 +277,16 @@ export function createMovementController() {
     if (motorTick === s.tick) throw Error("run ist pro Tick nur einmal erlaubt");
     motorTick = s.tick;
     if (ownedCommand && ownedCommand.id === command?.id) {
-      const keys = ["id", "kind", "x", "sprint", "platformId", "utilityId", "holdMs"] as const;
+      const keys = [
+        "id",
+        "kind",
+        "x",
+        "sprint",
+        "platformId",
+        "utilityId",
+        "holdMs",
+        "runUpMs",
+      ] as const;
       if (
         keys.some(
           (key) =>
@@ -301,6 +317,10 @@ export function createMovementController() {
       return actions;
     }
     const actions = steer(s, a.aim, c.sprint);
+    if (c.kind === "jump" && !a.airborne && n.observedAtMs - a.startedAt < (c.runUpMs ?? 0)) {
+      result.phase = "approach";
+      return actions;
+    }
     if (
       c.kind === "jump" &&
       a.startedGrounded &&

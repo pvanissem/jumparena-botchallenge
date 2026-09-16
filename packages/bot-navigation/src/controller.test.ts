@@ -260,3 +260,43 @@ describe("observed movement controller", () => {
     expect(outward.status(s).reason).toBe("gap-ahead");
   });
 });
+
+it("accepts the center of a narrow but physically supporting block", () => {
+  const s = fixture(),
+    c = make();
+  s.platforms.push(platform("step", 180, 220, 28));
+  expect(c.run(s, { id: "narrow", kind: "jump", platformId: "step", x: 194 })).toContain("jump");
+});
+
+it("can explicitly run up before launching a jump", () => {
+  const s = fixture(),
+    c = make();
+  const command = {
+    id: "run-up",
+    kind: "jump" as const,
+    platformId: "floor",
+    x: 300,
+    sprint: true,
+    runUpMs: 100,
+  };
+  expect(c.run(s, command)).toEqual(["sprint-right"]);
+  next(s, 110);
+  expect(c.run(s, command)).toContain("jump");
+});
+
+it("executes a drop without a jump and verifies the actual landing", () => {
+  const s = fixture(),
+    c = make();
+  s.platforms.push(platform("lower", 180, 416, 220));
+  const command = { id: "drop", kind: "drop" as const, platformId: "lower", x: 200 };
+  expect(c.run(s, command)).toEqual(["right"]);
+  next(s, 100);
+  air(s);
+  c.status(s);
+  next(s, 500);
+  s.onGround = true;
+  s.velocity.vy = 0;
+  s.navigation.body.x = 188;
+  s.navigation.body.y = 384;
+  expect(c.status(s).state).toBe("succeeded");
+});

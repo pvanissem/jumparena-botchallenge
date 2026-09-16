@@ -106,17 +106,47 @@ type Action = "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right
 type DecideResult = Action[];
 ```
 
+## Wahrnehmungsbasierte Bewegungsangebote
+
+`tools.options()` untersucht ausschließlich den aktuellen sichtbaren State.
+Es liefert lokale Kandidaten für Laufen, Springen, Fallen und Boingo mit:
+
+```ts
+interface MovementOption {
+  command: ControlCommand;
+  progress: number;   // Pixel in Zielrichtung, Rückweg negativ
+  fruitValue: number; // geschätzte Fruchtpunkte auf der Flugbahn
+  durationMs: number; // geschätzte Dauer
+}
+```
+
+Angebote bewegen den Bot nicht. `current-bot.js` bewertet sie anhand frei
+editierbarer Gewichtungen und Regeln und führt die gewählte Bewegung mit run aus.
+Das vollständige Beispiel ist `examples/strategies/visitor-builder.js`; der Agent
+kann darin auch Funktionen ersetzen, eigene Manöver ausführen und Bedingungen ergänzen.
+
+Es gibt keine Levelimporte, festgelegten Routen oder Sonderbehandlung bestimmter
+Objekt-IDs. options prüft lokale Flugbahnen gegen sichtbare Plattformen und Gefahren.
+Bewegliche Gefahren erhalten einen begrenzten Prognosebereich und Abstandspuffer.
+Getaktete Feuer werden bei Sprungplanungen auch während ihrer Ausphase als mögliche
+Gefahr behandelt. Das ist eine konservative Näherung, **keine Sicherheitsgarantie**.
+
+Angebote gelten für den aktuellen Absprungzustand. Sie ersetzen weder globale
+Routenplanung noch Beobachtung des tatsächlichen Laufs. run/status prüfen die echte
+Ausführung. Das leere Template gibt weiterhin ausschließlich [] zurück.
+
 ## Bewegungshelfer, Framework-Version 2
 
-Die Bot-Datei entscheidet über Ziel, Risiko, Boingo-Nutzung und Fortsetzung.
+Bei eigenen Low-Level-Manövern entscheidet die Bot-Datei über Ziel, Risiko, Boingo-Nutzung und Fortsetzung.
 `@arena/bot-navigation` führt nur den gewählten Auftrag aus. Es gibt keinen
 Autoplaner und keine automatisch vorgeschlagenen Ersatzrouten.
 
 ```ts
 type ControlCommand =
+  | { id: string; kind: "drop"; platformId: string; x?: number; sprint?: boolean }
   | { id: string; kind: "walk"; x: number; sprint?: boolean }
   | { id: string; kind: "jump"; platformId: string;
-      x?: number; sprint?: boolean; holdMs?: number }
+      x?: number; sprint?: boolean; holdMs?: number; runUpMs?: number }
   | { id: string; kind: "boingo"; utilityId: string; platformId: string;
       x?: number; sprint?: boolean };
 interface ControlStatus {
@@ -126,6 +156,7 @@ interface ControlStatus {
   reason: string | null;
 }
 interface ControlTools {
+  readonly options: () => MovementOption[];
   readonly run: (command: ControlCommand) => Action[];
   readonly status: () => ControlStatus;
 }
@@ -137,10 +168,14 @@ Plattform- und Utility-IDs stammen aus sichtbaren Objekten. `holdMs` erlaubt
 Experimente mit kürzerem Sprunghalten (0–1200 ms); ohne Angabe hält der Helfer
 den normalen Sprung bis zum Ende des beobachteten Aufstiegs. Die Physikwerte bleiben unverändert.
 
-**`jump` springt sofort ab.** Der Helfer plant keinen Anlauf und prüft weder
-Erreichbarkeit noch Hindernisse auf der Flugbahn. `sprint: true` baut Tempo erst
-während der Bewegung auf. Benötigt ein Sprung Anlauf, muss die Botstrategie
-vorher einen passenden Laufauftrag ausführen. Nähe allein macht eine Plattform
+`drop` läuft gezielt über eine Kante und steuert im Fall zur sichtbaren
+Zielplattform, ohne Sprungimpuls. Der Motor bestätigt die tatsächliche Landung.
+
+**`jump` springt standardmäßig sofort ab.** Optional beschreibt `runUpMs`
+einen kurzen Anlauf (0–500 ms) vor dem Absprung. `tools.options()` kann diesen
+aus der sichtbaren Geometrie ableiten, etwa zum Verlassen einer niedrigen Decke.
+Der Motor selbst plant keine Flugbahn; eigene Aufträge müssen ihre Erreichbarkeit
+selbst berücksichtigen. `sprint: true` baut Tempo erst während der Bewegung auf. Nähe allein macht eine Plattform
 nicht erreichbar. Springen ist auch auf die aktuelle Plattform möglich, etwa
 über ein Hindernis; es braucht dafür keine Lücke.
 
@@ -175,16 +210,6 @@ Impuls-/Landungsbeobachtungen; Landung auf einer anderen Plattform ist ein Fehle
 Boingo steuert nur bis zum tatsächlichen Impuls zum Zwischenziel und danach
 zur gewählten Plattform. Unerreichbare Aufträge dürfen scheitern. Die Helfer
 sind keine Garantie für sichere Flugbahnen oder Gegnerbegegnungen.
-
-Vollständige editierbare Beispiele liegen unter `examples/strategies/`:
-`visitor-builder.js` wählt einen nahen Boingo und eine höhere Plattform,
-`sprinter.js` bevorzugt Tempo, `collector.js` sammelt nahe Früchte bis zum
-Endspurt, `cautious.js` wartet bei einem nahen aktiven Gegner. Diese Regeln sind
-experimenteller Besuchercode und dürfen verändert werden. Sie sind kein Nachweis
-für sichere Flugbahnen oder vollständige Leveldurchläufe. Insbesondere die einfache
-Wartezone im `visitor-builder.js` kann auch bei einem ungefährlichen Nachbarhindernis
-stehen bleiben; stationäre Hindernisse erfordern eine eigene Überquerungsregel.
-Die explizite Route `messe-demo.js` ist separat für Level 1 erprobt. Kein Bot-Build ist erforderlich.
 
 ### Navigation-Observation
 

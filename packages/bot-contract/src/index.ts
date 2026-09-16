@@ -1,6 +1,7 @@
 export type { BotModule, BotModuleValidation } from "./botModule";
 export { SUPPORTED_API_VERSION, SUPPORTED_FRAMEWORK_VERSION, validateBotModule } from "./botModule";
 export type {
+  MovementOption,
   ControlCommand,
   ControlStatus,
   ControlTools,

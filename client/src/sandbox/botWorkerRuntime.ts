@@ -4,6 +4,7 @@ import {
   type ControlCommand,
   type ControlStatus,
   type DecideResult,
+  type MovementOption,
   type ToolsApi,
   validateBotModule,
 } from "@arena/bot-contract";
@@ -15,6 +16,7 @@ export interface WorkerMovementController {
   run(state: BotState, command: ControlCommand): DecideResult;
   status(state: BotState): ControlStatus;
   reset(): void;
+  options?(state: BotState): MovementOption[];
 }
 
 export type MovementControllerFactory = () => WorkerMovementController;
@@ -78,6 +80,11 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
             status: () => {
               assertActive();
               return current.status(state);
+            },
+            options: () => {
+              assertActive();
+              if (!current.options) throw new Error("options ist nicht verfügbar");
+              return current.options(state);
             },
           });
           const decide = bot.decide;

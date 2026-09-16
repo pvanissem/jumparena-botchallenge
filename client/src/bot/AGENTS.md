@@ -31,54 +31,45 @@ Vorlage; behaupte daher nicht, dass gerade der neue Startbot laeuft.
   Maximale Dateigroesse: 200.000 Bytes. Alte Bots ohne Framework-Version bleiben
   Low-Level-Bots; vorhandenen Besuchercode nicht ungefragt ersetzen.
 
-## Strategie und konkrete Aufträge
+## Besucherwunsch in eigene Regeln übersetzen
 
-Der Besucher entscheidet über Ziele, Reihenfolge, Tempo, Risiko und Boingo-Nutzung.
-Die Helfer führen nur konkrete Aufträge aus; es gibt keinen Autoplaner.
-`examples/strategies/visitor-builder.js` zeigt die API-Nutzung, ist aber eine
-experimentelle Heuristik, keine geprüfte Komplettstrategie. Seine Plattformwahl
-und Warteabstände nicht als sichere Navigation übernehmen. `messe-demo.js` ist
-eine explizite, für Level 1 erprobte Route.
+Ein frischer Bot bleibt leer, bis ein Besucher einen Wunsch äußert. Die Basis
+arbeitet ausschließlich mit sichtbaren Plattformen, Gefahren und Utilities.
+Es gibt keine fest eingebaute Levelroute und keine Levelauswahl im Botcode.
 
-- `tools.run({ id, kind: "walk", x, sprint })`: zu einem absoluten x laufen.
-- `tools.run({ id, kind: "jump", platformId, x, sprint, holdMs })`: gezielt springen.
-- `tools.run({ id, kind: "boingo", utilityId, platformId, x, sprint })`: den
-  gewählten Boingo nutzen und auf der gewählten Plattform landen.
-- Bei Sprung/Boingo ist `x` optional, Standard ist die Plattformmitte.
-  IDs kommen aus dem sichtbaren State. Keine Levelkoordinaten auswendig lernen.
+`tools.options()` liefert lokale Bewegungsangebote:
+- `command`: ausführbarer walk-, jump- oder boingo-Auftrag;
+- `progress`: Fortschritt in Zielrichtung in Pixeln (Rückweg negativ);
+- `fruitValue`: geschätzte auf der Flugbahn berührte Fruchtpunkte;
+- `durationMs`: geschätzte Bewegungsdauer.
 
-`tools.status()` zeigt `commandId`, `state` (`idle`, `running`, `succeeded`,
-`failed`), `phase` und `reason`. Es wird vor der Botentscheidung aus der aktuellen
-Beobachtung aktualisiert. Genau ein `run` pro Entscheidung; Status darf mehrfach
-gelesen werden. Tools nicht speichern.
+Das sind geometrisch geprüfte Vorschläge, keine Garantie für sichere Ausführung.
+Insbesondere Bewegung/Phasenwechsel von Gegnern können von der Schätzung abweichen.
+Ein Erfolgsversprechen erfordert einen tatsächlichen Lauf.
 
-Die Bot-Datei hält ihren aktuellen Auftrag selbst. Gleiche ID und Parameter
-setzen ihn fort. Eine neue ID ersetzt den Auftrag, auch im Flug. Geänderte
-Parameter unter der aktuellen ID sind ein Fehler. Erfolg und Fehler bleiben für
-diese ID stehen: Ein bewusster Neuversuch braucht eine neue ID. Nach einem Fehler
-darf der Besucher warten oder eine andere beobachtete Alternative auswählen.
-Ohne `run` oder mit abweichend zurückgegebenen Actions endet der alte Auftrag.
-`return []` ist Warten/Stoppen. Eigene rohe Actions sind ausdrücklich erlaubt.
-Respawn/Epoch-Wechsel setzt die Helfer zurück; eigene Closure-Variablen ebenfalls
-zurücksetzen. Eine neue ID erzeugt keinen zusätzlichen Luftsprung.
+`examples/strategies/visitor-builder.js` ist eine editierbare Basis. Die Bewertung,
+Gewichte, Zusatzregeln, Auftragsfortsetzung und Fehlerbehandlung stehen vollständig
+in der Bot-Datei. Beispiel: nach 30 Sekunden Fruchtgewicht reduzieren; nur Angebote
+mit mindestens einem bestimmten Fruchtwert bevorzugen; gezielt Boingos gewichten.
+Der Agent darf diese Funktionen umschreiben, nicht nur Zahlen ändern.
 
-Die Helfer garantieren keine sichere Route. `failed` und `reason` erklären
-beispielsweise ein fehlendes Ziel oder eine falsche Landung. Keine Erfolge aus
-berechneten Flugbahnen ableiten. Der letzte tatsächliche Impuls ist in
-`state.navigation.lastImpulse` auch nach der Landung lesbar.
+`tools.run(command)` führt die gewählte Bewegung aus, `tools.status()` meldet
+Fortschritt/Erfolg/Fehler. Eigene Aufträge und rohe Actions bleiben erlaubt.
+Pro Entscheidung höchstens ein run; die Rückgabe übernehmen. Optionen allein
+steuern nichts. Bei eigenen Regeln eine eindeutige Steuerquelle behalten und
+den laufenden Auftrag ausdrücklich fortsetzen oder ersetzen.
 
-## Individuelle Regeln
-
-- Sprinter: Sprint und direkte Zielbewegung; sichtbare Plattformziele selbst wählen.
-- Sammler: nahe Früchte mit kleiner Höhendifferenz aufsuchen; ab 65 Sekunden oder
-  dem letzten Leben zum Ziel weitergehen.
-- Vorsichtiger: bei einem nahen aktiven Gegner warten und langsamer laufen.
-- Boingo-Wunsch: sichtbaren Boingo und höhere Zielplattform ausdrücklich auswählen.
-
-Das sind Beispiele, keine festen Persönlichkeitsschalter. Mindestens eine echte
-Regel aus dem Gespräch umsetzen. Fruchtpunkte, Zielzeit und Todesabzüge zählen;
-schnell ist nicht automatisch besser. Vorhandene v1-Framework-Bots müssen gezielt
-auf v2 migriert werden. Reine Action-Bots bleiben möglich.
+- jump springt standardmäßig sofort. Optionales runUpMs (0–500 ms) beschreibt
+  einen kurzen Anlauf; Angebote berechnen ihn bei niedrigen Decken mit.
+  Nach Positionsänderung Angebote neu bewerten.
+- drop verlässt eine Kante ohne Sprungimpuls und prüft die Landung auf platformId.
+- IDs/Parameter eines laufenden Auftrags beibehalten. Für einen Neuversuch neue ID.
+- Eigene Closure-Zustände bei Respawn/Epochwechsel zurücksetzen.
+- [] im Flug ist kein Ausweichmanöver; es beendet die Helferausführung.
+- Fehlschläge nicht dauerhaft als unerreichbare Ziele speichern. Zeitlich begrenzte
+  Sperren verwenden und den reason sowie vorhandene Traces beachten.
+- `examples/experimental/` enthält frühere gescheiterte Heuristiken; nicht kopieren.
+- `messe-demo.js` ist nur eine historische Level-1-Demo, keine allgemeine Botbasis.
 
 ## Ausprobieren und erklaeren
 
@@ -110,15 +101,3 @@ zwei Beobachtungen und einen zum Wunsch passenden Strategievorschlag nennen.
 Technische Gueltigkeit, spielerische Leistung und Strategiewunsch getrennt bewerten.
 Ein einzelner Lauf beweist keine allgemeine Verbesserung. Nicht ausgefuehrte
 Browser-/Lasttests ausdruecklich als offen benennen.
-
-## Häufige Fehler vermeiden
-
-- `jump` springt sofort; nötigen Anlauf vorher selbst als Laufauftrag wählen.
-- Weder Zielnähe noch `sprint: true` garantieren Erreichbarkeit.
-- Ein Sprung über Stacheln darf auf derselben Plattform landen.
-- Gefahren nicht nur bei hoher Geschwindigkeit beachten: Umkehrpunkte bleiben gefährlich.
-- Laufende Aufträge nicht pauschal als sicher behandeln. `[]` im Flug ist kein Ausweichmanöver.
-- Bei Fehlern `reason` auswerten. Nach vorübergehender Gefahr mit neuer ID erneut versuchen;
-  ein stationäres Hindernis erfordert eine andere Bewegung statt endlosem Warten.
-- Kommentare müssen das tatsächlich implementierte Verhalten beschreiben. Nicht
-  „fehlerfrei“ oder „sichere Flugbahn“ versprechen, ohne den Lauf geprüft zu haben.

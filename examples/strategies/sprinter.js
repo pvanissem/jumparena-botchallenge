@@ -1,73 +1,61 @@
-// Besucherregeln: Ziel, Boingo, Tempo und Warteabstand lassen sich hier ändern.
-const preferences = { useBoingo: false, sprint: true, collect: false, hazardDistance: 0 };
+// Eigene Strategie: diese Gewichte und die Bewertung darf der Besucher verändern.
+const weights = { progress: 1, fruit: 0.15, time: 0.15 };
 let command = null;
-let attempted = new Set();
 let epoch = null;
+let failed = new Map();
+let fires = new Map();
 
-function nextCommand(state) {
-  const body = state.navigation.body;
-  const center = body.x + body.width / 2;
-  const feet = body.y + body.height;
-  const direction = Math.sign(state.goalDirection.dx) || 1;
-  const surfaces = state.platforms.map((p) => ({ ...p,
-    x: state.position.x + p.dx, y: state.position.y + p.dy,
-  }));
-  const support = surfaces.find((p) => Math.abs(p.y - feet) < 3 && center >= p.x && center <= p.x + p.width);
-  const nearEdge = state.gapAhead.present && state.gapAhead.distance <= 60;
-  const margin = body.width / 2 + 8;
-  const platforms = surfaces.map((p) => ({ ...p,
-    landingX: Math.max(p.x + margin, Math.min(center, p.x + p.width - margin)),
-  })).filter((p) => p.id && p.width >= body.width + 16 &&
-    (p.landingX - center) * direction > body.width &&
-    Math.abs(p.landingX - center) < 420 && (Math.abs(p.y - feet) > 16 || nearEdge))
-    .sort((a, b) => Math.abs(a.landingX - center) - Math.abs(b.landingX - center) || a.id.localeCompare(b.id));
-  // Erst einen nahen Boingo für eine höhere Landung ausprobieren.
-  if (preferences.useBoingo) {
-    const spring = state.utilities.find((u) => u.id && u.kind === "boingo" && Math.abs(u.dx) < 260);
-    const target = platforms.find((p) => p.y < feet - 60);
-    if (spring && target) {
-      const id = `boingo:${spring.id}:${target.id}`;
-      if (!attempted.has(id)) return { id, kind: "boingo", utilityId: spring.id,
-        platformId: target.id, x: target.landingX, sprint: preferences.sprint };
-    }
-  }
-  // Die Bot-Datei entscheidet selbst, welche sichtbare Plattform sie versucht.
-  for (const target of platforms) {
-    const id = `jump:${target.id}`;
-    if (!attempted.has(id)) return { id, kind: "jump", platformId: target.id, x: target.landingX,
-      sprint: preferences.sprint };
-  }
-  if (preferences.collect && state.timeElapsedMs < 65000 && state.livesRemaining > 1) {
-    const fruit = state.coins.find((c) => c.id && Math.abs(c.dx) < 180 && Math.abs(c.dy) < 40 && !attempted.has(`fruit:${c.id}`));
-    if (fruit) return { id: `fruit:${fruit.id}`, kind: "walk", x: state.position.x + fruit.dx, sprint: false };
-  }
-  const goalId = `goal:${support?.id ?? "ground"}`;
-  if (!attempted.has(goalId)) return { id: goalId, kind: "walk",
-    x: state.position.x + state.goalDirection.dx, sprint: preferences.sprint };
-  return null;
+function score(option) {
+  return weights.progress * option.progress / 400
+    + weights.fruit * option.fruitValue / 30
+    - weights.time * option.durationMs / 1500
+    - (option.command.kind === "walk" ? 0 : 0.12);
 }
-
+function key(c) {
+  return `${c.kind}:${c.platformId ?? ""}:${Math.round(c.x / 20)}:${c.holdMs ?? 0}:${c.runUpMs ?? 0}`;
+}
 export default {
-  apiVersion: 1, frameworkVersion: 2, name: "Sprinter", author: "Gast",
+  apiVersion: 1,
+  frameworkVersion: 2,
+  name: "Sprinter",
+  author: "Gast",
   decide(state, tools) {
     if (!state.navigation) return [];
     if (epoch !== state.navigation.epoch || state.justRespawned) {
-      epoch = state.navigation.epoch;
-      command = null;
-      attempted = new Set();
+      epoch = state.navigation.epoch; command = null; failed = new Map(); fires = new Map();
     }
-    // Warten ist eine eigene Entscheidung; danach beginnt ein neuer Auftrag.
-    const direction = Math.sign(state.goalDirection.dx) || 1;
-    if (preferences.hazardDistance > 0 && state.onGround && state.hazards.some((h) =>
-      h.active && h.dx * direction > 0 && h.dx * direction < preferences.hazardDistance && Math.abs(h.dy) < 50)) {
-      command = null;
-      return [];
+    for (const h of state.hazards) {
+      if (h.kind !== "loderix" || !h.id) continue;
+      const previous = fires.get(h.id);
+      fires.set(h.id, { active: h.active, openedAt: h.active ? null
+        : previous?.active ? state.timeElapsedMs : previous?.openedAt });
     }
     const status = tools.status();
-    if (command && status.state === "running") return tools.run(command);
+    if (command && status.commandId === command.id) {
+      if (status.state === "running") return tools.run(command);
+      if (status.state === "failed") failed.set(key(command), state.timeElapsedMs + 1500);
+    }
+    command = null;
     if (!state.onGround) return [];
-    if (command) attempted.add(command.id);
-    command = nextCommand(state);
+    const choices = tools.options().filter(o => {
+      if ((failed.get(key(o.command)) ?? 0) > state.timeElapsedMs) return false;
+      const center = state.navigation.body.x + state.navigation.body.width / 2;
+      const half = state.navigation.body.width / 2;
+      for (const h of state.hazards) {
+        if (h.kind !== "loderix" || !h.bounds || Math.abs(h.dy) > 45) continue;
+        // Vor getaktetem Feuer warten statt auf einen Rückweg auszuweichen.
+        if (h.dx > 0 && h.dx < 80 && o.progress < 0) return false;
+        if (o.command.kind !== "walk") continue;
+        const left = state.position.x + h.bounds.dx, right = left + h.bounds.width;
+        if (Math.max(center, o.command.x) + half <= left ||
+            Math.min(center, o.command.x) - half >= right) continue;
+        const openedAt = fires.get(h.id)?.openedAt;
+        if (h.active || openedAt == null || state.timeElapsedMs - openedAt > 250) return false;
+      }
+      return true;
+    });
+    choices.sort((a, b) => score(b) - score(a));
+    command = choices[0]?.command ?? null;
     return command ? tools.run(command) : [];
   },
 };

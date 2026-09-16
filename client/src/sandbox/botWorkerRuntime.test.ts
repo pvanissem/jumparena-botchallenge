@@ -50,12 +50,12 @@ describe("worker control tools v2", () => {
     expect(decide.mock.calls).toEqual([[request.state]]);
     expect(factory).not.toHaveBeenCalled();
   });
-  it("updates observations before deciding and exposes only frozen run/status tools", () => {
+  it("updates observations before deciding and exposes frozen run/status/options tools", () => {
     const { runtime, factory, run, status } = setup();
     const decide = vi.fn((_state, tools: ToolsApi) => {
       expect(status).toHaveBeenCalledWith(request.state);
       expect(Object.isFrozen(tools)).toBe(true);
-      expect(Object.keys(tools)).toEqual(["run", "status"]);
+      expect(Object.keys(tools)).toEqual(["run", "status", "options"]);
       expect(tools.status()).toMatchObject({ commandId: "walk-1" });
       return tools.run(command);
     });
@@ -166,5 +166,40 @@ describe("worker control tools v2", () => {
     });
     expect(runtime.tick(request)).toMatchObject({ type: "action", actions: ["left"] });
     expect(controller.status(request.state)).toMatchObject({ commandId: null, state: "idle" });
+  });
+});
+
+it("offers perception-based choices through the real worker", () => {
+  const runtime = createBotWorkerRuntime(createMovementController);
+  runtime.init({
+    apiVersion: 1,
+    frameworkVersion: 2,
+    decide: (_: unknown, tools: ToolsApi) => {
+      const choices = tools.options();
+      return choices.length ? tools.run(choices[0].command) : [];
+    },
+  });
+  const state = {
+    ...sampleState,
+    navigation: { ...navigation },
+    onGround: true,
+    position: { x: 80, y: 480 },
+    platforms: [
+      {
+        id: "any-platform",
+        dx: -80,
+        dy: 20,
+        width: 320,
+        height: 16,
+        kind: "ground" as const,
+        collision: "solid" as const,
+      },
+    ],
+    hazards: [],
+  };
+  state.navigation.body = { x: 68, y: 468, width: 24, height: 32 };
+  expect(runtime.tick({ ...request, state })).toMatchObject({
+    type: "action",
+    actions: ["sprint-right"],
   });
 });
