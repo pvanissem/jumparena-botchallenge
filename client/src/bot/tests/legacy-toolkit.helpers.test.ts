@@ -13,7 +13,7 @@ import {
   surfaceAt,
   ticksUntilEdge,
   wallAhead,
-} from "./current-bot.template.js";
+} from "./legacy-toolkit.fixture.js";
 
 const TUNING = {
   gravity: 900,

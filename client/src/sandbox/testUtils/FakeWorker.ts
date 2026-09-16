@@ -13,6 +13,8 @@ export class FakeWorker implements WorkerLike {
   });
   readonly terminate = vi.fn();
   onmessage: (event: { data: WorkerToHostMessage }) => void = () => {};
+  onerror?: (event: { message: string }) => void;
+  onmessageerror?: (event: unknown) => void;
 
   readonly sentMessages: HostToWorkerMessage[] = [];
 

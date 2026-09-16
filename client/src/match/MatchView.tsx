@@ -2,6 +2,7 @@ import type { MatchDef, MatchProgressMessage, MatchResult } from "@arena/shared"
 import Phaser from "phaser";
 import { useEffect, useRef, useState } from "react";
 import { RacerTileOverlay } from "../components/RacerTileOverlay";
+import { createPhysicsConfig } from "../game/physicsConfig";
 import { MatchBootScene } from "./MatchBootScene";
 import { MatchRunner, type MatchTiles } from "./MatchRunner";
 import { computeTileOverlays } from "./tileOverlays";
@@ -46,13 +47,7 @@ export function MatchView({
       width: container.clientWidth || 960,
       height: container.clientHeight || 540,
       backgroundColor: "#1a1a26",
-      physics: {
-        default: "arcade",
-        arcade: {
-          gravity: { x: 0, y: 900 },
-          debug: false,
-        },
-      },
+      physics: createPhysicsConfig(),
       scene: [MatchBootScene],
     });
 

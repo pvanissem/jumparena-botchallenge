@@ -1,10 +1,9 @@
 /**
  * Setzt die aktive Bot-Arbeitsdatei auf die Standardvorlage zurück (bzw.
- * legt sie erstmalig an) - siehe .features/dev-station-mode/design.md,
- * Abschnitt 1. Triviales Dateisystem-Skript, bewusst ohne Unit-Test
- * (manuelle Verifikation siehe design.md/tasks.md Task 0.4).
+ * legt sie erstmalig an) und entfernt Session-Traces.
+ * Nur explizit zwischen Besuchersessions ausfuehren; Tests nutzen Temp-Fixtures.
  */
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, realpath, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -18,7 +17,7 @@ export async function resetBot(root = join(here, "..")) {
   await mkdir(traceDir, { recursive: true });
 }
 
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (process.argv[1] && pathToFileURL(await realpath(process.argv[1])).href === import.meta.url) {
   await resetBot();
-  console.log("current-bot.js wurde zurückgesetzt und Bot-Traces wurden gelöscht.");
+  console.log("current-bot.js wurde zurückgesetzt; Bot-Traces wurden gelöscht.");
 }

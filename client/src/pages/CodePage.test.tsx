@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArenaViewProps } from "../game/ArenaView";
-import { DEFAULT_LEVEL_ID } from "../game/level/levelRegistry";
+import { DEFAULT_LEVEL_ID, LEVEL_REGISTRY } from "../game/level/levelRegistry";
 import { CodePage } from "./CodePage";
 import { DevPage } from "./DevPage";
 
@@ -26,9 +26,15 @@ describe("CodePage (/code, Messestand)", () => {
     expect(container.querySelector(".pixel-select")).toBeNull();
   });
 
-  it("startet die Arena immer mit Level 1", () => {
+  it("startet Level 1, auch nach Moduswechsel und Neustart", () => {
     render(<CodePage />);
-    expect(screen.getByTestId("arena-view").dataset.levelId).toBe(DEFAULT_LEVEL_ID);
+    expect(screen.getByTestId("arena-view").dataset.levelId).toBe("level-one");
+    fireEvent.click(screen.getByRole("radio", { name: /Selbst/ }));
+    expect(screen.getByTestId("arena-view").dataset.levelId).toBe("level-one");
+    fireEvent.click(screen.getByRole("button", { name: /Neu/ }));
+    expect(screen.getByTestId("arena-view").dataset.levelId).toBe("level-one");
+    fireEvent.click(screen.getByRole("radio", { name: /Bot/ }));
+    expect(screen.getByTestId("arena-view").dataset.levelId).toBe("level-one");
   });
 
   it("deaktiviert das Phaser-Physik-Debug-Overlay", () => {
@@ -45,6 +51,20 @@ describe("CodePage (/code, Messestand)", () => {
 });
 
 describe("DevPage (/dev, Entwickler-Ansicht) bleibt unverändert", () => {
+  it("startet mit Level 1 und bietet die urspruenglichen Level an", () => {
+    render(<DevPage />);
+    expect(screen.getByTestId("arena-view").dataset.levelId).toBe(DEFAULT_LEVEL_ID);
+    expect(DEFAULT_LEVEL_ID).toBe("level-one");
+    const select = screen.getByRole("combobox");
+    expect(
+      screen.getAllByRole("option").map((option) => (option as HTMLOptionElement).value)
+    ).toEqual(LEVEL_REGISTRY.map((entry) => entry.id));
+    for (const levelId of ["level-two", "toolkit-test", "level-one"]) {
+      fireEvent.change(select, { target: { value: levelId } });
+      expect(screen.getByTestId("arena-view").dataset.levelId).toBe(levelId);
+    }
+  });
+
   it("zeigt weiterhin die Level-Auswahl", () => {
     const { container } = render(<DevPage />);
     expect(container.querySelector(".pixel-select")).not.toBeNull();

@@ -25,7 +25,9 @@ describe("buildVisiblePlatforms", () => {
     const level = makeLevel({ platforms: [{ x: 0, y: 160, tilesWide: 4 }] });
     const result = buildVisiblePlatforms(level, new Set(), 32, 100);
 
-    expect(result).toEqual([{ dx: -32, dy: 60, width: 64, height: 16, kind: "ground" }]);
+    expect(result).toMatchObject([
+      { dx: -32, dy: 60, width: 64, height: 16, kind: "ground", collision: "solid" },
+    ]);
   });
 
   it("uses the platform's exact collider top edge (NOT the snapped tile row)", () => {
@@ -108,12 +110,20 @@ describe("buildVisiblePlatforms", () => {
     expect(result[0].dy).toBeCloseTo(-14.4);
   });
 
-  it("excludes an already-resolved hidden coin block", () => {
+  it("retains an already-resolved hidden coin block collider", () => {
     const level = makeLevel({
       hiddenCoinBlocks: [{ id: "b1", x: 100, y: 100, fruit: "kiwi" }],
     });
     const result = buildVisiblePlatforms(level, new Set(["b1"]), 100, 100);
-    expect(result).toEqual([]);
+    expect(result).toMatchObject([{ id: "b1", kind: "block", collision: "solid" }]);
+  });
+
+  it("assigns stable level/index IDs and one-way collision to floats", () => {
+    const level = makeLevel({ platforms: [{ x: 0, y: 100, tilesWide: 4, kind: "float" }] });
+    const first = buildVisiblePlatforms(level, new Set(), 0, 0);
+    const moved = buildVisiblePlatforms(level, new Set(), 20, 0);
+    expect(first[0]).toMatchObject({ id: "level:platform:0", collision: "one-way-up" });
+    expect(moved[0].id).toBe(first[0].id);
   });
 
   it("returns an empty array when nothing is visible", () => {

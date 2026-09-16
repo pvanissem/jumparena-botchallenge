@@ -131,7 +131,7 @@ describe("analyzeBotRun", () => {
     ).toContain("hazard-not-avoided");
   });
 
-  it("reports a jump released before the minimum hold time before death", () => {
+  it("does not infer a premature jump cut from an apex without a known jump start", () => {
     const samples = Array.from({ length: 8 }, (_, tick) => sample(tick, tick * 10));
     samples[4].decision = { tick: 4, kind: "ok", actions: ["jump", "sprint-right"] };
     samples[4].velocity.vy = -500;
@@ -142,6 +142,16 @@ describe("analyzeBotRun", () => {
       analyzeBotRun(samples, [death("pit-fall", 7)], { tickMs: 100, minJumpHoldMs: 180 }).map(
         (f) => f.kind
       )
-    ).toContain("jump-cut-short");
+    ).not.toContain("jump-cut-short");
+  });
+
+  it("does not claim requested movement for an idle bot", () => {
+    const idle = Array.from({ length: 31 }, (_, tick) => ({
+      ...sample(tick, 100),
+      decision: { tick, kind: "ok" as const, actions: [] },
+    }));
+    const finding = analyzeBotRun(idle, [], { tickMs: 100, minJumpHoldMs: 180 })[0];
+    expect(finding.kind).toBe("stuck");
+    expect(finding.message).not.toContain("fordert Bewegung");
   });
 });

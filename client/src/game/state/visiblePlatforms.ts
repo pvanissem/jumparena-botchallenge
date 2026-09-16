@@ -1,7 +1,7 @@
 /**
  * Sichtbare Terrain-Geometrie für den Bot-State (`state.platforms`) – siehe
  * `.features/bot-toolkit/design.md`, US-2. Bildet exakte Rechteck-Geometrie
- * (keine Rasterung) aus `level.platforms` + ungelösten `level.hiddenCoinBlocks`
+ * (keine Rasterung) aus `level.platforms` + verbleibenden `level.hiddenCoinBlocks`
  * ab, gefiltert auf das Sichtrechteck des Bots (siehe `viewport.ts`). Pure
  * Funktion, keine Phaser-Abhängigkeit.
  */
@@ -10,6 +10,12 @@ import { STATIC_IMAGE_KEYS, spriteScale } from "../assets/spriteSheets";
 import { TILE_SIZE } from "../level/tiles";
 import type { HiddenCoinBlockDef, LevelDef, PlatformDef } from "../level/types";
 import { VIEW_HALF_HEIGHT_PX, VIEW_HALF_WIDTH_PX } from "./viewport";
+import type { WorldRect } from "./worldSnapshot";
+
+export type ObservedPlatform = VisiblePlatform & {
+  id: string;
+  collision: "solid" | "one-way-up";
+};
 
 interface Rect {
   x: number;
@@ -20,7 +26,7 @@ interface Rect {
 
 /** Überlappt das Rechteck das um (cx, cy) zentrierte Sichtrechteck?
  *  Klassischer AABB-Test, Berührung an der Kante zählt als sichtbar. */
-function rectIntersectsView(
+export function rectIntersectsView(
   rect: Rect,
   cx: number,
   cy: number,
@@ -66,9 +72,12 @@ function toVisiblePlatform(
   rect: Rect,
   kind: PlatformKind,
   botX: number,
-  botY: number
-): VisiblePlatform {
+  botY: number,
+  id: string
+): ObservedPlatform {
   return {
+    id,
+    collision: kind === "float" ? "one-way-up" : "solid",
     dx: rect.x - botX,
     dy: rect.y - botY,
     width: rect.width,
@@ -79,27 +88,31 @@ function toVisiblePlatform(
 
 export function buildVisiblePlatforms(
   level: LevelDef,
-  resolvedBlockIds: ReadonlySet<string>,
+  _resolvedBlockIds: ReadonlySet<string>,
   botX: number,
   botY: number,
   halfWidth = VIEW_HALF_WIDTH_PX,
-  halfHeight = VIEW_HALF_HEIGHT_PX
-): VisiblePlatform[] {
-  const result: VisiblePlatform[] = [];
+  halfHeight = VIEW_HALF_HEIGHT_PX,
+  levelId = "level",
+  blocks?: readonly { id: string; bounds: WorldRect }[]
+): ObservedPlatform[] {
+  const result: ObservedPlatform[] = [];
 
-  for (const platform of level.platforms) {
+  for (const [index, platform] of level.platforms.entries()) {
     if (platform.tilesWide <= 0) continue;
     const rect = platformRect(platform);
     if (rect.width <= 0 || rect.height <= 0) continue;
     if (!rectIntersectsView(rect, botX, botY, halfWidth, halfHeight)) continue;
-    result.push(toVisiblePlatform(rect, platform.kind ?? "ground", botX, botY));
+    result.push(
+      toVisiblePlatform(rect, platform.kind ?? "ground", botX, botY, `${levelId}:platform:${index}`)
+    );
   }
 
-  for (const block of level.hiddenCoinBlocks) {
-    if (resolvedBlockIds.has(block.id)) continue;
-    const rect = blockRect(block);
+  for (const block of blocks ??
+    level.hiddenCoinBlocks.map((block) => ({ id: block.id, bounds: blockRect(block) }))) {
+    const rect = block.bounds;
     if (!rectIntersectsView(rect, botX, botY, halfWidth, halfHeight)) continue;
-    result.push(toVisiblePlatform(rect, "block", botX, botY));
+    result.push(toVisiblePlatform(rect, "block", botX, botY, block.id));
   }
 
   return result;

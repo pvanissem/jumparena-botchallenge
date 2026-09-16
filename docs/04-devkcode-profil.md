@@ -1,86 +1,89 @@
-# 04 – devkcode-Profil ("Bot-Baumeister")
+# 04 - devkcode-Profil: Bot-Baumeister
 
-Dieses Dokument beschreibt, wie das speziell konfigurierte devkcode-Profil für den
-Messestand funktionieren soll. Es ist die eigentliche "Show"-Komponente des Konzepts.
+## Besucherworkflow
 
-## Ziel des Profils
+Ein Besucher beschreibt in 15-20 Minuten seine Strategie. Der Agent bearbeitet
+genau `client/src/bot/current-bot.js`: eine direkt abgebbare JavaScript-Datei
+mit Metadaten, `apiVersion: 1`, `frameworkVersion: 1` und `decide(state, tools)`.
+Navigation, Sprungphysik und Recovery kommen aus dem Framework, nicht aus einer
+zweiten Besucherdatei. Vor dem Bearbeiten die vorhandene Arbeitsdatei lesen und
+bewahren: Ein Update ersetzt sie nicht durch die neue Vorlage. Deshalb nicht
+behaupten, dass gerade die Vorlage laeuft.
 
-Ein Konferenzbesucher ohne Programmierkenntnisse soll in 15–20 Minuten, rein durch
-natürlichsprachliche Beschreibung seiner Strategie, eine funktionierende `decide(state)`-
-Funktion erhalten, die er anschließend ins Rennen einbringen kann.
+1. Botname, Besucher-Anzeigename und Prioritaeten klaeren. Keine vorgeschriebene
+   wortgleiche Begruessung. Bei fehlenden Namen bleiben freundliche Platzhalter.
+2. Wunsch kurz bestaetigen und `choose(context, options)` individualisieren:
+   Fruchtwert, Umweg, Risiko, Fortschritt/Zeit, Leben oder Endspurt.
+3. `tools.navigate({ choose })` einmal synchron aufrufen und dessen Actions
+   unveraendert zurueckgeben. Keine konkurrierenden Richtungs-/Sprungreflexe.
+4. Speichern: `/code` laedt automatisch neu. Gemeinsam den Bot laufen lassen
+   und vorhandene Versuchstraces unter `client/src/bot/runs/` lesen.
+5. Kurz erklaeren, was beobachtet wurde, und eine zum Wunsch passende Verbesserung
+   vorschlagen. Strategieaenderungen nur mit Zustimmung des Besuchers; keine
+   automatische Optimierung oder Erfolgsversprechen.
+6. Dieselbe Arbeitsdatei unveraendert kopieren/hochladen. Kein Export- oder
+   Buildschritt und kein Core-Code im Artefakt.
 
-## Bausteine des Profils
+API: [02-bot-api.md](02-bot-api.md). Vollstaendige Referenzen:
+`examples/strategies/sprinter.js`, `collector.js`, `cautious.js`.
+Verbindliches kurzes Besucher-Steering: `client/src/bot/AGENTS.md`.
 
-### 1. System-Prompt / Kontext (fest hinterlegt, nicht sichtbar für Nutzer)
-Enthält:
-- Erklärung des Spiels (Mario-artiges Level, Ziel: Coins sammeln + Ziel erreichen).
-- Die **vollständige Bot-API-Spezifikation** (siehe [02-bot-api.md](02-bot-api.md)) inkl.
-  `BotState`-Interface, erlaubte Actions, Regeln/Grenzen.
-- Klare Anweisung: **Nur** die Datei mit der `decide`-Funktion erzeugen/bearbeiten, keine
-  anderen Dateien, keine externen Bibliotheken, kein `import`.
-- Stil-Vorgabe: Code soll einfach, lesbar und gut kommentiert sein (auch wenn der Nutzer ihn
-  nicht liest – hilft für Transparenz/Nachvollziehbarkeit am Stand, z.B. auf einem Zweitbildschirm).
-- Ton/Interaktionsstil: Freundlich, in einfacher Sprache, aktiv nachfragend ("Was soll dein
-  Bot tun, wenn ein Gegner in der Nähe ist?").
+## Profilrechte
 
-### 2. Geführter Gesprächsablauf (Vorschlag)
-1. Begrüßung + kurze Erklärung des Spiels.
-2. Frage nach der Grundstrategie ("Wie soll dein Bot sich verhalten?").
-3. Ggf. 1–2 Rückfragen zu Details (Verhalten bei Gefahr, Prioritäten: Sicherheit vs.
-   Geschwindigkeit vs. Vollständigkeit beim Münzensammeln).
-4. Generierung der `decide`-Funktion.
-5. Kurze, laienverständliche Zusammenfassung, was der generierte Bot tut ("Dein Bot rennt
-   immer Richtung Ziel, sammelt Münzen die er auf dem Weg sieht, und springt über Gefahren").
-6. Export/Speichern der Datei (Dateiname z.B. `bot-<teilnehmername>.js`).
-7. Ein Testlauf erzeugt pro Versuch (Start/Respawn bis Tod, Ziel oder Abbruch)
-   eine zeitgestempelte JSON-Datei unter `client/src/bot/runs/`. Der Agent liest
-   die neuesten Runs, nennt höchstens zwei Beobachtungen und schlägt genau eine
-   Änderung vor. Umsetzung erst nach Zustimmung des Besuchers; danach höchstens
-   ein kurzer Kontrolllauf.
+Arbeitsverzeichnis der Besuchersession ist `client/src/bot/`. Der Betreiber
+muss die folgenden Rechte im tatsaechlich verwendeten externen devkcode-Profil
+bereitstellen und pruefen. **Dieses Repository behauptet keine bereits
+installierte externe Profilkonfiguration.**
 
-### 3. Zeitbudget-Steuerung
-- Bei 15–20 Minuten pro Teilnehmer muss der Ablauf straff geführt werden – das Profil sollte
-  nicht endlos viele Rückfragen stellen, sondern nach 2–3 Interaktionsrunden auf Generierung
-  drängen ("Ich habe genug Infos, ich baue jetzt deinen Bot").
+| Bereich | Benoetigte Rechte |
+| --- | --- |
+| `client/src/bot/current-bot.js` | Lesen und Schreiben |
+| lokales Steering, API-Dokumentation, `examples/strategies/` | Nur Lesen |
+| `client/src/bot/runs/` | Nur Lesen |
+| Navigation, Framework, Server, Buildskripte, Steering | Keine Schreibrechte |
 
-### 4. Fehlertoleranz
-- Falls der generierte Code fehlerhaft ist (Syntaxfehler o.ä.), muss ein Validierungsschritt
-  vor dem "fertig"-Zustand erfolgen (z.B. Testausführung der Funktion mit einem Beispiel-State
-  in einer Sandbox, bevor die Datei final exportiert wird).
+Profilrechte sind Betreiberarbeit. Die bestehende Vorschau mit ihrer lokalen
+Trace-Persistenz, nicht der Besucher-Agent, schreibt die Versuchstraces.
+Fuer den Besucherworkflow gelten keine neuen Feature-Specs pro Botstrategie;
+Framework-/Repository-Aenderungen folgen weiterhin Root-Spec-Gate und TDD.
 
-### 5. Lauf-Telemetrie
+## Bestehende Vorschau
 
-Die Telemetrie ist ausschließlich im Bot-Modus von `/dev` aktiv. Jeder Tod
-schließt den aktuellen Versuch ab und schreibt genau eine neue Timestamp-Datei;
-der Respawn beginnt einen neuen Versuch. Arena-Ereignisse sind Fakten,
-heuristische `findings` nur Diagnosehinweise. `npm run reset-bot` löscht die
-Run-Dateien zusammen mit dem Zurücksetzen der Bot-Arbeitsdatei.
+Die Station verwendet den normalen Start `npm run dev` im Repository-Root und
+die Browseransicht `/code`. Es gibt keinen zusaetzlichen Einrichtungs- oder
+Verbindungsschritt. Bei jeder gespeicherten Aenderung an `current-bot.js`
+laedt Vite die Seite vollstaendig neu; Level und Worker starten frisch.
+In der Vorschau den Bot laufen lassen und zusehen. Ist die Seite nicht offen,
+den Betreiber bitten, `/code` zu oeffnen; der Agent startet keine GUI selbst.
 
-## Beispiel-Interaktion (illustrativ)
+## Ergebnisse und Diagnose
 
-> **devkcode:** Willkommen bei Coin Quest Arena! Dein Bot muss durch ein Mario-Level laufen,
-> Münzen sammeln und das Ziel erreichen. Wie soll dein Bot sich grundsätzlich verhalten?
->
-> **Nutzer:** Er soll immer so schnell wie möglich zum Ziel, aber wenn eine Münze direkt auf
-> dem Weg liegt, soll er sie mitnehmen.
->
-> **devkcode:** Verstanden. Soll er auch Umwege in Kauf nehmen, um versteckte Münzen aus
-> Blöcken zu holen, oder eher auf Geschwindigkeit setzen?
->
-> **Nutzer:** Lieber schnell, versteckte Münzen kann er ignorieren.
->
-> **devkcode:** Alles klar, wie soll er auf Gefahren reagieren?
->
-> **Nutzer:** Einfach drüber springen, wenn möglich.
->
-> **devkcode:** *(generiert `decide()`-Funktion, fasst zusammen, exportiert Datei)*
+Vorschau-Traces unter `runs/` umfassen einzelne Versuche zwischen Respawns,
+nicht den Gesamtlauf. Nur tatsaechlich vorhandene Traces auswerten und vor der
+Zuordnung zum aktuellen Code `run.botRevision` pruefen. Zuerst `run`, `summary`
+und `findings` lesen, dann hoechstens zwei relevante `events`-/`windows`-Ausschnitte.
+Trace v2 zeigt
+Navigation, relevante Collider/Utilities und State-/Action-Korrelation; die
+Ausgabe ist begrenzt und markiert Kuerzungen. `events` sind Fakten, `findings`
+Hinweise. Persistierte v1-Traces bleiben ohne erfundene Navigationsabsicht lesbar.
+Bei fehlendem oder veraltetem Trace keine Diagnose zum aktuellen Bot erfinden.
+Maximal zwei Beobachtungen erklaeren und eine Verbesserung vorschlagen.
+Technische Gueltigkeit, spielerisches Ergebnis und Strategiewunsch getrennt
+bewerten; aus einem Lauf keine allgemeine Leistungssteigerung ableiten.
 
-## Offene Punkte für dieses Profil
+## Release und Sessionwechsel
 
-- Wie wird das Profil technisch am Stand bereitgestellt (lokale devkcode-Installation pro
-  Station, oder ein zentraler Rechner mit mehreren Terminals)?
-- Soll es vorgefertigte "Persönlichkeits"-Vorlagen geben (z.B. "Der Vorsichtige", "Der
-  Draufgänger", "Der Sammler"), die der Nutzer nur noch anpasst, um die Einstiegshürde weiter
-  zu senken?
-- Wie wird sichergestellt, dass am Ende wirklich eine gültige, lauffähige Datei rauskommt
-  (Validierungsschritt, siehe oben)?
+Vorschau, Upload und Turnier benoetigen denselben Framework-Release.
+Dieser wird vor einer Turnierserie eingefroren; ein Update kann unveraenderte
+Bot-Dateien anders laufen lassen. Die Navigation bleibt im Framework,
+nicht als Bibliothek in der Besucherdatei.
+
+Nur der Betreiber fuehrt zwischen Sessions explizit `npm run reset-bot` aus,
+nachdem die fertige Bot-Datei gesichert wurde. Das kopiert die Vorlage bytegenau
+nach `current-bot.js` und leert `runs/`.
+Kein Start, Update oder Vorschau-Lauf ersetzt vorhandenen Besuchercode automatisch.
+
+## Offene Abnahme
+
+Unit-/Contract-/Runtime-Tests beweisen keine echte Browserphysik oder Standlast.
+Nicht ausgefuehrte Browser-, Last- oder Rechtepruefungen ausdruecklich offenlassen.

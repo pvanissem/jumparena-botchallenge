@@ -91,7 +91,7 @@ const SAMPLE_STATE: BotState = {
 };
 
 describe("BotRunner module-ready handling", () => {
-  it("ignores module-ready without affecting status, pausedReasonKind or pending ticks", () => {
+  it("accepts module-ready without affecting status or pausedReasonKind", () => {
     const worker = new FakeWorker();
     const runner = new BotRunner(worker);
     runner.init(VALID_CODE);
@@ -142,6 +142,7 @@ describe("BotRunner.tick", () => {
     worker = new FakeWorker();
     runner = new BotRunner(worker);
     runner.init(VALID_CODE);
+    worker.emit({ type: "module-ready" });
   });
 
   it("resolves with the actions from a timely, valid worker response", async () => {
@@ -159,11 +160,17 @@ describe("BotRunner.tick", () => {
     const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
     const observedRunner = new BotRunner(worker, { observer });
     observedRunner.init(VALID_CODE);
+    worker.emit({ type: "module-ready" });
     const promise = observedRunner.tick(SAMPLE_STATE);
     worker.emit({ type: "action", tick: lastSentTick(worker), actions: ["jump", "fly"] as never });
 
     await expect(promise).resolves.toEqual(["jump"]);
-    expect(observer.onDecision).toHaveBeenCalledWith({ tick: 0, kind: "ok", actions: ["jump"] });
+    expect(observer.onDecision).toHaveBeenCalledWith({
+      tick: 0,
+      stateTick: 0,
+      kind: "ok",
+      actions: ["jump"],
+    });
   });
 
   it("reports runtime errors and timeouts without changing their idle result", async () => {
@@ -172,6 +179,7 @@ describe("BotRunner.tick", () => {
       const observer = { onDecision: vi.fn(), onPaused: vi.fn() };
       const observedRunner = new BotRunner(worker, { observer });
       observedRunner.init(VALID_CODE);
+      worker.emit({ type: "module-ready" });
       const errorPromise = observedRunner.tick(SAMPLE_STATE);
       worker.emit({ type: "error", tick: lastSentTick(worker), message: "boom" });
       await expect(errorPromise).resolves.toEqual([]);
@@ -181,12 +189,14 @@ describe("BotRunner.tick", () => {
 
       expect(observer.onDecision).toHaveBeenNthCalledWith(1, {
         tick: 0,
+        stateTick: 0,
         kind: "runtime-error",
         actions: [],
         message: "boom",
       });
       expect(observer.onDecision).toHaveBeenNthCalledWith(2, {
         tick: 1,
+        stateTick: 0,
         kind: "timeout",
         actions: [],
       });

@@ -1,12 +1,9 @@
 # 01 – Konzept
 
-> **Hinweis (aktualisiert):** Der in diesem Dokument beschriebene 16-Bot-
-> Heat-Modus (Schritt 4 "Rennen (Heat)" sowie die entsprechende Zeile in den
-> "Kernentscheidungen") ist durch den **Turniermodus** (Single-Elimination,
-> max. 4 Bots gleichzeitig pro Match) abgelöst worden – siehe
-> `docs/09-bot-artefakt-und-turnier.md`, Abschnitt "Turniermodus", und
-> `docs/07-offene-punkte.md`. Die übrigen Abschnitte dieses Dokuments (Idee,
-> Ablauf am Stand, Zielgruppe) bleiben unverändert gültig.
+Aktueller Besucherworkflow: eine Bot-Datei, gemeinsame Framework-Navigation und
+Single-Elimination mit maximal vier Bots pro Match. Details in
+[02-bot-api.md](02-bot-api.md), [04-devkcode-profil.md](04-devkcode-profil.md) und
+[09-bot-artefakt-und-turnier.md](09-bot-artefakt-und-turnier.md).
 
 ## Idee
 
@@ -24,31 +21,45 @@ in lauffähigen Bot-Code. Damit wird die CLI selbst zur Attraktion des Standes.
 
 1. **Vibe Coding (15–20 Min):** Besucher setzt sich an eine Station, startet `devkcode` mit
    dem Bot-Profil, beschreibt in natürlicher Sprache seine Strategie, iteriert ggf. kurz.
-2. **Export:** devkcode erzeugt eine Bot-Datei (`.js`, Funktion `decide(state)`), die der
-   Besucher behält bzw. die ins Renn-System eingepflegt wird.
+2. **Bauen und ausprobieren:** Botname und Strategie klaeren, dann genau
+   `client/src/bot/current-bot.js` bearbeiten. `decide(state, tools)` waehlt
+   Ziele und Routen, das Framework uebernimmt die Motorik. Speichern laedt
+   `/code` automatisch neu. Gemeinsam den Lauf ansehen, vorhandene Traces unter
+   `client/src/bot/runs/` lesen, kurz erklaeren und eine Verbesserung vorschlagen.
+   Eine vorhandene Arbeitsdatei bleibt erhalten; die neue Vorlage ist nicht
+   automatisch der aktuell laufende Bot. Reset nur auf expliziten Betreiberwunsch.
 3. **Einpflegen:** Vor dem nächsten Rennen werden alle neuen Bot-Dateien in die
    Phaser-Anwendung importiert (Ordner-Scan/Upload).
-4. **Rennen (Heat):** 16 Bots treten gleichzeitig im gleichen Level an, sichtbar in einem
-   Grid aus Mini-Ansichten auf einem großen Screen am Stand.
-5. **Auswertung:** Punkte pro Bot (Collectibles + Zeitbonus − Fehlversuch-Abzüge) werden auf
-   einem laufenden Leaderboard aggregiert (über mehrere Heats hinweg).
+   Abgegeben werden dieselben unveraenderten Bytes der Arbeitsdatei, ohne Export-
+   oder Buildschritt und ohne beigelegte Navigationsbibliothek.
+4. **Turnier:** Zwei oder vier Bots treten pro Match im gleichen Level mit
+   getrennten Welten an, sichtbar im Grid. Der Erstplatzierte kommt weiter.
+5. **Auswertung:** Matchpunkte (Fruechte, Zeitbonus und Todes-/DNF-Abzuege)
+   bestimmen das Weiterkommen im Turnier und den abschliessenden Champion.
 
 ## Kernentscheidungen (Ergebnis des Brainstormings)
 
 | Thema | Entscheidung | Begründung |
 |---|---|---|
-| Bot-Erzeugung | devkcode-Profil generiert eine JS-Funktion `decide(state)` | Nutzer braucht keine Programmierkenntnisse, fühlt sich aber wie "echtes Coden" an |
-| Ausführungsort | Vollständig clientseitig (Browser) | Keine Server-Infrastruktur am Stand nötig, einfacher Aufbau |
-| Sandbox | Bot-Code läuft in einem Web Worker mit striktem Timeout pro Tick | Sicherheit, kein Absturz/Endlosschleifen-Risiko im Hauptthread |
+| Bot-Erzeugung | Eine JS-Datei mit Metadaten und `decide(state, tools)` | Individuelle Strategie ohne neu geschriebene Sprungphysik |
+| Navigation | Versionierte Tools im Framework, `choose(context, options)` im Bot | Ziele, Risiko, Fruchtwert und Endspurt bleiben programmierbar |
+| Ausführungsort | Simulation im Browser, Hub fuer Turnier/Registry | Keine Server-Physik, lokale Vorschau bleibt unabhaengig |
+| Sandbox | Bot-Code laeuft im Worker mit Timeout | Blockierenden Worker beenden, kein umfassendes Sicherheitsversprechen |
 | Bot-Interaktion | Keine Kollision zwischen Bots | Vereinfacht Simulation, vermeidet Frust durch "Blockieren" |
 | Darstellung | Grid aus Mini-Ansichten, ein Fenster | Guter Kompromiss aus Übersicht und Performance |
-| Parallelität | Heats à 16 Bots (bei 50–100 Anmeldungen mehrere Runden) | Performance-Grenze für gleichzeitiges Rendering/Simulation |
+| Parallelität | Maximal vier Bots pro Turniermatch | Getrennte Welten und nachvollziehbarer Vergleich |
 | Level-Stil | Mario-artiges 2D-Tilemap-Level | Bekannt, verständlich, gut visualisierbar |
 | Collectibles | Sichtbare Münzen + versteckte Münzen in Blöcken (Mario-Style) | Mehr Strategie-Tiefe für die Bots |
-| Tick-Rate | Fixer Simulations-Tick (~150ms) für Bot-Entscheidungen, Rendering läuft mit 60fps | Fairness/Determinismus unabhängig von Browser-Last, einfacher für generierten Code |
+| Tick-Rate | Bot-Intervall ~33 ms, Arcade-Physikraster 60 Hz | Botentscheidung, Physik und Workerantwort werden getrennt korreliert |
 | Scoring | Collectibles + Zeitbonus − Tod/Fehlversuch-Abzug | Belohnt sowohl Vollständigkeit als auch Geschwindigkeit |
 
 ## Zielgruppe & Ton
+
+Sprinter, Sammler und Vorsichtiger liegen als vollstaendige Referenzbots unter
+`examples/strategies/`. `/code` verwendet unveraendert das urspruengliche Level 1.
+Beobachtete Laeufe und Traces erklaeren das
+Verhalten; Unit-/Runtime-Tests belegen weder Zielerreichung noch Standperformance.
+Nicht ausgefuehrte Browser- oder Lastpruefungen bleiben ausdruecklich offen.
 
 - Nicht-technische bis leicht-technische Konferenzbesucher (Vertrieb, Fachbereiche, Management).
 - Spaßfaktor und Show-Effekt am Stand stehen im Vordergrund, nicht Code-Qualität.

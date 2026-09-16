@@ -17,6 +17,7 @@ if (!existsSync(botFile)) {
 export default defineConfig({
   plugins: [react(), botTracePlugin()],
   server: {
+    host: "127.0.0.1",
     watch: { ignored: ["**/src/bot/runs/**"] },
   },
   build: {

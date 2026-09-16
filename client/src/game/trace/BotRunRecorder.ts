@@ -1,6 +1,8 @@
 import type { BotState } from "@arena/bot-contract";
 import { analyzeBotRun } from "./analyzeBotRun";
+import { boundBotTrace } from "./boundBotTrace";
 import { compactBotTick } from "./compactBotTick";
+import { validateNavigationDiagnostic } from "./navigationDiagnostic";
 import { selectTraceWindows } from "./selectTraceWindows";
 import type {
   BotDecisionTrace,
@@ -42,8 +44,22 @@ export class BotRunRecorder {
   }
 
   recordDecision(result: BotDecisionTrace): void {
-    const sample = this.samples.find((entry) => entry.tick === result.tick);
-    if (sample) sample.decision = result;
+    if (this.finished) return;
+    const sample = this.samples.find(
+      (entry) =>
+        entry.tick === (result.stateTick ?? result.tick) &&
+        entry.epoch === result.epoch &&
+        (result.stateFrame === undefined || result.stateFrame === entry.stateFrame)
+    );
+    if (!sample) return;
+    const { navigation: raw, ...decision } = result;
+    const navigation =
+      result.kind === "ok" ? validateNavigationDiagnostic(raw, result.actions) : undefined;
+    sample.decision = {
+      ...decision,
+      actions: [...decision.actions],
+      ...(navigation ? { navigation } : {}),
+    } as BotDecisionTrace;
   }
 
   recordEvent(input: TraceEventInput): void {
@@ -78,8 +94,36 @@ export class BotRunRecorder {
   ): BotRunTrace {
     const findings = analyzeBotRun(this.samples, this.events, this.tuning);
     const finalReason = status === "running" ? "live" : (result ?? "completed");
+    let previousNavigation: string | undefined;
+    const navigationAnchors = this.samples.flatMap((sample) => {
+      const navigation = sample.decision?.navigation;
+      const identity = navigation
+        ? JSON.stringify([
+            sample.epoch,
+            navigation.targetId,
+            navigation.routeId,
+            navigation.planId,
+            navigation.phase,
+            navigation.reason,
+            navigation.actionOverride,
+          ])
+        : undefined;
+      const changed = identity !== previousNavigation;
+      previousNavigation = identity;
+      return navigation && changed
+        ? [
+            {
+              tick: sample.tick,
+              reason: `navigation: ${navigation.actionOverride ?? navigation.reason}`,
+            },
+          ]
+        : [];
+    });
     const anchors = [
-      ...this.events.map((event) => ({ tick: event.tick, reason: event.kind })),
+      ...navigationAnchors,
+      ...this.events
+        .filter((event) => event.kind !== "action-applied")
+        .map((event) => ({ tick: event.tick, reason: event.kind })),
       ...findings.flatMap((entry) =>
         entry.ticks.slice(0, 1).map((tick) => ({ tick, reason: entry.kind }))
       ),
@@ -93,8 +137,25 @@ export class BotRunRecorder {
     const lastTime = this.samples.at(-1)?.timeMs ?? 0;
     const flushedAt = new Date().toISOString();
 
-    return {
-      schemaVersion: 1,
+    const windows = selectTraceWindows(this.samples, anchors);
+    const allWindows = selectTraceWindows(this.samples, anchors, {
+      maxWindows: Number.MAX_SAFE_INTEGER,
+    });
+    const omittedSamples =
+      allWindows.reduce((sum, window) => sum + window.samples.length, 0) -
+      windows.reduce((sum, window) => sum + window.samples.length, 0);
+    return boundBotTrace({
+      schemaVersion: 2,
+      ...(omittedSamples
+        ? {
+            truncation: {
+              reasons: ["window-limit" as const],
+              omittedSamples,
+              omittedEvents: 0,
+              omittedFindings: 0,
+            },
+          }
+        : {}),
       run: {
         levelId: this.options.levelId,
         sessionId: this.options.sessionId,
@@ -122,7 +183,7 @@ export class BotRunRecorder {
       },
       events: this.events,
       findings,
-      windows: selectTraceWindows(this.samples, anchors),
-    };
+      windows,
+    });
   }
 }

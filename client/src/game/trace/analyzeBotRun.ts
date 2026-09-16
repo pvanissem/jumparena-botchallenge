@@ -54,7 +54,9 @@ export function analyzeBotRun(
       findings.push(
         finding(
           "stuck",
-          "Der Bot fordert Bewegung an, kommt aber kaum voran.",
+          movementRequested
+            ? "Der Bot fordert Bewegung an, kommt aber kaum voran."
+            : "Kaum horizontaler Fortschritt; eine Warteabsicht ist nicht belegt.",
           window.map((s) => s.tick)
         )
       );
@@ -97,7 +99,7 @@ export function analyzeBotRun(
       findings.push(
         finding(
           "missed-gap",
-          "Die sichtbare Lücke wurde nicht rechtzeitig übersprungen.",
+          "Vor dem Sturz war eine Luecke sichtbar; im Ausschnitt ist kein Sprung am Boden angefordert.",
           gapTicks.map((s) => s.tick),
           [death]
         )
@@ -105,27 +107,8 @@ export function analyzeBotRun(
     }
   }
 
-  for (let i = 0; i < beforeDeath.length - 1; i++) {
-    const current = beforeDeath[i];
-    const next = beforeDeath[i + 1];
-    if (
-      actions(current).includes("jump") &&
-      !actions(next).includes("jump") &&
-      current.velocity.vy < 0 &&
-      next.velocity.vy >= 0 &&
-      tuning.tickMs < tuning.minJumpHoldMs
-    ) {
-      findings.push(
-        finding(
-          "jump-cut-short",
-          "Der Sprung wurde vor der Mindesthaltedauer abgebrochen.",
-          [current.tick, next.tick],
-          [death]
-        )
-      );
-      break;
-    }
-  }
+  // An apex, ceiling contact or external impulse cannot establish a jump cut.
+  // Without an observed cut event, do not infer one from successive velocities.
 
   if (death.kind === "hazard-hit") {
     const hazardKind = death.details?.hazardKind;
@@ -138,7 +121,7 @@ export function analyzeBotRun(
       findings.push(
         finding(
           "hazard-not-avoided",
-          "Eine sichtbare aktive Gefahr wurde nicht vermieden.",
+          "Vor dem Kontakt war eine aktive oder warnende Gefahr desselben Typs sichtbar; die Objektidentitaet ist nicht belegt.",
           [visible.tick, death.tick],
           [death]
         )

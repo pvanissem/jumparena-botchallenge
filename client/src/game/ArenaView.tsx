@@ -7,7 +7,7 @@ import { useEffect, useRef } from "react";
 import type { BotRunnerPauseReasonKind } from "../sandbox/BotRunner";
 import { getSharedAudioContext } from "./audio/sharedAudioContext";
 import { installKeyboardCaptureGuard } from "./input/keyboardCaptureGuard";
-import { MOVEMENT_TUNING } from "./movement/movement";
+import { createPhysicsConfig } from "./physicsConfig";
 import type { RacerRuntimeState } from "./rules/racerState";
 import { RaceScene, type RaceSceneInitData } from "./scenes/RaceScene";
 import type { BotRunTrace } from "./trace/types";
@@ -93,10 +93,7 @@ export function ArenaView({
       // Neustart einen frischen, erneut zu entsperrenden AudioContext
       // erzeugt.
       audio: { context: getSharedAudioContext() },
-      physics: {
-        default: "arcade",
-        arcade: { gravity: { x: 0, y: MOVEMENT_TUNING.GRAVITY_Y }, debug: physicsDebug },
-      },
+      physics: createPhysicsConfig(physicsDebug),
       // Explizite Capture-Liste, statt implizit auf `createCursorKeys()` zu
       // vertrauen - deckt die unmodifizierten Tastendrücke ab, den Rest
       // übernimmt der Guard oben.

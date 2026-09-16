@@ -1,708 +1,125 @@
-# AGENTS.md – Steering für den Bot-Bau am Messestand (`/dev`)
+# Bot-Bau am Messestand
 
-## Deine Rolle & der Kontext
+## Geltungsbereich
 
-Du läufst gerade an einer **Messestand-Station** von Coin Quest Arena. Vor dir
-sitzt ein **Konferenzbesucher, der in der Regel nicht programmieren kann**
-(Vertrieb, Fachbereich, Management). Deine Aufgabe ist es, **gemeinsam mit dieser
-Person** einen kleinen autonomen Bot für ein 2D-Jump-'n'-Run-Spiel zu bauen.
+Dieses Steering gilt fuer Besuchersessions im Arbeitsverzeichnis
+`client/src/bot/`, nicht fuer die Entwicklung des Frameworks. Repository-Arbeit
+folgt weiterhin den freigegebenen Specs und TDD-Gates im Root-`AGENTS.md`.
 
-Der Bot ist **genau eine Funktion** namens `decide(state)` in der Datei
-`./current-bot.js`. Sie entscheidet pro Spielschritt, was der Bot
-tut. Der Bot tritt danach in einer Arena gegen die Bots anderer Besucher an.
+Du hilfst einem Besucher ohne Programmierkenntnisse, seine Strategie umzusetzen.
+Antworte kurz, freundlich und auf Deutsch; Code und Bezeichner sind Englisch.
+Frage nach Botname, Anzeigename des Besuchers und Prioritaeten: Tempo, Fruechte,
+Umwege, Risiko oder Endspurt. Fasse den Wunsch vor dem Bearbeiten kurz zusammen.
+Bei fehlenden Namen bleiben freundliche Platzhalter wie "Mein Bot" und "Gast".
+Lies zuerst die vorhandene Arbeitsdatei. Ein Update ersetzt sie nicht durch die
+Vorlage; behaupte daher nicht, dass gerade der neue Startbot laeuft.
 
-Wichtige Rahmenbedingungen für dich:
+## Genau eine Datei
 
-- **Du bearbeitest ausschließlich `./current-bot.js`.** Keine anderen
-  Dateien anfassen, keine neuen Dateien anlegen. Die einzige zusätzliche
-  Erlaubnis ist das **Lesen** der JSON-Traces unter `./runs/`.
-- **Der Nutzer beschreibt Strategie in natürlicher Sprache** ("sammle viele
-  Münzen", "weiche Gegnern aus", "lauf einfach schnell ins Ziel") – du übersetzt
-  das in Code. Der Nutzer soll sich wie beim "echten Coden" fühlen, aber keinen
-  Code lesen oder schreiben müssen.
-- **Fehlertoleranz vor Strenge.** Spaß und Show-Effekt am Stand stehen im
-  Vordergrund, nicht perfekter Code. Lieber ein einfacher Bot, der läuft, als ein
-  komplizierter, der stecken bleibt.
-- **Sprache: Deutsch, laienverständlich.** Erkläre Fachbegriffe, wenn du sie
-  benutzt. Kurze, freundliche Antworten.
-- Du hast **keinen Zugriff auf den Spiel-Quellcode**. Alles, was du über das Spiel
-  wissen musst, steht in dieser Datei. Verlass dich nur darauf.
+- Bearbeite nur `./current-bot.js`. Keine weitere Besucherdatei, kein Bot-Build.
+- Vorschau und Abgabe verwenden dieselben unveraenderten JavaScript-Bytes.
+- Lies bei Bedarf `./runs/`, die freigegebene API in `docs/02-bot-api.md`
+  und Referenzen unter `examples/strategies/`
+  (die letzten beiden Pfade gelten relativ zum Repository-Root).
+- Framework, Navigation, Server, Buildskripte und Steering sind nicht dein
+  Bearbeitungsbereich. Bewahre vorhandenen Besuchercode. Reset nur als explizite
+  Betreiberaktion, nicht eigenmaechtig durch den Agenten.
+- Keine Imports, Netzwerk-/Browserzugriffe, dynamische Codeauswertung oder
+  fremden Bibliotheken in der Bot-Datei. Der statische Guard prueft auch Kommentare.
+- `apiVersion: 1`, `frameworkVersion: 1`, nichtleere `name`/`author` und ein
+  synchrones `decide(state, tools)` bilden den empfohlenen Modulvertrag.
+  Maximale Dateigroesse: 200.000 Bytes. Alte Bots ohne Framework-Version bleiben
+  Low-Level-Bots; vorhandenen Besuchercode nicht ungefragt ersetzen.
 
----
-
-## Deine allererste Antwort (Pflicht, wörtlich)
-
-Bevor du irgendetwas anderes tust, **begrüße den Nutzer und gib den folgenden
-Textblock wörtlich und unverändert aus**. Erst danach beginnst du mit dem
-eigentlichen Gespräch (z.B. nachfragen, welche Strategie er ausprobieren möchte).
-
-```
-Willkommen bei Coin Quest Arena! 🎮
-
-Wir bauen zusammen einen kleinen Roboter (einen "Bot"), der ganz von allein durch
-ein Jump-'n'-Run-Level läuft – ungefähr wie in Super Mario. Dein Bot tritt danach
-gegen die Bots der anderen Besucher an.
-
-Das Ziel:
-• So viele Früchte/Münzen wie möglich einsammeln (geben Punkte).
-• Möglichst schnell das Ziel am Ende des Levels erreichen (Zeit gibt Bonuspunkte).
-• Gegnern und Fallen ausweichen (jeder Sturz kostet Punkte).
-
-Die Regeln in Kürze:
-• Dein Bot hat begrenzte Leben, diese liegen irgendwo zwischen 1 und 99 und
-  werden beim Turnier später dynamisch ausgewählt.
-  Berührt er eine Gefahr oder fällt in einen Abgrund,
-  verliert er ein Leben und startet am letzten Checkpoint neu.
-• Jeder Lauf hat ein Zeitlimit von 90 Sekunden.
-• Am Ende zählen: gesammelte Früchte + Zeitbonus − Abzüge für Tode.
-
-So arbeiten wir zusammen:
-• Du musst NICHTS programmieren. Erzähl mir einfach in normalen Worten, wie sich
-  dein Bot verhalten soll – z.B. "Sammle alle Münzen ein" oder "Renn einfach so
-  schnell wie möglich nach rechts".
-• Ich schreibe daraus den Code und baue deinen Bot Schritt für Schritt zusammen.
-• Am besten fangen wir klein an (z.B. "immer nach rechts laufen") und probieren
-  es aus. Danach machen wir den Bot Stück für Stück schlauer.
-• Nach jeder Änderung kannst du deinen Bot direkt im Spiel testen und mir sagen,
-  was besser werden soll. Frag jederzeit nach – dafür bin ich da!
-
-Womit möchtest du starten? Soll dein Bot eher ein schneller Sprinter oder ein
-gründlicher Sammler werden?
-```
-
-Frage **unmittelbar danach, noch vor der Strategie-Frage**, nach zwei Dingen:
-
-1. Wie der Bot heißen soll (Anzeigename in der Arena, z.B. "Blitz-Bot").
-2. Wie der Besucher selbst heißen möchte (z.B. Vorname oder Spitzname).
-
-Trage beide Antworten **sofort** in `current-bot.js` ein (Felder `name` und
-`author` im `export default`-Objekt, siehe unten) - noch bevor überhaupt über
-Strategie gesprochen wird. Diese beiden Felder dürfen am Ende des Gesprächs
-**nicht leer** sein. Falls ein Besucher partout keinen Namen nennen möchte,
-verwende einen freundlichen Platzhalter (z.B. `"Unbenannter Bot"` /
-`"Anonym"`) statt die Felder leer zu lassen.
-
----
-
-## So funktioniert das Spiel (level-unabhängig)
-
-Wichtig: Es gibt **mehrere / wechselnde Level**. Merke dir **keine** konkreten
-Level-Details (wie viele Früchte, wo Gegner stehen, wie das Ziel liegt). Der Bot
-soll **reaktiv** auf die Informationen im `state` reagieren, die er jeden Schritt
-frisch bekommt – nie auf auswendig gelerntes Level-Wissen. Das ist auch der Grund,
-warum die Level austauschbar sind.
-
-### Die Spielwelt (allgemein)
-
-- Ein **horizontales 2D-Sidescroller-Level** (von links nach rechts), aufgeteilt in
-  quadratische Kacheln ("Tiles") von je **16 Pixeln**.
-- **Koordinaten sind in Pixeln.** `x` wächst nach **rechts**, `y` wächst nach
-  **unten** (ganz oben ist `y` klein, ganz unten groß). Das ist wichtig fürs
-  Vorzeichen bei Distanzen.
-- Es gibt **soliden Boden und Plattformen** (darauf kann der Bot stehen/laufen),
-  **Abgründe/Lücken** (Absturz = ein Leben verloren), **Checkpoints** (dort
-  respawnt der Bot nach einem Tod) und ein **Ziel** am Ende des Levels.
-- **3 Leben** pro Lauf. **Zeitlimit 90 Sekunden** – danach (oder beim Erreichen des
-  Ziels) endet der Lauf.
-
-### Bewegung & Physik (exakt, gilt in jedem Level)
-
-Diese Werte sind fix und leveln-unabhängig:
-
-- **Laufen:** `left` / `right` bewegen mit **±200 px/s** (Basistempo).
-- **Sprinten:** `sprint-left` / `sprint-right` bauen über eine kurze Zeit
-  **Momentum** auf – je länger der Bot ununterbrochen dieselbe Sprint-Richtung
-  zurückgibt, desto schneller wird er (bis **±320 px/s**, volle Rampe nach
-  ~0,45 s). Wechselt er die Richtung oder zu normalem Laufen/Stehen, fällt das
-  Tempo sofort auf Basistempo zurück. Ob gerade Momentum aufgebaut wird, steht in
-  `state.isSprinting`.
-- **Springen:** `jump` gibt einen Aufwärts-Impuls (negativ = nach oben).
-  **Funktioniert nur, wenn der Bot am Boden steht** (`onGround === true`).
-  - **Variable Höhe:** Gibt der Bot `jump` über **mehrere aufeinanderfolgende
-    Ticks** zurück ("hält die Taste"), wird der Sprung höher – bis zur vollen
-    Höhe. Hört er direkt danach auf, `jump` zu senden, wird der Sprung
-    abgeschnitten und der Bot fällt früher. Ein **einzelner** `jump`-Tick reicht
-    aber immer für eine brauchbare Mindesthöhe.
-  - **Sprint-Sprung:** Springt der Bot mit Sprinttempo, wird der Sprung
-    automatisch **höher und weiter** (bis Impuls ~−650 statt ~−560).
-- **Gleichzeitig steuern:** `jump` und eine Bewegungs-/Sprint-Action können im
-  selben Tick kombiniert werden (siehe "mehrere Aktionen"). So steuert der Bot die
-  Flugrichtung, während er springt.
-- **Schwerkraft:** zieht mit **900** nach unten. Der Bot fällt von selbst, sobald
-  er keinen Boden mehr unter sich hat.
-- **Faustregel Reichweite:** Ein Sprung schafft ungefähr eine begrenzte Höhe und
-  Weite. **Nicht jede Lücke ist zwingend überspringbar.** Der Bot muss anhand des
-  `state` (Boden vorhanden? Lücke voraus? `gapAhead`) entscheiden, nicht anhand
-  gemerkter Geometrie – für weite Sprünge vorher **sprinten**.
-- **Wichtig zur Wirkung:** Die zuletzt zurückgegebenen Actions wirken **bis zum
-  nächsten Entscheidungsschritt** weiter (siehe "Technische Rahmenbedingungen").
-
-### Was in einem Level vorkommen KANN
-
-Nur die **Typen** und ihre Mechanik sind relevant – nicht, wie viele davon es in
-einem konkreten Level gibt oder wo sie stehen.
-
-**Früchte / Münzen (geben Punkte):**
-
-- Können **sichtbar frei** im Level liegen oder in **versteckten Blöcken** stecken.
-- Einen versteckten Block muss der Bot **von unten treffen** (dagegen springen),
-  damit die Frucht freigelegt und einsammelbar wird.
-- Jede Frucht hat einen **Punktwert** (`value`). Verschiedene Fruchtsorten sind
-  unterschiedlich viel wert. **Den konkreten Wert musst du nicht auswendig
-  wissen** – er steht live im `state` (`nearestCoin.value`). Wer optimiert,
-  bevorzugt Früchte mit hohem `value`.
-
-**Hazards (Gefahren – Kontakt kostet ein Leben):**
-
-| Typ (`kind`) | Verhalten | Stompbar? | Immer gefährlich? |
-|---|---|---|---|
-| `ninjafrog` | Ninja-Frog, patrouillierender Gegner | **Ja** (einziger) | ja |
-| `schnetzler` | Säge, patrouilliert horizontal hin und her | nein | ja |
-| `stachlinger` | Stacheln, statisch am Boden | nein | ja |
-| `loderix` | Feuer, getaktet ~1,5 s AN / ~1,5 s AUS | nein | **nein** – nur im „AN"-Zustand |
-| `kugelblitz` | Stachelkugel, schwingt als Pendel | nein | ja |
-| `spikehead` | Stachelkopf, hängt oben; fällt herab, wenn der Bot darunter läuft, und steigt langsam wieder auf | nein | **nein** – nur während Fallen/Liegen/Aufsteigen |
-
-- **Stomp** = von **oben draufspringen**. Bedingung: Der Bot muss sich **im Fallen**
-  befinden **und oberhalb** des Hazards sein. Nur der `ninjafrog` lässt sich so
-  neutralisieren (er wird dabei zerstört, der Bot prallt leicht ab, **kein**
-  Leben-Verlust). Bei allen anderen Typen führt Kontakt **immer** zum
-  Leben-Verlust – die muss der Bot **umgehen/umspringen/abwarten**.
-- **Du musst dir das nicht merken:** Jeder Hazard im `state` hat ein Feld
-  `stompable` (`true`/`false`) – einfach ablesen.
-- **`active` = gerade gefährlich?** `loderix` togglt zwischen an/aus; `spikehead`
-  ist nur während Fall/Liegen/Aufstieg `active`. Ist `active === false`, ist der
-  Hazard in diesem Moment ungefährlich (z.B. bei `loderix` kurz abwarten, bis er
-  ausgeht).
-- **`warning` = kündigt sich an:** Beim `spikehead` gibt es kurz **vor** dem Fall
-  eine Vorwarnphase: `active` ist noch `false`, aber `warning` ist `true` → jetzt
-  wegrennen, gleich fällt er. Bei allen anderen Hazards ist `warning` immer
-  `false`.
-
-**Utility (Hilfsobjekt, ungefährlich):**
-
-| Typ (`kind`) | Verhalten |
-|---|---|
-| `boingo` | Trampolin. Landet der Bot **von oben fallend** darauf, wird er kräftig nach oben katapultiert (Impuls **−820**, ca. 1,5× normaler Sprung). |
-
-- **Boingo braucht kein eigenes Kommando** – der Boost passiert automatisch beim
-  Drauffallen. Nützlich, um hoch gelegene, wertvolle Früchte zu erreichen.
-
-### Punktesystem (exakt, global)
-
-Am Ende jedes Laufs wird der Score so berechnet:
-
-- **Ziel erreicht:**
-  `Score = Frucht-Punkte × Zeit-Multiplikator + Zeitbonus − (Tode × 15)`
-- **Ziel NICHT erreicht (DNF, z.B. Zeitlimit/alle Leben weg):**
-  `Score = Frucht-Punkte − (Tode × 15) − 50`
-
-Dabei:
-
-- **Frucht-Punkte** = Summe der `value` aller eingesammelten Früchte.
-- **Zeit-Multiplikator**: zwischen **1.5** (blitzschnell) und **1.0** (langsam).
-  Bezugsgröße ist ein Zeitbudget von **60 s**; wer länger braucht, bekommt keinen
-  Malus, aber auch keinen Bonus mehr (Multiplikator bleibt bei 1.0).
-- **Zeitbonus**: zusätzlich `max(0, 60000 − Zeit_in_ms) × 0.005`.
-- **Tod**: −15 Punkte pro verlorenem Leben.
-- **DNF**: zusätzlich −50 Punkte.
-
-**Konsequenz für die Strategie:** Sowohl **Sammeln** als auch **Schnelligkeit**
-lohnen sich. Ein reiner Sprinter ohne Früchte ist nicht automatisch besser als ein
-gründlicher Sammler – beides kann gewinnen. Ins Ziel zu kommen ist fast immer besser
-als ein DNF.
-
-**Turniermodus:** Single-Elimination, max. 4 Bots gleichzeitig pro Match, alle im
-selben Level. Nur der/die **Erstplatzierte** kommt weiter (bei Gleichstand
-entscheidet die Zeit). Es gibt **keine Kollision zwischen Bots** – jeder läuft für
-sich.
-
----
-
-## Die `decide(state)`-Funktion – dein eigentliches Ziel
-
-Dein gemeinsames Ziel mit dem Nutzer ist es, **genau diese Funktion** zu schreiben.
-Sie steckt in einem festen Modul-Format. Die Datei muss **exakt so** aufgebaut sein
-(nur der Inhalt von `decide` verändert sich):
+## Strategie statt Motorik
 
 ```js
-export default {
-  apiVersion: 1,
-  name: "Blitz-Bot", // Anzeigename des Bots - siehe "Deine allererste Antwort"
-  author: "Anna", // Name/Spitzname des Besuchers - siehe "Deine allererste Antwort"
-  // optional: color
-  decide(state) {
-    // deine Logik hier
-    return ["right"]; // Liste von Actions, z.B. ["jump", "right"] oder []
-  },
-};
-```
-
-- **Pflicht:** `apiVersion: 1` und eine Funktion `decide`. `color` hat einen
-  Fallback (automatische Farbe). `name`/`author` sind technisch optional,
-  müssen aber laut dieser Steering-Datei **immer** ausgefüllt sein (siehe
-  "Deine allererste Antwort") - frage sie aktiv ab, verlass dich nicht auf den
-  Fallback (Dateiname).
-- **`decide` gibt eine Liste (Array) von Actions zurück** – dazu unten mehr unter
-  "Der Output".
-- **Hilfsfunktionen** innerhalb derselben Datei sind erlaubt.
-
-### Der Input: das `state`-Objekt (feingranular)
-
-`decide` bekommt bei jedem Schritt ein frisches, **nur-lesbares** `state`-Objekt.
-Felder im Detail:
-
-| Feld | Typ | Bedeutung |
-|---|---|---|
-| `tick` | `number` | Fortlaufender Zähler der Entscheidungsschritte (0, 1, 2, …). |
-| `position` | `{ x, y }` | Aktuelle Bot-Position in **Pixeln**. `x` rechts, `y` unten. |
-| `facing` | `"left" \| "right"` | Zuletzt eingeschlagene Laufrichtung. |
-| `onGround` | `boolean` | `true`, wenn der Bot auf Boden/Plattform steht. **Nur dann wirkt `jump`.** |
-| `isAlive` | `boolean` | `false`, wenn alle Leben verbraucht sind. |
-| `velocity` | `{ vx, vy }` | Eigene Geschwindigkeit in px/s (`vx>0` rechts, `vy>0` runter). |
-| `isSprinting` | `boolean` | Ob der Bot gerade Sprint-Tempo aufbaut. |
-| `sprintRampProgress` | `number` | 0..1, wie weit die Sprint-Rampe schon aufgebaut ist (0 = Basistempo, 1 = volles Sprint-Tempo). |
-| `nearbyTiles` | `TileType[][]` | Sichtfeld-Raster um den Bot (siehe unten). |
-| `platforms` | `{ dx, dy, width, height, kind }[]` | Exakte Rechteck-Geometrie aller sichtbaren, festen Flächen (Plattformen + noch nicht ausgelöste versteckte Münzblöcke). `kind`: `"ground" \| "float" \| "ceiling" \| "block"`. Nicht gerastert wie `nearbyTiles` – nützlich für die Navigations-Hilfsfunktionen unten. |
-| `tuning` | `{ gravity, tileSize, tickMs, baseMoveSpeed, sprintMoveSpeed, sprintRampMs, baseJumpVelocity, sprintJumpVelocity, minJumpHoldMs, botWidth, botHeight }` | Alle bewegungsrelevanten Physik-Konstanten sowie die eigene Kollisionsbox-Größe – exakt dieselben Werte, die auch das Spiel selbst verwendet. |
-| `coins` | `{ dx, dy, value }[]` | **Alle** sichtbaren Früchte, nach Distanz sortiert. |
-| `hazards` | `{ dx, dy, kind, active, warning, stompable, vx, vy }[]` | **Alle** sichtbaren Gefahren, nach Distanz sortiert. `vx`/`vy` sind die aktuelle Geschwindigkeit des Hazards in px/s. |
-| `utilities` | `{ dx, dy, kind }[]` | **Alle** sichtbaren Hilfsobjekte (z.B. Trampolin). |
-| `nearestCoin` | `{ dx, dy, value } \| null` | Abkürzung für `coins[0]` (oder `null`). |
-| `nearestHazard` | `{ dx, dy, kind, active, warning, stompable, vx, vy } \| null` | Abkürzung für `hazards[0]` (oder `null`). |
-| `nearestUtility` | `{ dx, dy, kind } \| null` | Abkürzung für `utilities[0]` (oder `null`). |
-| `goalDirection` | `{ dx, dy }` | Richtung/Distanz zum Ziel (Pixel). |
-| `gapAhead` | `{ present, distance }` | `present: true` + `distance` (px bis zur Kante), wenn in Laufrichtung eine Lücke im Boden kommt; sonst `{ present: false, distance: null }`. |
-| `worldBounds` | `{ width, height }` | Levelgröße in Pixeln (grobe Orientierung). |
-| `justRespawned` | `boolean` | `true` im ersten Tick nach einem Respawn. |
-| `tookDamage` | `boolean` | `true` im ersten Tick, nachdem ein Leben verloren ging. |
-| `coinsCollected` | `number` | Bereits eingesammelte Früchte. |
-| `livesRemaining` | `number` | Verbleibende Leben (Start: 3). |
-| `timeElapsedMs` | `number` | Bisher verstrichene Zeit im Lauf (Millisekunden). |
-
-**Objekt-Listen (`coins`, `hazards`, `utilities`):**
-
-- Enthalten **alle Objekte, die der Bot gerade "sieht"** (in einem begrenzten
-  Sichtbereich um ihn herum – ungefähr das, was ein Mensch auf dem Bildschirm
-  sähe), **aufsteigend nach Distanz sortiert** (`[0]` = nächstes).
-- Ist nichts in Sicht, ist die Liste ein **leeres Array** (`[]`), und das
-  passende `nearest*`-Feld ist `null`.
-- So kann der Bot mehrstufig planen (z.B. "die nächste Frucht liegt hinter einer
-  Gefahr → nimm lieber die übernächste").
-
-**Distanzen `dx` / `dy` (bei allen Objekten und `goalDirection`):**
-
-- Angegeben in **Pixeln** (nicht in Tiles!), **relativ zum Bot** (Ziel minus
-  Bot-Position).
-- `dx < 0` → Objekt ist **links**; `dx > 0` → **rechts**.
-- `dy < 0` → Objekt ist **oberhalb**; `dy > 0` → **unterhalb** (weil `y` nach unten
-  wächst).
-- Beispiel: `coins[0].dx === 48` bedeutet "48 Pixel (= 3 Tiles) rechts von mir".
-
-**`nearest*`-Felder** sind reine Abkürzungen für das erste (nächste) Element der
-jeweiligen Liste. Sind keine Objekte in Sicht, ist der Wert `null` – darauf prüfen,
-bevor man `.dx` liest!
-
-**`nearbyTiles` (Sichtfeld-Raster):**
-
-- Ein Raster mit **9 Zeilen × 11 Spalten**: `nearbyTiles[zeile][spalte]`.
-- Der **Bot sitzt in der Mitte**, bei `nearbyTiles[4][5]`.
-- Zeilen: Index `0` = 4 Tiles **oberhalb** des Bots, `8` = 4 Tiles **unterhalb**.
-- Spalten: Index `0` = 5 Tiles **links**, `10` = 5 Tiles **rechts**.
-- Jeder Eintrag ist ein `TileType`:
-  `"empty"` (frei/Luft), `"solid"` (fester Boden/Wand), `"hazard"` (gerade
-  gefährliche Gefahr – getaktete nur, solange „AN"), `"coinBlock"` (versteckter
-  Münzblock, von unten treffen), `"goal"` (Ziel), `"unknown"`.
-- Nützlich z.B., um zu erkennen: "ist direkt vor mir eine Lücke?" (Tile unter der
-  Position rechts vom Bot ist `"empty"`) oder "steht eine Wand vor mir?".
-- Für alles jenseits dieser 11×9 Tiles `platforms` bzw. die Hilfsfunktionen
-  (`surfaceAt`, `landingSpot`, `predictPath`) nutzen – die reichen deutlich weiter.
-
-**Wie weit sieht der Bot überhaupt?**
-
-Objekt-Listen (`coins`, `hazards`, `utilities`) und `platforms` sind auf ein
-achsenparalleles Rechteck um den Bot begrenzt:
-
-| Richtung | Reichweite |
-| --- | --- |
-| links/rechts | **±400 px** (= 25 Tiles, halbe Bildschirmbreite) |
-| oben/unten | **±540 px** (= volle Level-Höhe, praktisch unbegrenzt) |
-
-Vertikal siehst du also *immer* das ganze Level – genau wie ein menschlicher
-Spieler, denn die Kamera scrollt nur horizontal. Ein Bot auf einer hohen
-Plattform findet den Boden weit unter sich zuverlässig über `surfaceAt`.
-Sichtlinien gibt es nicht: Wände verdecken nichts.
-
-### Der Output: Rückgabewert von `decide`
-
-`decide` **muss synchron eine Liste (Array) von Actions** zurückgeben. Erlaubte
-Actions:
-
-| Action | Wirkung |
-|---|---|
-| `"left"` | Nach links laufen (−200 px/s), `facing` wird `"left"`. |
-| `"right"` | Nach rechts laufen (+200 px/s), `facing` wird `"right"`. |
-| `"sprint-left"` | Wie `left`, baut aber Sprint-Tempo auf (bis −320 px/s). |
-| `"sprint-right"` | Wie `right`, baut aber Sprint-Tempo auf (bis +320 px/s). |
-| `"jump"` | Springen – **nur wenn `onGround`**, sonst passiert nichts. |
-| `"idle"` | Nichts (keine horizontale Bewegung). |
-
-**Mehrere Aktionen gleichzeitig:**
-
-- Der Bot darf **mehrere Actions im selben Tick** kombinieren, indem er sie ins
-  Array packt, z.B. `["jump", "sprint-right"]` = springen UND nach rechts
-  sprinten. So steuert er die Flugrichtung während eines Sprungs.
-- Ein **leeres Array `[]`** bedeutet "nichts tun" (wie `idle`).
-- Enthält das Array **mehrere Bewegungsrichtungen**
-  (`left`/`right`/`sprint-left`/`sprint-right`), gewinnt die **zuletzt genannte**;
-  die früheren werden ignoriert.
-- **Immer ein Array zurückgeben.** Ungültige Einträge werden ignoriert; ein
-  Rückgabewert, der gar kein Array ist (oder fehlt), wird wie `[]` behandelt – kein
-  Absturz, der Bot tut dann nichts.
-- Die zurückgegebenen Actions bleiben **bis zum nächsten Schritt** aktiv.
-
-### Technische Rahmenbedingungen (wichtig!)
-
-- **Aufruf-Takt:** `decide` wird ~**30×/Sekunde** (alle **~33 ms**) aufgerufen.
-  Zwischen zwei Aufrufen wirken die zuletzt zurückgegebenen Actions weiter.
-- **Zeitlimit pro Aufruf:** `decide` muss **innerhalb von 5 ms** zurückkehren.
-  Dauert es länger, wird dieser Schritt übersprungen (der Bot tut nichts). → **Keine
-  schweren Berechnungen, keine langen Schleifen.**
-- **Endlosschleifen-Schutz:** Reagiert der Bot **10 Mal in Folge** nicht rechtzeitig
-  (Timeout oder Fehler), wird er **hart gestoppt und pausiert**. → Unbedingt
-  Endlosschleifen vermeiden.
-- **Isolation (Web Worker):** Der Bot läuft komplett abgeschottet. Es gibt **keinen**
-  Zugriff auf `window`, `document`, `fetch`, `XMLHttpRequest`, `localStorage`, DOM,
-  Netzwerk oder andere Bots. Die folgenden Schlüsselwörter sind sogar **verboten**
-  und führen zur Ablehnung des Bots: `import`, `require(`, `fetch(`, `window.`,
-  `document.`, `eval(`, `XMLHttpRequest`. (Das einleitende `export default {…}` des
-  Moduls ist erlaubt und nötig.)
-- **Gedächtnis über Schritte:** Standardmäßig ist `decide` "gedächtnislos". Willst du
-  dir etwas über mehrere Schritte merken (z.B. einen kleinen Zustandsautomaten oder
-  einen Timer), leg dafür eine **Variable außerhalb von `decide`** in derselben
-  Datei an (per Closure). Das ist erlaubt und erwünscht.
-
----
-
-## Fertige Navigations-Hilfsfunktionen (bereits in der Datei vorhanden!)
-
-Über `decide` hinweg stehen in `current-bot.js` bereits fertige, getestete
-Hilfsfunktionen zur Verfügung – du musst sie nicht neu schreiben, sondern
-kannst sie direkt in `decide` aufrufen (und bei Bedarf anpassen):
-
-| Funktion | Gibt zurück |
-|---|---|
-| `predictPath(state, opts)` | Simulierte Flugbahn `[{ dx, dy, vx, vy, ticks }, ...]` für eine angenommene Aktion (`opts: { dir, sprint, jump, holdJumpTicks, maxTicks }`). |
-| `calcLandingCoords(state, opts?)` | Wo lande ich, wenn ich `opts` ausführe (Default: aktuelle Bewegung unverändert fortsetzen)? `{ dx, dy, ticks, kind }`. |
-| `simulateJump(state, holdTicks)` | Wie `calcLandingCoords`, aber mit explizitem Sprung über `holdTicks` Ticks. |
-| `apex(state, opts?)` | Höchster Punkt der Flugbahn. |
-| `minJumpHoldToReach(state, dx, dy)` | Wie lange muss ich `jump` halten, um den Punkt `(dx, dy)` zu erreichen? `null`, wenn unerreichbar. |
-| `ticksUntilEdge(state)` | Wie viele Ticks, bis ich die aktuelle Plattform in Laufrichtung verlasse? |
-| `surfaceAt(state, dx)` | Höhe (`dy`) der nächsten festen Fläche bei horizontalem Versatz `dx`. |
-| `wallAhead(state)` | Unspringbare Wand in Laufrichtung: `{ distance, height }` oder `null`. |
-| `predictHazard(state, hazard, ticks)` | Vorhergesagte Position/Aktivität eines Hazards `ticks` Ticks in der Zukunft. |
-| `pathIntersectsHazard(state, path, hazard)` | Kreuzt eine geplante Flugbahn einen (aktiven) Hazard? |
-| `moveToward(dx, sprint)` | Passende Bewegungs-Action für einen horizontalen Versatz. |
-| `createJumpHold()` | Kleines Zähler-Objekt zum Halten von `"jump"` über mehrere Ticks. |
-| `pathHits(path, dx, dy, radius)` | Kommt eine Flugbahn nah an einen Punkt heran (z.B. eine Münze)? |
-| `createNavigator(options?)` | Optionaler, zustandsbehafteter Navigator: erzeugt sichere Sprungpläne, führt sie aus und bietet Fallbacks. Wird nicht automatisch aktiviert. |
-
-Beispiel – "springe genau so lange, dass ich die nächste Münze erreiche":
-
-```js
-const coin = state.nearestCoin;
-if (coin) {
-  const holdTicks = minJumpHoldToReach(state, coin.dx, coin.dy);
-  if (holdTicks !== null && state.onGround) {
-    const hold = createJumpHold();
-    actions.push(moveToward(coin.dx, true));
-    if (hold.tick(true, holdTicks)) actions.push("jump");
-  }
+function choose(context, options) {
+  const goals = options.filter((option) => option.target.kind === "goal");
+  goals.sort((a, b) => b.route.goalProgressPx - a.route.goalProgressPx || a.id.localeCompare(b.id));
+  return goals[0]?.id ?? null;
 }
-```
-
-Bereits fertig gelöst – nicht neu bauen (genau hier entstehen sonst die Bugs,
-die einen Bot am Stand komplett blockieren): sichere Sprungprüfung inklusive
-Stomp-Wissen (`hazardBlocksPath`), Trampolin-Auslösung (`boingoBounceAction`),
-sowie im Navigator die Rückzugs-Sicherheit (wird jeden Tick neu geprüft) und
-die Unterscheidung „bewusstes Warten“ vs. „festgefahren“.
-
-Die Low-Level-Funktionen sind **Bausteine, keine fertige Strategie** – sie
-beantworten Fragen wie „wo lande ich?“. `createNavigator` ist eine optionale
-Orchestrierung dieser Bausteine und wird im leeren Template nicht aktiviert.
-Du darfst alles frei lesen, konfigurieren, anpassen oder durch eigene Logik
-ersetzen.
-
-### Balance: zuverlässig, aber individuell
-
-Das leere Template aktiviert absichtlich **keinen** fertigen Universalbot. Deine
-Aufgabe ist es, aus dem Gespräch eine erkennbare Strategie zu bauen. Verwende
-dabei die vorhandenen Bausteine für schwierige Physik, statt dieselbe
-Landungsprüfung jedes Mal neu und fehleranfällig zu programmieren.
-
-Für einen ersten brauchbaren Bot darfst du `createNavigator(...)` verwenden.
-Übernimm ihn aber nicht blind mit identischen Einstellungen für jeden Besucher:
-
-```js
-const navigator = createNavigator({
-  sprint: true,
-  choosePlan(context, plans) {
-    // Hier wird die Besucherstrategie sichtbar: z.B. vorsichtig den kürzesten
-    // sicheren Sprung oder mutig einen weiten Sprintsprung auswählen.
-    return plans[0] || null;
-  },
-  // recoverFromStuck ist OPTIONAL. Der Standard-Rueckzug prueft bereits, ob
-  // hinter dem Bot Boden ist und keine Gefahr lauert - ueberschreibe ihn nur,
-  // wenn du bewusst etwas anderes willst, und pruefe dann selbst auf Abgrund
-  // und Gefahr (sonst weicht der Bot in genau das zurueck, dem er ausweichen
-  // wollte).
-});
-```
-
-Der Navigator liefert mit `navigator.decide(state)` Actions. Über
-`navigator.getLastDecision()` sind außerdem `mode`, `reason` und die Anzahl der
-betrachteten Pläne sichtbar. Der Agent kann:
-
-- Optionen passend zur Persönlichkeit setzen,
-- in `choosePlan(context, plans)` sichere Kandidaten anders priorisieren,
-- mit `recoverFromStuck(context)` einen eigenen Fallback definieren,
-- vor oder nach dem Navigator eigene Regeln für Früchte, Gegner oder Utilities
-  ergänzen,
-- oder den Navigator komplett weglassen und nur die Low-Level-Helfer verwenden.
-
-Die Individualität entsteht in der **Auswahl und Priorisierung**, nicht dadurch,
-dass jeder Bot Sprungphysik und Kollisionsprüfung neu erfinden muss.
-
-### Robustes Planungsmuster (bei jedem Bot beachten)
-
-1. Bestimme die gewünschte Richtung aus Strategie, Ziel und gegebenenfalls
-   Früchten – nicht pauschal immer rechts.
-2. Betrachte alle relevanten sichtbaren Probleme im selben Korridor. Eine Gefahr
-   kurz vor einer Lücke ist **ein kombiniertes Hindernis**, nicht zwei getrennte
-   Entscheidungen.
-3. Erzeuge mehrere Kandidaten (normal/Sprint, verschiedene Sprunghaltezeiten).
-4. Akzeptiere einen Sprung nur, wenn die simulierte Bahn Gefahren meidet **und
-   auf einer sichtbaren festen Fläche landet**. „Das nächste Objekt überquert“
-   allein reicht nicht.
-5. Führe den gewählten Plan über mehrere Ticks konsistent aus. Plane nicht mitten
-   im Flug grundlos neu.
-6. Wenn kein sicherer Plan existiert: höchstens begrenzt warten, dann Abstand
-   gewinnen und neu anlaufen. Niemals unbegrenzt `idle` zurückgeben.
-7. Setze Zustandsvariablen bei `justRespawned` zurück und halte immer einen
-   Stuck-Fallback bereit.
-
-`gapAhead.distance` ist nur die Entfernung zur **nahen Kante**, nicht die Breite
-der Lücke. Nutze deshalb für die Landung immer `platforms` beziehungsweise
-`predictPath`. Starre Schwellenwerte dürfen nur Lookahead auslösen; sie dürfen
-nicht allein entscheiden, ob ein Sprung sicher ist.
-
----
-
-## Arbeitsweise & weitere Steering-Hinweise
-
-- **Erst Strategie klären, dann coden.** Frag den Nutzer, was der Bot tun soll, und
-  fass es kurz in eigenen Worten zusammen, bevor du Code schreibst.
-- **Direkt einen vollständigen einfachen Bot bauen.** Verwende von Anfang an
-  eine robuste Grundnavigation für Zielrichtung, Lücken und aktive Gefahren.
-  Erzeuge keine absichtlich schwache Zwischenstufe wie „immer rechts“.
-- **Persönlichkeit im Code sichtbar machen.** Nutze mindestens eine Präferenz
-  aus dem Gespräch (Tempo, Risiko, Früchte, Gegner, Warten) für eine echte
-  Auswahlentscheidung. Erzeuge nicht für alle Besucher denselben Navigator mit
-  denselben Optionen.
-- **Nach jeder Änderung testen lassen.** Der Nutzer kann seinen Bot direkt im Spiel
-  laufen lassen ("Bot laufen lassen") oder das Level selbst spielen ("Selbst
-  spielen", Steuerung ← → / Leertaste). Bitte ihn, dir zu sagen, was er beobachtet.
-- **Erkläre in Alltagssprache**, was der Bot jetzt macht – nicht in Code-Begriffen.
-- **Bleib reaktiv:** Schreib Logik, die auf `state` reagiert (Coin in Reichweite?
-  Gefahr voraus? Lücke im Boden?), niemals auf fest einprogrammierte
-  Level-Positionen.
-- **Diagnose nur aus frischen Traces, nie aus Vermutungen.** Wenn etwas nicht
-  funktioniert, lies den tatsächlichen Trace (`decision.actions` Tick für Tick)
-  statt zu raten. Die eigene Nachrechnung kann von der Live-Physik abweichen –
-  der Trace ist die Wahrheit.
-- **Nach jeder Änderung kurz warten, bevor du den nächsten Trace liest.**
-  Speichern und Neuladen des Bots braucht einen Moment. Prüfe die
-  `botRevision` im Trace: Stammt sie noch von der alten Fassung, ist die
-  Datei-Änderung dort noch gar nicht wirksam – eine Diagnose darauf führt in
-  die Irre.
-- **Bei `technicalErrors > 0` oder `result: "bot-paused"` zuerst den
-  Programmfehler beheben.** Ein Laufzeitfehler (z.B. eine nicht definierte
-  Funktion) legt den Bot komplett lahm; das sieht am Bildschirm wie ein
-  Strategieproblem aus, ist aber keines. `decision.message` im Trace nennt den
-  Fehler.
-
-### Testlauf mit Trace auswerten
-
-Im Bot-Modus von `/dev` schreibt jeder einzelne Versuch eine JSON-Datei nach
-`./runs/`: vom Start beziehungsweise Respawn bis zum nächsten Tod,
-Ziel, Zeitlimit oder Abbruch. Die Datei entsteht mit dem ersten Bot-Tick und
-wird während des Versuchs etwa alle fünf Sekunden atomar aktualisiert. Mehrere
-Tode ergeben mehrere Dateien.
-
-Die neuesten fünf Runs findest du mit:
-
-```sh
-ls -1t ./runs/*.json 2>/dev/null | head -5
-```
-
-Lies die großen Dateien **zweistufig**, damit die Diagnose schnell bleibt:
-
-1. Ermittle zuerst für die neuesten Runs nur Metadaten, Ergebnis und Findings:
-
-   ```sh
-   for f in $(ls -1t ./runs/*.json 2>/dev/null | head -10); do
-     jq -c '{file:input_filename,run,summary,findings}' "$f"
-   done
-   ```
-
-2. Wähle daraus die aktuelle `botRevision` und relevante `sessionId`. Lies erst
-   dann aus höchstens zwei passenden Dateien zusätzlich `events` und `windows`.
-
-Jeder Trace enthält:
-
-- `run`: Level, `sessionId`, `botRevision`, Start/Ende, Dauer und Ergebnis des
-  einzelnen Versuchs. Vergleiche niemals Runs verschiedener Bot-Revisionen, ohne
-  diesen Unterschied ausdrücklich zu nennen. `status: "running"` bezeichnet
-  einen Zwischenstand; bei `status: "completed"` sind `result`, `endReason` und
-  `endedAt` endgültig gesetzt. `flushedAt` zeigt den Stand der Datei.
-- `summary`: Fortschritt, Früchte/Punkte und gegebenenfalls Todesursache.
-- `events`: Tatsächlich von der Arena beobachtete Fakten wie `pit-fall` oder
-  `hazard-hit`.
-- `findings`: Abgeleitete Hinweise wie `missed-gap` oder `oscillating`.
-- `windows`: Kompakte Tick-Fenster mit State und Actions als Belege.
-
-Das letzte `window` enthält bei laufenden Runs die aktuellsten Ticks und bei
-abgeschlossenen Runs die unmittelbare Phase vor dem Run-Ende. Nutze dieses
-Fenster zuerst. Eine `sessionId` gruppiert alle Versuche desselben gestarteten
-`/dev`-Laufs; mehrere Tode können deshalb zur gleichen Session gehören. Wenn du
-einen laufenden Run erneut liest, lade die Datei frisch, weil sie gewachsen sein
-kann.
-
-Behandle `events` als Fakten. Formuliere `findings` vorsichtig als Hinweis
-(„Der Trace deutet darauf hin …“), nicht als Gewissheit. Bei wiederholten
-Problemen vergleiche mehrere der neuesten Runs.
-
-Erkläre dem Besucher höchstens die zwei wichtigsten Beobachtungen in
-Alltagssprache. Schlage danach **genau eine** zur gewünschten Strategie passende
-Änderung vor. Ändere `current-bot.js` erst, wenn der Besucher zustimmt. Empfiehl
-danach höchstens einen kurzen Kontrolllauf.
-
-### Typische Fallstricke (aktiv vermeiden)
-
-- **Immer ein Array zurückgeben** (`["right"]`, nicht `"right"`); `[]` = nichts tun.
-- **Pixel ≠ Tiles:** `position`, `dx`, `dy`, `goalDirection` sind in **Pixeln**. Ein
-  Tile ist 16 px. `nearbyTiles`-Indizes sind dagegen in Tiles.
-- **`y` wächst nach unten:** "oberhalb" bedeutet **kleineres** `y` bzw. `dy < 0`.
-- **`jump` nur am Boden:** Immer `state.onGround` prüfen, sonst verpufft der Sprung.
-- **`null` abfangen:** `nearestCoin`, `nearestHazard`, `nearestUtility` können `null`
-  sein; die Listen `coins`/`hazards`/`utilities` sind dann leer.
-- **`active`/`warning` beachten:** Ist ein Hazard `active === false`, ist er gerade
-  ungefährlich (bei `loderix` abwarten). Bei `spikehead` warnt `warning === true`
-  kurz vor dem Fall.
-- **`stompable` nutzen:** Nur auf Hazards mit `stompable === true` draufspringen
-  (nur `ninjafrog`); auf alle anderen – auch die Säge `schnetzler` – niemals.
-- **Weite Sprünge:** vorher `sprint-*` geben (Momentum), sonst reicht die Weite
-  evtl. nicht über eine Lücke (`gapAhead`).
-- **Gefahr vor Lücke:** gemeinsam planen. Ein kurzer Gefahrensprung kann den Bot
-  trotz vermiedener Gefahr über die folgende Plattformkante tragen.
-- **Landung prüfen:** Ein Sprung ist nur sicher, wenn `predictPath` mit
-  `landed === true` endet und die Landung hinter dem gesamten Hindernis liegt.
-- **Warten begrenzen:** Jede `idle`-Strategie braucht einen Tick-Zähler und danach
-  einen alternativen Plan (zurücklaufen, neu anlaufen oder anderes Ziel).
-- **Stuck-Recovery:** Wenn der Bot trotz Bewegungswunsch über viele Ticks kaum
-  vorankommt, kurz Gegenrichtung wählen und anschließend neu planen.
-- **5-ms-Budget respektieren:** Keine großen Schleifen/Berechnungen in `decide`.
-
-### Eigene Regeln rund um den Navigator
-
-Zusaetzliche eigene Logik vor/nach `navigator.decide(state)` ist erlaubt und
-oft sinnvoll (z.B. Fruechte ansteuern, ein Trampolin nutzen). Zwei Dinge
-uebernimmt der Navigator aber bereits selbst – baue sie NICHT nach, sonst
-arbeiten beide gegeneinander:
-
-- **Sturz-Sicherung im Flug.** Der Navigator prueft waehrend des Fallens
-  laufend, ob die Bahn noch sicher landet, und steuert sonst selbst gegen.
-- **Gefahren-Ausweichen am Boden.** Das steckt vollstaendig in der
-  Sprungplanung (inklusive Stomp-Wissen und Sicherheitsabstand).
-
-Eine eigene "wenn Gefahr nah, dann ausweichen"-Regel ist deshalb fast immer
-ein Rueckschritt: Direkt beim Absprung ist die Gefahr, ueber die gesprungen
-wird, zwangslaeufig nah – eine solche Regel bricht den bereits geprueften
-Sprung sofort wieder ab und der Bot huepft endlos auf der Stelle. Brauchst du
-in einem Sonderfall doch einen eigenen Reflex, lass ihn nur greifen, wenn
-`navigator.hasActivePlan()` `false` liefert, und rechne mit
-`navigator.getActivePlanCourse()` statt mit einer aus `velocity.vx`
-geratenen Richtung.
-
-### Entscheidungen, die DU treffen musst (nicht vorgegeben)
-
-Diese Punkte sind bewusst offen – sie hängen von der Besucherstrategie ab:
-
-- **Wie viel Sicherheitsabstand bei Sprüngen?** Über `hazardRadius` in
-  `createNavigator` steuerbar. Standard ist bewusst großzügig (`botWidth*1.5`,
-  Kollision entsteht zwischen zwei Boxen, nicht zwischen zwei Punkten).
-  Kleiner = risikofreudiger, größer = vorsichtiger.
-- **Welcher der sicheren Sprünge?** In `choosePlan`. Achtung: Der *knappste*
-  Sprung landet dicht an der Kante (anfällig), der *weiteste* fliegt weit in
-  noch unsichtbares Gelände (dort können neue Gefahren auftauchen, die beim
-  Absprung nicht einplanbar waren). Ein mittlerer Kandidat mit etwas Puffer
-  ist meist am robustesten.
-- **Wie lange warten, bevor aufgegeben wird?** `maxWaitTicks`. Ein
-  `loderix`-Zyklus dauert ~1,5 s an / ~1,5 s aus – zu kurzes Warten führt zu
-  unnötigen Rückzügen (der Bot könnte einfach kurz stehen bleiben).
-- **Liegt das Ziel unter dem Bot?** `goalDirection.dy > 0` heißt: Ziel ist
-  TIEFER. Dann ist ein Sprung nach oben über eine Lücke kontraproduktiv –
-  besser kontrolliert über die Kante fallen lassen.
-- **Verhalten kurz vorm Ziel.** Findet der Bot nahe am Ziel keinen
-  "hundertprozentig sicheren" Plan (z.B. weil hinter der letzten Lücke keine
-  Plattform mehr im Sichtfeld liegt – das Ziel selbst zählt nicht als Boden),
-  darf er nicht ewig zögern: Endloses Zaudern garantiert ein DNF (−50), ein
-  Versuch hat eine Chance. Ein Zähler plus beherzter Sprung ist hier meist
-  besser als weitere Vorsicht.
-
-### Beispiel-Strategien als Gesprächsanker
-
-- **Sprinter:** Meist `["sprint-right"]`, kombiniert mit `"jump"`, wenn `gapAhead`
-  eine Lücke meldet oder eine Gefahr voraus ist. Schnell, aber sammelt wenig.
-- **Sammler:** Steuert gezielt die nächste Frucht an (`coins[0].dx`), springt für
-  versteckte Blöcke und hohe Früchte (ggf. via `boingo`). Langsamer, aber viele
-  Punkte.
-- **Vorsichtig:** Weicht jeder `active`en Gefahr aus, reagiert auf `warning`,
-  wartet bei `loderix`, bis er aus ist. Wenige Tode, mittlere Zeit.
-
-### Minimales Code-Skelett zur Orientierung
-
-```js
-// Beispiel für eigenen Speicher über mehrere Schritte:
-let jumpTicks = 0;
 
 export default {
   apiVersion: 1,
-  decide(state) {
-    const actions = [];
-
-    // Gefahr in Reichweite und aktiv (oder kündigt sich an)? -> springen
-    const h = state.nearestHazard;
-    const dangerNear = h && (h.active || h.warning) && Math.abs(h.dx) < 60;
-
-    // Lücke voraus? -> springen
-    const gapNear = state.gapAhead.present && state.gapAhead.distance < 60;
-
-    if ((dangerNear || gapNear) && state.onGround) {
-      jumpTicks = 6; // ein paar Ticks lang "jump" halten -> höherer Sprung
-    }
-    if (jumpTicks > 0) {
-      actions.push("jump");
-      jumpTicks--;
-    }
-
-    // Immer Richtung Ziel sprinten (Flugrichtung gilt auch im Sprung)
-    actions.push(state.goalDirection.dx < 0 ? "sprint-left" : "sprint-right");
-
-    return actions;
+  frameworkVersion: 1,
+  name: "Mein Bot",
+  author: "Gast",
+  decide(state, tools) {
+    return tools.navigate({ choose });
   },
 };
 ```
 
-Das ist nur ein Startpunkt – gemeinsam mit dem Nutzer baust du daraus den Bot, der
-zu seiner gewünschten Strategie passt.
+`tools.navigate({ choose })` erzeugt Actions fuer den aktuellen State. Gib sie
+unveraendert zurueck. Genau ein synchroner Aufruf pro `decide`; keine eigenen
+Sprungzaehler, Richtungsreflexe oder gefaelschten Ziel-States daneben.
+Der Worker stellt die Tools bereit, ihr Quellcode gehoert nicht in die Bot-Datei.
+
+`choose(context, options)` wird nur an sicheren Entscheidungspunkten aufgerufen,
+nicht zwingend jeden Tick. Laufende Manoever besitzt das Framework. Eigene
+Bewertungen, Bedingungen und Closure-Zustaende in derselben Datei sind erlaubt.
+
+| Eingabe | Bedeutung |
+| --- | --- |
+| `context.timeElapsedMs`, `timeRemainingMs` | Laufzeit und Restzeit in ms |
+| `context.livesRemaining` | Aktuelle Leben, nicht fest auf drei programmieren |
+| `context.justRespawned`, `previousTargetId` | Neustart nach Tod, bisheriges Ziel |
+| `option.id` | Diese angebotene ID zurueckgeben, nicht die Ziel- oder Routen-ID |
+| `option.target` | `id`, `kind: "coin" | "goal"`, absolute `position`, `value` |
+| `option.route` | `id`, `estimatedDurationMs`, `detourPx`, `expectedFruitValue`, `goalProgressPx` |
+| `option.route.risk`, `landingMarginPx` | Relative Risikokosten und seitlicher Landepuffer |
+| `option.route.mechanics` | `walk`, `jump`, `drop`, `boingo`, `stomp` |
+| `option.route.scope` | `target-reachable` oder nur `local-progress` |
+
+`null` waehlt den Framework-Standard: bekannte Ziel-Fortsetzung mit wenig Risiko
+und Fortschritt. Eine unbekannte ID erzeugt einen Hinweis und denselben Fallback.
+`null` ist kein Veto gegen Bewegung. Beispielsweise kann bei ausschliesslich
+angebotenen Stomp-Routen auch der Fallback einen Stomp waehlen.
+Optionen sind lokale Prognosen, keine Garantie fuer unsichtbares Gelaende.
+`risk` ist keine Sterbewahrscheinlichkeit. Ohne bekannte Fortsetzung kann die
+Navigation `blocked` melden; niemals einen blinden Sprung erzwingen.
+
+## Individuelle Prioritaeten
+
+- Sprinter: Ziel-Fortschritt pro geschaetzter Zeit, keine gezielten Sammelumwege.
+- Sammler: erreichbarer Fruchtwert pro Zusatzzeit, maximal 320 px Umweg;
+  ab 65 s, bei hoechstens 25 s Restzeit oder letztem Leben Ziel-Fortsetzung.
+- Vorsichtiger: geringstes Risiko, dann Landepuffer, dann Fortschritt;
+  im Callback keine geplanten Stomps auswaehlen.
+
+Die Referenzdateien sind komplette abgebbare Bots, keine festen
+Persoenlichkeits-Schalter. Setze mindestens eine echte Auswahlpraeferenz aus dem
+Gespraech um. Verwende beobachtete Optionen statt auswendig gelernter Levelpositionen.
+Fruchtpunkte, Zielzeit und Todesabzuege zaehlen; schnell ist nicht automatisch besser.
+
+## Ausprobieren und erklaeren
+
+Nach Name und Strategiewunsch nur `current-bot.js` bearbeiten und speichern.
+Die bestehende Vorschau `/code` laedt automatisch neu; Level und Worker starten
+frisch. Gemeinsam den Bot laufen lassen und den Lauf ansehen. Ist die Seite
+nicht offen, den Betreiber bitten, `/code` zu oeffnen. Keine GUI selbst starten
+und keinen zusaetzlichen Dienst oder Testaufbau einrichten.
+
+Anhand des Laufs und vorhandener Traces kurz erklaeren, was passiert ist, und
+eine zum Wunsch passende Verbesserung vorschlagen. Strategieaenderungen nur mit
+Zustimmung des Besuchers; keine automatische Optimierung oder Erfolgsversprechen.
+
+## Ergebnisse lesen
+
+Nur tatsaechlich vorhandene Traces unter `runs/` lesen. Vor der Zuordnung zum
+aktuellen Code `run.botRevision` pruefen; veraltete Traces sind kein Nachweis
+fuer den neuen Code. Fehlt ein passender Trace, das offen sagen.
+
+Versuchstraces unter `runs/` umfassen Start/Respawn bis Tod, Ziel oder Abbruch,
+nicht automatisch den gesamten Lauf. Lies zuerst `run`, `summary`, `findings`,
+danach hoechstens zwei relevante `events`-/`windows`-Ausschnitte frisch ein.
+`events` sind Fakten, `findings` Hinweise. Trace v2 korreliert Ziel-/Plan-IDs,
+Phase, Grund und Geometrie mit State-/Action-Ticks; gekuerzte Daten sind kein
+vollstaendiger Beweis. Alte v1-Traces haben keine nachtraeglich erfundene Navigation.
+
+Bei technischen Fehlern zuerst Fehlermeldung und Revision pruefen. Danach maximal
+zwei Beobachtungen und einen zum Wunsch passenden Strategievorschlag nennen.
+Technische Gueltigkeit, spielerische Leistung und Strategiewunsch getrennt bewerten.
+Ein einzelner Lauf beweist keine allgemeine Verbesserung. Nicht ausgefuehrte
+Browser-/Lasttests ausdruecklich als offen benennen.

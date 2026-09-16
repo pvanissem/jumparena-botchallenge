@@ -3,7 +3,7 @@ import { createBrowserWorker } from "./createBrowserWorker";
 import type { WorkerLike, WorkerToHostMessage } from "./workerLike";
 
 export type BotArtifactValidation =
-  | { valid: true; name: string; author: string; color?: string }
+  | { valid: true; name: string; author: string; color?: string; frameworkVersion?: 1 }
   | { valid: false; reason: string };
 
 /**
@@ -28,34 +28,44 @@ export function validateBotArtifact(
   const worker = createWorker();
 
   return new Promise<BotArtifactValidation>((resolve) => {
-    const cleanup = () => {
+    let settled = false;
+    const finish = (result: BotArtifactValidation) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       worker.terminate();
+      resolve(result);
     };
 
     const timer = setTimeout(() => {
-      cleanup();
-      resolve({ valid: false, reason: `Timeout nach ${timeoutMs} ms` });
+      finish({ valid: false, reason: `Timeout nach ${timeoutMs} ms` });
     }, timeoutMs);
 
     worker.onmessage = (event) => {
       const message: WorkerToHostMessage = event.data;
       if (message.type === "module-ready") {
-        cleanup();
-        resolve({
+        finish({
           valid: true,
           name: message.name || fallbackName.replace(/\.js$/i, ""),
           author: message.author || "unbekannt",
           color: message.color,
+          ...(message.frameworkVersion !== undefined
+            ? { frameworkVersion: message.frameworkVersion }
+            : {}),
         });
       } else if (message.type === "module-invalid") {
-        cleanup();
-        resolve({ valid: false, reason: message.reason });
+        finish({ valid: false, reason: message.reason });
       }
       // action/error/tick messages are ignored - validation waits for the
       // module result or the timeout.
     };
 
-    worker.postMessage({ type: "init", code: sourceCode });
+    worker.onerror = (event) => finish({ valid: false, reason: event.message });
+    worker.onmessageerror = () => finish({ valid: false, reason: "Worker-Nachricht nicht lesbar" });
+    try {
+      worker.postMessage({ type: "init", code: sourceCode });
+    } catch (error) {
+      finish({ valid: false, reason: String(error) });
+    }
   });
 }

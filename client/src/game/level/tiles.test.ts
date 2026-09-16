@@ -62,7 +62,7 @@ describe("tileTypeAt", () => {
       hiddenCoinBlocks: [{ id: "b1", x: 48, y: 16, fruit: "kiwi" }],
     });
     const dynamic = { activeHazardIds: new Set<string>(), resolvedBlockIds: new Set(["b1"]) };
-    expect(tileTypeAt(level, 48 / TILE_SIZE, 16 / TILE_SIZE, dynamic)).toBe("empty");
+    expect(tileTypeAt(level, 48 / TILE_SIZE, 16 / TILE_SIZE, dynamic)).toBe("solid");
   });
 
   it("returns 'goal' for the goal tile", () => {

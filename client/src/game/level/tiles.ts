@@ -7,6 +7,7 @@
  */
 import type { HazardKind, TileType } from "@arena/bot-contract";
 import { isTimedActive, spikeheadState } from "../hazards/behaviors";
+import type { WorldRect } from "../state/worldSnapshot";
 import type { HazardInstanceDef, LevelDef } from "./types";
 
 export const TILE_SIZE = 16;
@@ -16,6 +17,9 @@ export interface DynamicTileState {
   activeHazardIds: ReadonlySet<string>;
   /** IDs bereits ausgelöster (zu Münzen gewordener) Blöcke. */
   resolvedBlockIds: ReadonlySet<string>;
+  /** Live observations replace definition positions, including an empty list. */
+  hazards?: readonly { id: string; x: number; y: number; bounds?: WorldRect }[];
+  blocks?: readonly { id: string; bounds: WorldRect }[];
 }
 
 /**
@@ -98,24 +102,35 @@ export function tileTypeAt(
   row: number,
   dynamic: DynamicTileState
 ): TileType {
-  for (const hazard of level.hazards) {
+  for (const hazard of dynamic.hazards ??
+    level.hazards.map((hazard) => ({
+      id: hazard.id,
+      bounds: undefined,
+      x: hazard.kind === "kugelblitz" ? hazard.pivotX : hazard.x,
+      y:
+        hazard.kind === "kugelblitz"
+          ? hazard.pivotY
+          : hazard.kind === "spikehead"
+            ? hazard.fallToY
+            : hazard.y,
+    }))) {
     if (!dynamic.activeHazardIds.has(hazard.id)) continue;
-    const hx = hazard.kind === "kugelblitz" ? hazard.pivotX : hazard.x;
-    const hy =
-      hazard.kind === "kugelblitz"
-        ? hazard.pivotY
-        : hazard.kind === "spikehead"
-          ? hazard.fallToY
-          : hazard.y;
-    if (tileSizeToCol(hx) === col && tileSizeToRow(hy) === row) {
+    if (
+      hazard.bounds
+        ? rectOverlapsTile(hazard.bounds, col, row)
+        : tileSizeToCol(hazard.x) === col && tileSizeToRow(hazard.y) === row
+    ) {
       return "hazard";
     }
   }
 
-  for (const block of level.hiddenCoinBlocks) {
-    if (dynamic.resolvedBlockIds.has(block.id)) continue;
-    if (tileSizeToCol(block.x) === col && tileSizeToRow(block.y) === row) {
-      return "coinBlock";
+  for (const block of dynamic.blocks ??
+    level.hiddenCoinBlocks.map((block) => ({
+      id: block.id,
+      bounds: { x: block.x, y: block.y, width: 1, height: 1 },
+    }))) {
+    if (rectOverlapsTile(block.bounds, col, row)) {
+      return dynamic.resolvedBlockIds.has(block.id) ? "solid" : "coinBlock";
     }
   }
 
@@ -128,6 +143,15 @@ export function tileTypeAt(
   }
 
   return "empty";
+}
+
+function rectOverlapsTile(rect: WorldRect, col: number, row: number): boolean {
+  return (
+    rect.x < (col + 1) * TILE_SIZE &&
+    rect.x + rect.width > col * TILE_SIZE &&
+    rect.y < (row + 1) * TILE_SIZE &&
+    rect.y + rect.height > row * TILE_SIZE
+  );
 }
 
 /**

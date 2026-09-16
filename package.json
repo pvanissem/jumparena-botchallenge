@@ -8,7 +8,7 @@
     "client"
   ],
   "scripts": {
-    "build": "npm run build -w @arena/shared && npm run build -w @arena/bot-contract && npm run build -w @arena/client && npm run build -w @arena/server",
+    "build": "npm run build -w @arena/shared && npm run build -w @arena/bot-contract && npm run build -w @arena/bot-navigation && npm run build -w @arena/client && npm run build -w @arena/server",
     "dev": "npm run dev -w @arena/client",
     "present": "npm run dev -w @arena/server",
     "reset-bot": "node scripts/reset-bot.mjs",

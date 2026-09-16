@@ -3,8 +3,8 @@
  * Abschnitt "Ablauf/Sequenz", sowie `.features/arena-feel-and-graphics/bugfix.md`
  * für die Trennung von Tastatur-Frame-Input und Bot-Tick. Dünne Wiring-
  * Schicht: enthält selbst KEINE Spielregel-Entscheidungen (die liegen in
- * `rules/raceRules.ts`), bewusst nicht unit-getestet (Phaser/Canvas nötig),
- * manuell verifiziert.
+ * `rules/raceRules.ts`). Lifecycle-Wiring ist unit-getestet; reale Physik
+ * braucht weiterhin eine Verifikation im Browser.
  */
 import type { Action, UtilityKind } from "@arena/bot-contract";
 import Phaser from "phaser";
@@ -22,7 +22,6 @@ import { spikeheadState } from "../hazards/behaviors";
 import { updateHazard } from "../hazards/factory";
 import { UTILITY_REGISTRY } from "../hazards/registry";
 import { DEFAULT_LEVEL_ID, getLevelById } from "../level/levelRegistry";
-import { buildDynamicTileState } from "../level/tiles";
 import type { FruitKind, HazardInstanceDef, LevelDef } from "../level/types";
 import { FRUIT_VALUES } from "../level/types";
 import {
@@ -50,7 +49,7 @@ import {
 } from "../rules/racerState";
 import { buildBotState } from "../state/botStateBuilder";
 import { computeHazardVelocities } from "../state/hazardVelocity";
-import type { WorldSnapshot } from "../state/worldSnapshot";
+import type { NavigationObservation, WorldRect, WorldSnapshot } from "../state/worldSnapshot";
 import { BotRunRecorder } from "../trace/BotRunRecorder";
 import { botRevisionForSource } from "../trace/botTraceIdentity";
 import { RunTelemetryLifecycle } from "../trace/runLifecycle";
@@ -62,7 +61,8 @@ const BOT_TICK_INTERVAL_MS = MOVEMENT_TUNING.BOT_TICK_INTERVAL_MS;
 // Wie oft die Live-HUD-Anzeige (Zeit/Coins) aktualisiert wird. ~10x/s reicht
 // für eine flüssig wirkende Sekunden-Anzeige, ohne React zu überlasten.
 const STATUS_EMIT_INTERVAL_MS = 100;
-const STOMP_BOUNCE_VELOCITY = -280;
+// Covers accumulated floating-point error, not a fraction of a physics frame.
+const TIME_LIMIT_EPSILON_MS = 0.000001;
 /** Ab dieser horizontalen Geschwindigkeit gilt der Racer als "läuft" (Anim). */
 const RUN_ANIM_THRESHOLD = 1;
 
@@ -119,6 +119,14 @@ export class RaceScene extends Phaser.Scene {
   // nicht jeden Frame (~60x/s) einen React-Re-Render auslöst.
   private sinceLastStatusEmit = 0;
   private tickCounter = 0;
+  private frameCounter = 0;
+  private epoch = 0;
+  private generation = 0;
+  private botReady = false;
+  private awaitingBotPhysics = false;
+  private pendingDecision: Promise<void> | null = null;
+  private pendingState: { tick: number; generation: number } | null = null;
+  private lastDecision: { stateTick: number; stateFrame: number; epoch: number } | null = null;
   /** Zuletzt vom Bot gelieferte Actions – werden jeden Frame erneut angewendet,
    *  bis der nächste Bot-Tick neue liefert (nicht-blockierend). */
   private lastBotActions: Action[] = [];
@@ -126,6 +134,13 @@ export class RaceScene extends Phaser.Scene {
    *  `movement/movement.ts#rampedSprintSpeed`) – 0, solange nicht gesprintet
    *  wird. */
   private sprintHoldMs = 0;
+  private sprintDirection: -1 | 0 | 1 = 0;
+  private impulse: NavigationObservation["movement"] = {
+    jumpStartedAtMs: null,
+    impulseKind: "none",
+    impulseAtMs: null,
+    sourceId: null,
+  };
   /** Weltpositionen der Hazards zum Zeitpunkt des vorherigen Bot-Ticks – Basis
    *  für `computeHazardVelocities` (US-7, siehe `state/hazardVelocity.ts`). */
   private previousHazardPositions = new Map<string, { x: number; y: number }>();
@@ -133,7 +148,7 @@ export class RaceScene extends Phaser.Scene {
   /** Zeitpunkt (elapsedMs) des zuletzt ausgelösten Sprungs, oder `null`
    *  zwischen Sprüngen (siehe `movement/movement.ts#shouldCutJump`). */
   private jumpStartMs: number | null = null;
-  /** Frame-Delta des aktuellen `update()`-Aufrufs – als Feld zwischengespeichert,
+  /** Frame-Delta der aktuellen Physikvorbereitung – als Feld zwischengespeichert,
    *  da `applyKeyboardInput`/`applyBotAction`/`applyMovement` es für die
    *  Sprint-Rampe brauchen, aber (historisch) kein `delta`-Argument haben. */
   private currentDelta = 0;
@@ -173,6 +188,8 @@ export class RaceScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.sinceLastBotTick = 0;
     this.tickCounter = 0;
+    this.frameCounter = 0;
+    this.invalidateObservation();
     this.lastBotActions = [];
     this.pendingTookDamage = false;
     this.pendingJustRespawned = false;
@@ -270,6 +287,10 @@ export class RaceScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setBounds(0, 0, this.level.worldWidth, this.level.worldHeight);
 
+    // Arcade registers its POST_UPDATE body->sprite sync before create().
+    this.events.on("preupdate", this.preparePhysics, this);
+    this.events.on("postupdate", this.observeAndAct, this);
+    this.events.once("shutdown", this.shutdown, this);
     this.initData.onReady?.();
   }
 
@@ -291,20 +312,36 @@ export class RaceScene extends Phaser.Scene {
 
   private createController(): RacerController {
     if (this.initData.controllerMode === "bot" && this.initData.botSourceCode) {
+      this.botReady = false;
+      this.awaitingBotPhysics = true;
+      this.physics.world.pause();
       this.botRunner = new BotRunner(createBrowserWorker(), {
         observer: this.telemetry
           ? {
-              onDecision: (result) => this.telemetry?.current?.recordDecision(result),
+              onDecision: (result) => {
+                if (this.pendingState?.generation !== this.generation) return;
+                this.telemetry?.current?.recordDecision({
+                  ...result,
+                  tick: this.pendingState.tick,
+                });
+              },
               onPaused: (reason, message) => {
+                if (reason === "disposed") return;
                 this.recordTraceEvent("bot-paused", { reason, message });
                 this.finishTrace("bot-paused", reason);
               },
             }
           : undefined,
       });
-      this.botRunner.init(this.initData.botSourceCode);
+      const runner = this.botRunner;
+      runner.init(this.initData.botSourceCode);
+      void runner.whenReady().then((ready) => {
+        if (this.botRunner === runner) this.botReady = ready && runner.status === "running";
+      });
       return new BotController(this.botRunner);
     }
+    if (this.awaitingBotPhysics) this.physics.world.resume();
+    this.awaitingBotPhysics = false;
     const keys = this.input.keyboard?.createCursorKeys();
     this.keyboardController = new KeyboardController(keys as unknown as never);
     return this.keyboardController;
@@ -324,6 +361,7 @@ export class RaceScene extends Phaser.Scene {
     if (unchanged) return;
 
     this.finishTrace("aborted", "manual-mode");
+    this.invalidateObservation();
     this.controller?.dispose();
     this.keyboardController = null;
     this.botRunner = null;
@@ -349,7 +387,55 @@ export class RaceScene extends Phaser.Scene {
     this.notifyStatus();
   }
 
-  update(_time: number, delta: number): void {
+  private preparePhysics(_time: number, delta: number): void {
+    if (isRacerTerminal(this.racer)) {
+      this.haltRacer();
+      return;
+    }
+    if (this.botRunner && !this.botReady) return;
+    if (this.awaitingBotPhysics) {
+      this.physics.world.resume();
+      this.awaitingBotPhysics = false;
+    }
+    this.currentDelta = delta;
+    this.frameCounter += 1;
+    // Apply once, at step start: replies since POST_UPDATE affect the next
+    // Arcade update. Promise callbacks only replace the held input.
+    if (this.keyboardController) {
+      this.applyKeyboardInput(this.keyboardController);
+    } else {
+      const appliedActions = this.applyBotActions(this.lastBotActions);
+      if (this.lastDecision) {
+        this.telemetry?.current?.recordEvent({
+          kind: "action-applied",
+          tick: this.lastDecision.stateTick,
+          timeMs: Math.round(this.elapsedMs),
+          position: { x: this.racer.x, y: this.racer.y },
+          details: {
+            ...this.lastDecision,
+            appliedFrame: this.frameCounter,
+            actions: JSON.stringify(appliedActions),
+          },
+        });
+        this.lastDecision = null;
+      }
+    }
+    const nextElapsedMs = this.elapsedMs + delta;
+    this.elapsedMs =
+      nextElapsedMs >= RUN_TIME_LIMIT_MS - TIME_LIMIT_EPSILON_MS
+        ? RUN_TIME_LIMIT_MS
+        : nextElapsedMs;
+    this.racer = { ...this.racer, timeElapsedMs: this.elapsedMs };
+    for (const instance of this.world.hazardInstances) {
+      if (instance.sprite.active && instance.sprite.body?.enable) {
+        updateHazard(instance, this.elapsedMs, this.racer.hazardTriggeredAtMs);
+      }
+    }
+  }
+
+  private observeAndAct(_time: number, delta: number): void {
+    if (this.botRunner && !this.botReady) return;
+    if (!this.terminalHandled) this.syncRacerPositionFromPhysics();
     if (isRacerTerminal(this.racer)) {
       // Einmalig aktiv stoppen: Ohne das behält der Arcade-Body seine letzte
       // Geschwindigkeit und die Gravitation wirkt weiter – der Racer würde
@@ -359,18 +445,10 @@ export class RaceScene extends Phaser.Scene {
       return;
     }
 
-    this.currentDelta = delta;
-    this.elapsedMs += delta;
-    this.racer = { ...this.racer, timeElapsedMs: this.elapsedMs };
-
-    for (const instance of this.world.hazardInstances) {
-      updateHazard(instance, this.elapsedMs, this.racer.hazardTriggeredAtMs);
-    }
-
     if (this.elapsedMs >= RUN_TIME_LIMIT_MS && !this.racer.finished) {
       this.finishTrace("time-limit", "time-limit");
       this.racer = applyTimeLimitReached(this.racer);
-      this.notifyStatus();
+      this.haltRacer();
       return;
     }
 
@@ -380,30 +458,22 @@ export class RaceScene extends Phaser.Scene {
       this.finishTrace("death", "pit-fall", { ...this.traceSummary(), position: deathPosition });
       this.racer = applyPitFall(this.racer);
       this.markDamageAndRespawn();
-      this.player.setPosition(this.racer.x, this.racer.y);
+      (this.player.body as Phaser.Physics.Arcade.Body).reset(this.racer.x, this.racer.y);
       this.telemetry?.start(this.traceSummary());
       this.playSfx(AUDIO_KEYS.FALL);
       this.notifyStatus();
     }
 
-    if (this.keyboardController) {
-      // Tastatur: jeden Frame synchron gelesen, Multi-Input (Bewegung +
-      // Sprung gleichzeitig) – siehe bugfix.md, "Root Cause" Punkt 1+2.
-      this.applyKeyboardInput(this.keyboardController);
-    } else {
-      // Bot: eigenes, langsameres Tick-Raster, nicht-blockierend (siehe
-      // `fireBotTick`) – die zuletzt aufgelösten Actions werden bis zum nächsten
-      // Tick jeden Frame erneut angewendet.
+    if (!this.keyboardController) {
+      // Observe completed physics; request the input for a following PRE_UPDATE.
       this.sinceLastBotTick += delta;
       if (this.sinceLastBotTick >= BOT_TICK_INTERVAL_MS) {
-        this.sinceLastBotTick = 0;
+        this.sinceLastBotTick %= BOT_TICK_INTERVAL_MS;
         this.fireBotTick();
       }
-      this.applyBotActions(this.lastBotActions);
     }
 
     this.updatePlayerAnimation();
-    this.syncRacerPositionFromPhysics();
     this.updateSpikeheadTriggers();
     this.telemetry?.advance(delta, this.traceSummary());
 
@@ -427,6 +497,8 @@ export class RaceScene extends Phaser.Scene {
   private haltRacer(): void {
     if (this.terminalHandled) return;
     this.terminalHandled = true;
+    this.physics.world.pause();
+    this.invalidateObservation();
 
     const body = this.player.body as Phaser.Physics.Arcade.Body | null;
     if (body) {
@@ -466,6 +538,16 @@ export class RaceScene extends Phaser.Scene {
    * sobald der `BotRunner` antwortet (siehe bugfix.md, Fix-Ansatz A).
    */
   private fireBotTick(): void {
+    if (
+      this.pendingDecision ||
+      (this.botRunner && (!this.botReady || this.botRunner.status === "paused")) ||
+      isRacerTerminal(this.racer)
+    )
+      return;
+    const generation = this.generation;
+    const epoch = this.epoch;
+    const stateFrame = this.frameCounter;
+    this.syncRacerPositionFromPhysics();
     const snapshot = this.buildSnapshot();
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const botState = buildBotState(snapshot, this.racer, this.tickCounter++, {
@@ -474,6 +556,14 @@ export class RaceScene extends Phaser.Scene {
       sprintHoldMs: this.sprintHoldMs,
       justRespawned: this.pendingJustRespawned,
       tookDamage: this.pendingTookDamage,
+      navigation: {
+        epoch,
+        frame: this.frameCounter,
+        observedAtMs: this.elapsedMs,
+        physicsStepMs: 1000 / this.physics.world.fps,
+        body: this.bodyBounds(body),
+        movement: { ...this.impulse, jumpStartedAtMs: this.jumpStartMs },
+      },
     });
     this.telemetry?.current?.recordState(botState);
     // Ereignis-Flags gelten nur für den EINEN Tick unmittelbar nach dem
@@ -484,25 +574,91 @@ export class RaceScene extends Phaser.Scene {
     // `getNextActions` ist laut `RacerController`-Interface `Action[] |
     // Promise<Action[]>` (der Bot-Pfad liefert immer ein Promise, siehe
     // `BotController`) – `Promise.resolve` normalisiert beide Fälle einheitlich.
-    void Promise.resolve(this.controller.getNextActions({ botState })).then((actions) => {
-      this.lastBotActions = actions;
-      this.notifyStatus();
-    });
+    this.pendingState = { tick: botState.tick, generation };
+    const pending = Promise.resolve(this.controller.getNextActions({ botState }))
+      .then((actions) => {
+        if (generation !== this.generation || isRacerTerminal(this.racer)) return;
+        this.lastBotActions = actions;
+        this.lastDecision = {
+          stateTick: botState.tick,
+          stateFrame,
+          epoch,
+        };
+        this.notifyStatus();
+      })
+      .finally(() => {
+        if (this.pendingDecision === pending) {
+          this.pendingDecision = null;
+          this.pendingState = null;
+        }
+      });
+    this.pendingDecision = pending;
+  }
+
+  private invalidateObservation(): void {
+    this.generation += 1;
+    this.epoch += 1;
+    this.previousHazardPositions.clear();
+    this.previousHazardTickElapsedMs = null;
+    this.lastBotActions = [];
+    this.lastDecision = null;
+    this.sprintHoldMs = 0;
+    this.sprintDirection = 0;
+    this.jumpStartMs = null;
+    this.impulse = {
+      jumpStartedAtMs: null,
+      impulseKind: "none",
+      impulseAtMs: null,
+      sourceId: null,
+    };
   }
 
   /** Merkt Schadens-/Respawn-Ereignis für den nächsten Bot-Tick-State (US-7).
    *  Jeder Lebensverlust im aktuellen Spiel ist zugleich ein Respawn. */
   private markDamageAndRespawn(): void {
+    this.invalidateObservation();
     this.pendingTookDamage = true;
     this.pendingJustRespawned = true;
   }
 
   private buildSnapshot(): WorldSnapshot {
-    const dynamic = buildDynamicTileState(this.level, this.racer, this.elapsedMs);
-    const hazardPositions = this.level.hazards.map((h) => ({
+    const hazards = this.world.hazardInstances.flatMap(({ sprite, def }) => {
+      const body = sprite.body;
+      if (!sprite.active || !body?.enable || this.racer.destroyedHazardIds.has(def.id)) return [];
+      return [
+        {
+          id: def.id,
+          kind: def.kind,
+          x: sprite.x,
+          y: sprite.y,
+          bounds: this.bodyBounds(body),
+          active: !body.checkCollision.none,
+          warning: this.isHazardWarning(def),
+        },
+      ];
+    });
+    const blocks = (this.world.blocks.getChildren() as Phaser.Physics.Arcade.Sprite[]).flatMap(
+      (sprite) => {
+        const body = sprite.body;
+        if (!sprite.active || !body?.enable) return [];
+        return [
+          {
+            id: sprite.getData("id") as string,
+            bounds: this.bodyBounds(body),
+          },
+        ];
+      }
+    );
+    const dynamic = {
+      activeHazardIds: new Set(hazards.filter((h) => h.active).map((h) => h.id)),
+      resolvedBlockIds: this.racer.resolvedBlockIds,
+      hazards,
+      blocks,
+    };
+    const hazardPositions = hazards.map((h) => ({
       id: h.id,
-      x: h.kind === "kugelblitz" ? h.pivotX : h.x,
-      y: h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y,
+      x: h.x,
+      y: h.y,
     }));
     const deltaMs =
       this.previousHazardTickElapsedMs === null
@@ -517,30 +673,48 @@ export class RaceScene extends Phaser.Scene {
     this.previousHazardTickElapsedMs = this.elapsedMs;
 
     return {
+      levelId: this.initData.levelId ?? DEFAULT_LEVEL_ID,
       level: this.level,
       dynamic,
-      visibleCoins: this.level.coins
-        .filter((c) => !this.racer.collectedCoinIds.has(c.id))
-        .map((c) => ({ id: c.id, x: c.x, y: c.y, value: FRUIT_VALUES[c.fruit] })),
-      hazards: this.level.hazards
-        .filter((h) => !this.racer.destroyedHazardIds.has(h.id))
-        .map((h) => {
-          const pos = h.kind === "kugelblitz" ? h.pivotX : h.x;
-          const y = h.kind === "kugelblitz" ? h.pivotY : h.kind === "spikehead" ? h.fallToY : h.y;
-          const velocity = velocities.get(h.id) ?? { vx: 0, vy: 0 };
-          return {
-            id: h.id,
-            kind: h.kind,
-            x: pos,
-            y,
-            active: dynamic.activeHazardIds.has(h.id),
-            warning: this.isHazardWarning(h),
-            vx: velocity.vx,
-            vy: velocity.vy,
-          };
-        }),
-      utilities: this.level.utilities.map((u) => ({ id: u.id, kind: u.kind, x: u.x, y: u.y })),
+      goalBounds:
+        this.world.goal.active && this.world.goal.body?.enable
+          ? this.bodyBounds(this.world.goal.body)
+          : undefined,
+      visibleCoins: (this.world.coins.getChildren() as Phaser.Physics.Arcade.Sprite[]).flatMap(
+        (c) => {
+          const body = c.body;
+          if (!c.active || !body?.enable || this.racer.collectedCoinIds.has(c.getData("id")))
+            return [];
+          return [
+            {
+              id: c.getData("id") as string,
+              x: c.x,
+              y: c.y,
+              value: FRUIT_VALUES[c.getData("fruit") as FruitKind],
+              bounds: this.bodyBounds(body),
+            },
+          ];
+        }
+      ),
+      hazards: hazards.map((h) => ({ ...h, ...velocities.get(h.id) })),
+      utilities: this.world.utilityInstances.flatMap(({ sprite, def }) => {
+        const body = sprite.body;
+        if (!sprite.active || !body?.enable) return [];
+        return [
+          {
+            id: def.id,
+            kind: def.kind,
+            x: sprite.x,
+            y: sprite.y,
+            bounds: this.bodyBounds(body),
+          },
+        ];
+      }),
     };
+  }
+
+  private bodyBounds(body: WorldRect): WorldRect {
+    return { x: body.x, y: body.y, width: body.width, height: body.height };
   }
 
   /** Ob sich eine Gefahr gerade ankündigt (nur Spikehead in der Vorwarnphase –
@@ -590,7 +764,7 @@ export class RaceScene extends Phaser.Scene {
    * horizontale Bewegungs-Action gewinnt; `jump` ist frei kombinierbar; `idle`
    * bzw. eine leere Liste bedeutet "keine horizontale Bewegung".
    */
-  private applyBotActions(actions: readonly Action[]): void {
+  private applyBotActions(actions: readonly Action[]): Action[] {
     let dir: -1 | 0 | 1 = 0;
     let sprint = false;
     for (const action of actions) {
@@ -604,6 +778,11 @@ export class RaceScene extends Phaser.Scene {
     }
     const jump = actions.includes("jump");
     this.applyMovement(dir, sprint, jump);
+    const applied: Action[] = [];
+    if (dir === -1) applied.push(sprint ? "sprint-left" : "left");
+    if (dir === 1) applied.push(sprint ? "sprint-right" : "right");
+    if (jump) applied.push("jump");
+    return applied;
   }
 
   /**
@@ -617,10 +796,12 @@ export class RaceScene extends Phaser.Scene {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
 
     if (dir !== 0 && sprint) {
-      this.sprintHoldMs += this.currentDelta;
-    } else if (dir !== 0) {
+      this.sprintHoldMs =
+        (dir === this.sprintDirection ? this.sprintHoldMs : 0) + this.currentDelta;
+    } else {
       this.sprintHoldMs = 0;
     }
+    this.sprintDirection = sprint ? dir : 0;
 
     if (dir !== 0) {
       body.setVelocityX(dir * rampedSprintSpeed(this.sprintHoldMs));
@@ -641,6 +822,12 @@ export class RaceScene extends Phaser.Scene {
    */
   private applyJumpOnly(jumpHeld: boolean): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+    // Ground flags can still describe the contact which just caused a bounce.
+    if (
+      (this.impulse.impulseKind === "boingo" || this.impulse.impulseKind === "stomp") &&
+      body.velocity.y < 0
+    )
+      return;
     const onGround = body.blocked.down || body.touching.down;
     this.racer = { ...this.racer, onGround };
 
@@ -652,6 +839,12 @@ export class RaceScene extends Phaser.Scene {
       const currentSpeed = Math.abs(body.velocity.x) || MOVEMENT_TUNING.BASE_MOVE_SPEED;
       body.setVelocityY(jumpVelocityForSpeed(currentSpeed));
       this.jumpStartMs = this.elapsedMs;
+      this.impulse = {
+        jumpStartedAtMs: this.elapsedMs,
+        impulseKind: "jump",
+        impulseAtMs: this.elapsedMs,
+        sourceId: null,
+      };
       this.playSfx(AUDIO_KEYS.JUMP);
       return;
     }
@@ -688,7 +881,22 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private syncRacerPositionFromPhysics(): void {
-    this.racer = { ...this.racer, x: this.player.x, y: this.player.y };
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    this.racer = {
+      ...this.racer,
+      x: this.player.x,
+      y: this.player.y,
+      onGround: body.blocked.down || body.touching.down,
+    };
+    if (this.racer.onGround && body.velocity.y >= 0) {
+      this.jumpStartMs = null;
+      this.impulse = {
+        jumpStartedAtMs: null,
+        impulseKind: "none",
+        impulseAtMs: null,
+        sourceId: null,
+      };
+    }
   }
 
   private onCoinOverlap(coin: Phaser.Physics.Arcade.Sprite): void {
@@ -776,6 +984,13 @@ export class RaceScene extends Phaser.Scene {
     if (body.velocity.y <= 0) return;
 
     body.setVelocityY(MOVEMENT_TUNING.BOINGO_JUMP_VELOCITY);
+    this.jumpStartMs = null;
+    this.impulse = {
+      jumpStartedAtMs: null,
+      impulseKind: "boingo",
+      impulseAtMs: this.elapsedMs,
+      sourceId: utility.getData("id") as string,
+    };
     this.playSfx(AUDIO_KEYS.BOINGO);
 
     const kind = utility.getData("kind") as UtilityKind;
@@ -789,7 +1004,11 @@ export class RaceScene extends Phaser.Scene {
   private onHazardOverlap(hazard: Phaser.Physics.Arcade.Sprite): void {
     const kind = hazard.getData("kind") as HazardKindLike;
     const id = hazard.getData("id") as string;
-    const isActive = this.buildSnapshot().dynamic.activeHazardIds.has(id);
+    const isActive =
+      hazard.active &&
+      !!hazard.body?.enable &&
+      !hazard.body.checkCollision.none &&
+      !this.racer.destroyedHazardIds.has(id);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const contactFromAbove = body.velocity.y > 0 && this.player.y < hazard.y;
 
@@ -797,7 +1016,14 @@ export class RaceScene extends Phaser.Scene {
     if (contact === "none") return;
     if (contact === "stomped") {
       this.recordTraceEvent("hazard-stomped", { hazardKind: kind, hazardId: id });
-      body.setVelocityY(STOMP_BOUNCE_VELOCITY);
+      body.setVelocityY(MOVEMENT_TUNING.STOMP_JUMP_VELOCITY);
+      this.jumpStartMs = null;
+      this.impulse = {
+        jumpStartedAtMs: null,
+        impulseKind: "stomp",
+        impulseAtMs: this.elapsedMs,
+        sourceId: id,
+      };
       this.playVanishEffect(hazard.x, hazard.y);
       if (!this.racer.destroyedHazardIds.has(id)) {
         this.racer = {
@@ -818,7 +1044,7 @@ export class RaceScene extends Phaser.Scene {
     });
     this.racer = applyHazardContact(this.racer, contact);
     this.markDamageAndRespawn();
-    this.player.setPosition(this.racer.x, this.racer.y);
+    body.reset(this.racer.x, this.racer.y);
     this.telemetry?.start(this.traceSummary());
     this.player.play("player-hit", true);
     this.playSfx(AUDIO_KEYS.PLAYER_DAMAGED);
@@ -841,12 +1067,14 @@ export class RaceScene extends Phaser.Scene {
   }
 
   private notifyStatus(): void {
+    const runner = this.botRunner;
+    const normalStop = this.terminalHandled && runner?.pausedReasonKind === "disposed";
     this.initData.onStatusChange?.({
       racer: this.racer,
-      pausedReason: this.botRunner?.pausedReason ?? null,
-      pausedReasonKind: this.botRunner?.pausedReasonKind ?? null,
-      lastRuntimeError: this.botRunner?.lastRuntimeError ?? null,
-      consecutiveFailureCount: this.botRunner?.consecutiveFailureCount ?? 0,
+      pausedReason: normalStop ? null : (runner?.pausedReason ?? null),
+      pausedReasonKind: normalStop ? null : (runner?.pausedReasonKind ?? null),
+      lastRuntimeError: runner?.lastRuntimeError ?? null,
+      consecutiveFailureCount: runner?.consecutiveFailureCount ?? 0,
     });
   }
 
@@ -877,6 +1105,10 @@ export class RaceScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.botReady = false;
+    this.events.off("preupdate", this.preparePhysics, this);
+    this.events.off("postupdate", this.observeAndAct, this);
+    this.invalidateObservation();
     this.finishTrace("aborted", "scene-shutdown");
     this.controller?.dispose();
     this.music?.stop();

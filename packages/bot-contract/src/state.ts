@@ -6,6 +6,7 @@
  * sie zurückgeben muss.
  */
 import type { HazardKind, UtilityKind } from "./hazards";
+import type { NavigationObservation, RelativeBounds } from "./navigation";
 
 export type TileType = "empty" | "solid" | "hazard" | "coinBlock" | "goal" | "unknown";
 
@@ -30,6 +31,8 @@ export const ACTIONS: readonly Action[] = [
 export type DecideResult = Action[];
 
 export interface VisibleCoin {
+  id?: string;
+  bounds?: RelativeBounds;
   /** Pixel-Distanz horizontal, relativ zum Bot (– = links, + = rechts). */
   dx: number;
   /** Pixel-Distanz vertikal, relativ zum Bot (– = oben, + = unten). */
@@ -39,6 +42,8 @@ export interface VisibleCoin {
 }
 
 export interface VisibleHazard {
+  id?: string;
+  bounds?: RelativeBounds;
   dx: number;
   dy: number;
   kind: HazardKind;
@@ -60,6 +65,8 @@ export interface VisibleHazard {
 }
 
 export interface VisibleUtility {
+  id?: string;
+  bounds?: RelativeBounds;
   dx: number;
   dy: number;
   kind: UtilityKind;
@@ -88,6 +95,9 @@ export type PlatformKind = "ground" | "float" | "ceiling" | "block";
  * `.features/bot-toolkit/design.md`, US-2.
  */
 export interface VisiblePlatform {
+  id?: string;
+  bounds?: RelativeBounds;
+  collision?: "solid" | "one-way-up";
   /** Linke obere Ecke, horizontal relativ zum Bot (Pixel). */
   dx: number;
   /** Linke obere Ecke, vertikal relativ zum Bot (Pixel). */
@@ -124,6 +134,7 @@ export interface BotTuning {
 }
 
 export interface BotState {
+  navigation?: NavigationObservation;
   tick: number;
   position: { x: number; y: number };
   facing: "left" | "right";

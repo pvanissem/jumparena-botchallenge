@@ -3,19 +3,20 @@
  * + `RacerRuntimeState` (+ transiente Laufzeit-`extras`) – siehe
  * `.features/bot-state-vision/design.md`. Pure Funktion, keine Phaser-Typen.
  */
-import type { BotState, VisibleCoin, VisibleHazard, VisibleUtility } from "@arena/bot-contract";
+import type { BotState } from "@arena/bot-contract";
 import { HAZARD_REGISTRY } from "../hazards/registry";
 import { buildNearbyTiles, TILE_SIZE } from "../level/tiles";
 import { MOVEMENT_TUNING } from "../movement/movement";
 import type { RacerRuntimeState } from "../rules/racerState";
 import { computeGapAhead } from "./gapAhead";
-import { withinView } from "./viewport";
-import { buildVisiblePlatforms } from "./visiblePlatforms";
-import type { WorldSnapshot } from "./worldSnapshot";
+import { VIEW_HALF_HEIGHT_PX, VIEW_HALF_WIDTH_PX, withinView } from "./viewport";
+import { buildVisiblePlatforms, rectIntersectsView } from "./visiblePlatforms";
+import type { NavigationObservation, WorldRect, WorldSnapshot } from "./worldSnapshot";
 
 interface Positioned {
   x: number;
   y: number;
+  bounds?: WorldRect;
 }
 
 /** Transiente, nur zur Laufzeit (Phaser) bekannte Werte – bewusst als explizite,
@@ -28,6 +29,10 @@ export interface BotStateExtras {
   sprintHoldMs: number;
   justRespawned: boolean;
   tookDamage: boolean;
+  navigation?: Omit<
+    NavigationObservation,
+    "version" | "viewport" | "goalBounds" | "boingoJumpVelocity" | "stompJumpVelocity"
+  >;
 }
 
 /**
@@ -44,7 +49,12 @@ function toVisibleList<TIn extends Positioned, TOut extends { dx: number; dy: nu
   for (const item of items) {
     const dx = item.x - from.x;
     const dy = item.y - from.y;
-    if (!withinView(dx, dy)) continue;
+    if (
+      item.bounds
+        ? !rectIntersectsView(item.bounds, from.x, from.y, VIEW_HALF_WIDTH_PX, VIEW_HALF_HEIGHT_PX)
+        : !withinView(dx, dy)
+    )
+      continue;
     result.push({ out: mapFn(item, dx, dy), distSq: dx * dx + dy * dy });
   }
   result.sort((a, b) => a.distSq - b.distSq);
@@ -56,33 +66,46 @@ export function buildBotState(
   racer: RacerRuntimeState,
   tick: number,
   extras: BotStateExtras
-): BotState {
+) {
   const position = { x: racer.x, y: racer.y };
+  const relativeBounds = (bounds?: WorldRect) =>
+    bounds
+      ? {
+          bounds: {
+            dx: bounds.x - position.x,
+            dy: bounds.y - position.y,
+            width: bounds.width,
+            height: bounds.height,
+          },
+        }
+      : {};
 
-  const coins = toVisibleList(
-    position,
-    snapshot.visibleCoins,
-    (coin, dx, dy): VisibleCoin => ({ dx, dy, value: coin.value })
-  );
-  const hazards = toVisibleList(
-    position,
-    snapshot.hazards,
-    (hazard, dx, dy): VisibleHazard => ({
-      dx,
-      dy,
-      kind: hazard.kind,
-      active: hazard.active,
-      warning: hazard.warning,
-      stompable: HAZARD_REGISTRY[hazard.kind].stompable,
-      vx: hazard.vx ?? 0,
-      vy: hazard.vy ?? 0,
-    })
-  );
-  const utilities = toVisibleList(
-    position,
-    snapshot.utilities,
-    (utility, dx, dy): VisibleUtility => ({ dx, dy, kind: utility.kind })
-  );
+  const coins = toVisibleList(position, snapshot.visibleCoins, (coin, dx, dy) => ({
+    id: coin.id,
+    dx,
+    dy,
+    value: coin.value,
+    ...relativeBounds(coin.bounds),
+  }));
+  const hazards = toVisibleList(position, snapshot.hazards, (hazard, dx, dy) => ({
+    id: hazard.id,
+    ...relativeBounds(hazard.bounds),
+    dx,
+    dy,
+    kind: hazard.kind,
+    active: hazard.active,
+    warning: hazard.warning,
+    stompable: HAZARD_REGISTRY[hazard.kind].stompable,
+    vx: hazard.vx ?? 0,
+    vy: hazard.vy ?? 0,
+  }));
+  const utilities = toVisibleList(position, snapshot.utilities, (utility, dx, dy) => ({
+    id: utility.id,
+    dx,
+    dy,
+    kind: utility.kind,
+    ...relativeBounds(utility.bounds),
+  }));
 
   const centerCol = Math.floor(racer.x / TILE_SIZE);
   const centerRow = Math.floor(racer.y / TILE_SIZE);
@@ -91,14 +114,46 @@ export function buildBotState(
     snapshot.level,
     snapshot.dynamic.resolvedBlockIds,
     racer.x,
-    racer.y
+    racer.y,
+    VIEW_HALF_WIDTH_PX,
+    VIEW_HALF_HEIGHT_PX,
+    snapshot.levelId,
+    snapshot.dynamic.blocks
   );
   const sprintRampProgress = Math.max(
     0,
     Math.min(1, extras.sprintHoldMs / MOVEMENT_TUNING.SPRINT_RAMP_MS)
   );
 
+  const navigation: NavigationObservation | undefined = extras.navigation
+    ? {
+        version: 1,
+        ...extras.navigation,
+        body: { ...extras.navigation.body },
+        movement: { ...extras.navigation.movement },
+        viewport: {
+          x: racer.x - VIEW_HALF_WIDTH_PX,
+          y: racer.y - VIEW_HALF_HEIGHT_PX,
+          width: VIEW_HALF_WIDTH_PX * 2,
+          height: VIEW_HALF_HEIGHT_PX * 2,
+        },
+        ...(snapshot.goalBounds &&
+        rectIntersectsView(
+          snapshot.goalBounds,
+          racer.x,
+          racer.y,
+          VIEW_HALF_WIDTH_PX,
+          VIEW_HALF_HEIGHT_PX
+        )
+          ? { goalBounds: { ...snapshot.goalBounds } }
+          : {}),
+        boingoJumpVelocity: MOVEMENT_TUNING.BOINGO_JUMP_VELOCITY,
+        stompJumpVelocity: MOVEMENT_TUNING.STOMP_JUMP_VELOCITY,
+      }
+    : undefined;
+
   return {
+    ...(navigation ? { navigation } : {}),
     tick,
     position,
     facing: racer.facing,
@@ -119,8 +174,8 @@ export function buildBotState(
       baseJumpVelocity: MOVEMENT_TUNING.BASE_JUMP_VELOCITY,
       sprintJumpVelocity: MOVEMENT_TUNING.SPRINT_JUMP_VELOCITY,
       minJumpHoldMs: MOVEMENT_TUNING.MIN_JUMP_HOLD_MS,
-      botWidth: MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
-      botHeight: MOVEMENT_TUNING.PLAYER_BODY_SIZE.height,
+      botWidth: navigation?.body.width ?? MOVEMENT_TUNING.PLAYER_BODY_SIZE.width,
+      botHeight: navigation?.body.height ?? MOVEMENT_TUNING.PLAYER_BODY_SIZE.height,
     },
     nearestCoin: coins[0] ?? null,
     nearestHazard: hazards[0] ?? null,
@@ -139,5 +194,5 @@ export function buildBotState(
     coinsCollected: racer.coinsCollected,
     livesRemaining: racer.livesRemaining,
     timeElapsedMs: racer.timeElapsedMs,
-  };
+  } satisfies BotState & { navigation?: NavigationObservation };
 }

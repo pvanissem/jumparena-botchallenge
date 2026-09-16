@@ -2,19 +2,28 @@
  * Modul-Contract eines Bot-Artefakts – siehe
  * `docs/09-bot-artefakt-und-turnier.md`.
  */
+
+import type { ToolsApi } from "./navigation";
 import type { BotState, DecideResult } from "./state";
 
 export const SUPPORTED_API_VERSION = 1 as const;
+export const SUPPORTED_FRAMEWORK_VERSION = 1 as const;
 
-export interface BotModule {
+interface BotMetadata {
   apiVersion: typeof SUPPORTED_API_VERSION;
   name?: string;
   author?: string;
   color?: string;
-  /** Wird pro Tick (~33ms) aufgerufen und gibt eine Liste gleichzeitig
-   *  anzuwendender Actions zurück (siehe `DecideResult`). */
-  decide: (state: BotState) => DecideResult;
 }
+
+export type BotModule = BotMetadata &
+  (
+    | { frameworkVersion?: undefined; decide: (state: BotState) => DecideResult }
+    | {
+        frameworkVersion: typeof SUPPORTED_FRAMEWORK_VERSION;
+        decide: (state: BotState, tools: ToolsApi) => DecideResult;
+      }
+  );
 
 export type BotModuleValidation =
   | { valid: true; module: BotModule }
@@ -35,7 +44,17 @@ const hasSupportedApiVersion: Check = (candidate) =>
 const hasDecideFunction: Check = (candidate) =>
   typeof candidate.decide === "function" ? null : "decide ist keine Funktion";
 
-const checks: readonly Check[] = [hasSupportedApiVersion, hasDecideFunction];
+const hasSupportedFrameworkVersion: Check = (candidate) =>
+  candidate.frameworkVersion === undefined ||
+  candidate.frameworkVersion === SUPPORTED_FRAMEWORK_VERSION
+    ? null
+    : `frameworkVersion ${String(candidate.frameworkVersion)} nicht unterstützt`;
+
+const checks: readonly Check[] = [
+  hasSupportedApiVersion,
+  hasSupportedFrameworkVersion,
+  hasDecideFunction,
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

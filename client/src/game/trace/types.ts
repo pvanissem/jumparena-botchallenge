@@ -1,14 +1,40 @@
-import type { Action, HazardKind, TileType } from "@arena/bot-contract";
+import type { Action, BotState, NavigationObservation, TileType } from "@arena/bot-contract";
 
 export type RunResult = "death" | "finished" | "time-limit" | "aborted" | "bot-paused";
 
-export type BotDecisionTrace =
-  | { tick: number; kind: "ok"; actions: Action[] }
-  | { tick: number; kind: "runtime-error"; actions: []; message: string }
-  | { tick: number; kind: "timeout"; actions: [] };
+export interface NavigationDiagnostic {
+  targetId: string | null;
+  routeId: string | null;
+  planId: string | null;
+  phase: "select" | "execute" | "wait" | "recover" | "blocked";
+  reason: string;
+  relevantObjectIds: string[];
+  searchBudgetStatus?: "available" | "exhausted" | "pending";
+  navigationActions?: Action[];
+  actionOverride?: "navigation-output-overridden";
+}
+
+export interface TraceDecisionCorrelation {
+  /** Worker request ID; stateTick is the scene's observation tick. */
+  tick: number;
+  stateTick?: number;
+  epoch?: number;
+  stateFrame?: number;
+}
+
+export type BotDecisionTrace = TraceDecisionCorrelation &
+  (
+    | { kind: "ok"; actions: Action[] }
+    | { kind: "runtime-error"; actions: []; message: string }
+    | { kind: "timeout"; actions: [] }
+  ) & { navigation?: NavigationDiagnostic };
 
 export interface TraceTickSample {
   tick: number;
+  stateTick?: number;
+  epoch?: number;
+  stateFrame?: number;
+  navigation?: NavigationObservation;
   timeMs: number;
   position: { x: number; y: number };
   velocity: { vx: number; vy: number };
@@ -21,24 +47,10 @@ export interface TraceTickSample {
   justRespawned: boolean;
   tookDamage: boolean;
   nearbyTiles: TileType[][];
-  hazards: Array<{
-    dx: number;
-    dy: number;
-    kind: HazardKind;
-    active: boolean;
-    warning: boolean;
-    stompable: boolean;
-    vx: number;
-    vy: number;
-  }>;
-  coins: Array<{ dx: number; dy: number; value: number }>;
-  platforms: Array<{
-    dx: number;
-    dy: number;
-    width: number;
-    height: number;
-    kind: "ground" | "float" | "ceiling" | "block";
-  }>;
+  hazards: BotState["hazards"];
+  coins: BotState["coins"];
+  platforms: BotState["platforms"];
+  utilities?: BotState["utilities"];
   decision: BotDecisionTrace | null;
 }
 
@@ -87,7 +99,13 @@ export interface BotRunSummary {
 }
 
 export interface BotRunTrace {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  truncation?: {
+    reasons: Array<"byte-limit" | "window-limit">;
+    omittedSamples: number;
+    omittedEvents: number;
+    omittedFindings: number;
+  };
   run: {
     levelId: string;
     sessionId: string;

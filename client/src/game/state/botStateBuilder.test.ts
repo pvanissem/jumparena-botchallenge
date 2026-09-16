@@ -134,7 +134,9 @@ describe("buildBotState basics", () => {
   it("exposes visible platforms built from level.platforms/hiddenCoinBlocks", () => {
     const level: LevelDef = { ...LEVEL, platforms: [{ x: 0, y: 16, tilesWide: 2 }] };
     const state = build(snapshot({ level }), racer({ x: 0, y: 0 }));
-    expect(state.platforms).toEqual([{ dx: 0, dy: 16, width: 32, height: 16, kind: "ground" }]);
+    expect(state.platforms).toMatchObject([
+      { dx: 0, dy: 16, width: 32, height: 16, kind: "ground" },
+    ]);
   });
 });
 
@@ -160,9 +162,9 @@ describe("buildBotState coin/hazard/utility lists", () => {
     });
     const state = build(snap, r);
     expect(state.coins).toEqual([
-      { dx: -20, dy: 0, value: 5 },
-      { dx: 100, dy: 0, value: 8 },
-      { dx: 200, dy: 0, value: 10 },
+      { id: "near", dx: -20, dy: 0, value: 5 },
+      { id: "mid", dx: 100, dy: 0, value: 8 },
+      { id: "far", dx: 200, dy: 0, value: 10 },
     ]);
     expect(state.nearestCoin).toEqual(state.coins[0]);
   });
@@ -190,8 +192,8 @@ describe("buildBotState coin/hazard/utility lists", () => {
     });
     const state = build(snap, r);
     expect(state.coins).toEqual([
-      { dx: 0, dy: -100, value: 7 },
-      { dx: 0, dy: 400, value: 5 },
+      { id: "above", dx: 0, dy: -100, value: 7 },
+      { id: "below", dx: 0, dy: 400, value: 5 },
     ]);
   });
 
@@ -209,6 +211,7 @@ describe("buildBotState coin/hazard/utility lists", () => {
     const saw = state.hazards.find((h) => h.kind === "schnetzler");
     const spike = state.hazards.find((h) => h.kind === "spikehead");
     expect(frog).toEqual({
+      id: "frog",
       dx: 10,
       dy: 0,
       kind: "ninjafrog",
@@ -219,6 +222,7 @@ describe("buildBotState coin/hazard/utility lists", () => {
       vy: 0,
     });
     expect(saw).toEqual({
+      id: "saw",
       dx: 20,
       dy: 0,
       kind: "schnetzler",
@@ -229,6 +233,7 @@ describe("buildBotState coin/hazard/utility lists", () => {
       vy: 0,
     });
     expect(spike).toEqual({
+      id: "spike",
       dx: 30,
       dy: 0,
       kind: "spikehead",
@@ -247,7 +252,7 @@ describe("buildBotState coin/hazard/utility lists", () => {
       utilities: [{ id: "b1", kind: "boingo", x: -40, y: 10 }],
     });
     const state = build(snap, r);
-    expect(state.utilities).toEqual([{ dx: -40, dy: 10, kind: "boingo" }]);
+    expect(state.utilities).toEqual([{ id: "b1", dx: -40, dy: 10, kind: "boingo" }]);
     expect(state.nearestUtility).toEqual(state.utilities[0]);
   });
 
@@ -260,5 +265,78 @@ describe("buildBotState coin/hazard/utility lists", () => {
     expect(state.hazards).toHaveLength(1);
     expect(state.hazards[0].kind).toBe("ninjafrog");
     expect(state.hazards[0].dx).toBe(20);
+  });
+});
+
+describe("navigation observation v1", () => {
+  const navigation = {
+    epoch: 2,
+    frame: 17,
+    observedAtMs: 280,
+    physicsStepMs: 1000 / 60,
+    body: { x: 64, y: 90, width: 28.8, height: 38.4 },
+    movement: {
+      jumpStartedAtMs: null,
+      impulseKind: "boingo" as const,
+      impulseAtMs: 260,
+      sourceId: "spring",
+    },
+  };
+
+  it("keeps sprite-relative offsets and adds body-relative bounds, IDs and absolute navigation geometry", () => {
+    const state = build(
+      snapshot({
+        levelId: "test-level",
+        goalBounds: { x: 370, y: 80, width: 40, height: 96 },
+        visibleCoins: [
+          {
+            id: "fruit",
+            x: 100,
+            y: 80,
+            value: 15,
+            bounds: { x: 90, y: 70, width: 20, height: 20 },
+          },
+        ],
+      }),
+      racer({ x: 80, y: 100 }),
+      9,
+      { ...NO_EXTRAS, navigation }
+    );
+    expect(state.coins[0]).toEqual({
+      id: "fruit",
+      dx: 20,
+      dy: -20,
+      value: 15,
+      bounds: { dx: 10, dy: -30, width: 20, height: 20 },
+    });
+    expect(state.position).toEqual({ x: 80, y: 100 });
+    expect(state.tuning).toMatchObject({ botWidth: 28.8, botHeight: 38.4 });
+    expect(state.navigation).toEqual({
+      version: 1,
+      ...navigation,
+      viewport: { x: -320, y: -440, width: 800, height: 1080 },
+      goalBounds: { x: 370, y: 80, width: 40, height: 96 },
+      boingoJumpVelocity: MOVEMENT_TUNING.BOINGO_JUMP_VELOCITY,
+      stompJumpVelocity: -280,
+    });
+  });
+
+  it("does not expose an unseen goal collider and copies mutable body/movement data", () => {
+    const input = {
+      ...navigation,
+      body: { ...navigation.body },
+      movement: { ...navigation.movement },
+    };
+    const state = build(
+      snapshot({ goalBounds: { x: 900, y: 80, width: 40, height: 96 } }),
+      racer(),
+      0,
+      { ...NO_EXTRAS, navigation: input }
+    );
+    expect(state.navigation).not.toHaveProperty("goalBounds");
+    input.body.x = 999;
+    input.movement.sourceId = "other";
+    expect(state.navigation?.body.x).toBe(64);
+    expect(state.navigation?.movement.sourceId).toBe("spring");
   });
 });

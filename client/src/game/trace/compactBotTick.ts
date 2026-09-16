@@ -8,6 +8,14 @@ const relative = ({ dx, dy }: { dx: number; dy: number }) => ({ dx: round2(dx), 
 export function compactBotTick(state: BotState): TraceTickSample {
   return {
     tick: state.tick,
+    stateTick: state.tick,
+    ...(state.navigation
+      ? {
+          epoch: state.navigation.epoch,
+          stateFrame: state.navigation.frame,
+          navigation: structuredClone(state.navigation),
+        }
+      : {}),
     timeMs: Math.round(state.timeElapsedMs),
     position: point(state.position),
     velocity: { vx: round2(state.velocity.vx), vy: round2(state.velocity.vy) },
@@ -24,14 +32,18 @@ export function compactBotTick(state: BotState): TraceTickSample {
     tookDamage: state.tookDamage,
     nearbyTiles: state.nearbyTiles.map((row) => [...row]),
     hazards: state.hazards.map((hazard) => ({
-      ...hazard,
+      ...structuredClone(hazard),
       ...relative(hazard),
       vx: round2(hazard.vx),
       vy: round2(hazard.vy),
     })),
-    coins: state.coins.slice(0, 3).map((coin) => ({ ...coin, ...relative(coin) })),
-    platforms: state.platforms.slice(0, 4).map((platform) => ({
-      ...platform,
+    coins: state.coins.map((coin) => ({ ...structuredClone(coin), ...relative(coin) })),
+    utilities: state.utilities.map((utility) => ({
+      ...structuredClone(utility),
+      ...relative(utility),
+    })),
+    platforms: state.platforms.map((platform) => ({
+      ...structuredClone(platform),
       ...relative(platform),
       width: round2(platform.width),
       height: round2(platform.height),

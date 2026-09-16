@@ -1,6 +1,8 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
+import { MAX_BOT_TRACE_BYTES } from "../src/game/trace/boundBotTrace";
+import { validateTraceSample } from "../src/game/trace/validateTraceSample";
 
 interface TraceEnvelope {
   schemaVersion: number;
@@ -20,7 +22,7 @@ interface TraceEnvelope {
 function validateTrace(value: unknown): asserts value is TraceEnvelope {
   const trace = value as Partial<TraceEnvelope> | null;
   if (
-    trace?.schemaVersion !== 1 ||
+    (trace?.schemaVersion !== 1 && trace?.schemaVersion !== 2) ||
     typeof trace.run?.startedAt !== "string" ||
     typeof trace.run.sessionId !== "string" ||
     trace.run.sessionId.length === 0 ||
@@ -35,6 +37,37 @@ function validateTrace(value: unknown): asserts value is TraceEnvelope {
     !Array.isArray(trace.windows)
   ) {
     throw new Error("Trace hat eine ungültige Struktur");
+  }
+  if (Buffer.byteLength(JSON.stringify(value), "utf8") > MAX_BOT_TRACE_BYTES) {
+    throw new Error("Trace exceeds 2 MiB");
+  }
+  if (trace.schemaVersion === 2) {
+    if (trace.windows.length > 8) throw new Error("Trace exceeds eight windows");
+    for (const value of trace.windows) {
+      const window = value as {
+        fromTick?: number;
+        toTick?: number;
+        reason?: string;
+        samples?: unknown[];
+      } | null;
+      if (
+        !window ||
+        typeof window.fromTick !== "number" ||
+        typeof window.toTick !== "number" ||
+        !Number.isSafeInteger(window.fromTick) ||
+        !Number.isSafeInteger(window.toTick) ||
+        window.fromTick > window.toTick ||
+        typeof window.reason !== "string" ||
+        !Array.isArray(window.samples)
+      ) {
+        throw new Error("Trace window invalid");
+      }
+      for (const value of window.samples) {
+        if (!validateTraceSample(value, window.fromTick, window.toTick)) {
+          throw new Error("Trace sample or navigation diagnostic invalid");
+        }
+      }
+    }
   }
 }
 
@@ -51,7 +84,7 @@ export async function persistBotTrace(value: unknown, directory: string): Promis
   await mkdir(directory, { recursive: true });
   const filename = timestampFilename(value.run.startedAt);
   const target = `${directory}/${filename}`;
-  const body = `${JSON.stringify(value, null, 2)}\n`;
+  const body = JSON.stringify(value);
 
   const previous = pendingWrites.get(target) ?? Promise.resolve();
   const operation = previous
@@ -90,11 +123,23 @@ export function botTracePlugin(directory = BOT_TRACE_DIRECTORY): Plugin {
       server.middlewares.use("/__bot-traces/runs", (request, response, next) => {
         if (request.method !== "POST") return next();
         let body = "";
+        let bytes = 0;
+        let oversized = false;
         request.setEncoding("utf8");
         request.on("data", (chunk) => {
+          if (oversized) return;
+          bytes += Buffer.byteLength(chunk, "utf8");
+          if (bytes > MAX_BOT_TRACE_BYTES) {
+            oversized = true;
+            body = "";
+            response.statusCode = 413;
+            response.end("Trace exceeds 2 MiB");
+            return;
+          }
           body += chunk;
         });
         request.on("end", () => {
+          if (oversized) return;
           void (async () => {
             try {
               const trace = JSON.parse(body) as unknown;

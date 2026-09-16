@@ -1,0 +1,60 @@
+import { ACTIONS, type Action } from "@arena/bot-contract/src/state";
+import type { NavigationDiagnostic } from "./types";
+
+export const MAX_NAVIGATION_DIAGNOSTIC_BYTES = 2 * 1024;
+const keys = new Set([
+  "targetId",
+  "routeId",
+  "planId",
+  "phase",
+  "reason",
+  "relevantObjectIds",
+  "searchBudgetStatus",
+  "navigationActions",
+  "actionOverride",
+]);
+const text = (value: unknown, max: number): value is string =>
+  typeof value === "string" && value.length > 0 && value.length <= max;
+
+/** Untrusted worker data: reject, rather than silently changing a planner's explanation. */
+export function validateNavigationDiagnostic(
+  value: unknown,
+  returnedActions?: readonly Action[]
+): NavigationDiagnostic | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const d = value as Record<string, unknown>;
+  if (Object.keys(d).some((key) => !keys.has(key))) return undefined;
+  if (
+    !["targetId", "routeId", "planId"].every((key) => d[key] === null || text(d[key], 128)) ||
+    !["select", "execute", "wait", "recover", "blocked"].includes(d.phase as string) ||
+    !text(d.reason, 256) ||
+    !Array.isArray(d.relevantObjectIds) ||
+    d.relevantObjectIds.length > 32 ||
+    !d.relevantObjectIds.every((id) => text(id, 128)) ||
+    (d.searchBudgetStatus !== undefined &&
+      !["available", "exhausted", "pending"].includes(d.searchBudgetStatus as string)) ||
+    (d.actionOverride !== undefined && d.actionOverride !== "navigation-output-overridden") ||
+    (d.navigationActions !== undefined &&
+      (!Array.isArray(d.navigationActions) ||
+        d.navigationActions.length > 6 ||
+        !d.navigationActions.every((a) => ACTIONS.includes(a))))
+  )
+    return undefined;
+
+  const result = {
+    ...d,
+    relevantObjectIds: [...d.relevantObjectIds],
+  } as unknown as NavigationDiagnostic;
+  if (result.navigationActions) {
+    result.navigationActions = [...result.navigationActions];
+    if (
+      returnedActions &&
+      JSON.stringify(result.navigationActions) !== JSON.stringify(returnedActions)
+    ) {
+      result.actionOverride = "navigation-output-overridden";
+    }
+  }
+  if (new TextEncoder().encode(JSON.stringify(result)).byteLength > MAX_NAVIGATION_DIAGNOSTIC_BYTES)
+    return undefined;
+  return result;
+}

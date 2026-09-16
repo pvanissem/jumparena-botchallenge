@@ -1,198 +1,110 @@
-# 03 – Technische Architektur
+# 03 - Technische Architektur
 
-## Überblick
+## Aktueller Datenfluss
 
+```text
+current-bot.js (eine unveraenderte Datei)
+  -> Vorschau /code / manueller Upload
+  -> Guard + Browser-Modul-Worker + Modulvalidierung
+  -> module-ready
+  -> decide(state, tools) bei frameworkVersion: 1
+       tools.navigate({ choose }) -> @arena/bot-navigation
+     oder decide(state) fuer alte v1-Bots
+  -> Action[] + optionale Navigationsdiagnose
+  -> korrelierte Anwendung in folgenden RaceScene-Physikschritten
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Browser (Client)                        │
-│                                                                │
-│  ┌──────────────┐        ┌────────────────────────────────┐  │
-│  │  Bot-Import   │──────▶│         Heat-Manager            │  │
-│  │  (.js Dateien)│        │  (wählt 16 Bots pro Runde aus)  │  │
-│  └──────────────┘        └───────────────┬────────────────┘  │
-│                                            │                   │
-│                                            ▼                   │
-│                        ┌───────────────────────────────────┐  │
-│                        │        Phaser Game Instance        │  │
-│                        │  ┌───────┐ ┌───────┐   ┌───────┐  │  │
-│                        │  │Grid   │ │Grid   │...│Grid   │  │  │
-│                        │  │Cell 1 │ │Cell 2 │   │Cell 16│  │  │
-│                        │  │(Cam)  │ │(Cam)  │   │(Cam)  │  │  │
-│                        │  └───────┘ └───────┘   └───────┘  │  │
-│                        │        gemeinsame Level-Szene       │  │
-│                        └───────────────┬───────────────────┘  │
-│                                          │  State-Snapshot pro Tick
-│                                          ▼                      │
-│              ┌───────────┐  ┌───────────┐       ┌───────────┐  │
-│              │ Worker #1 │  │ Worker #2 │  ...  │ Worker #16│  │
-│              │ decide()  │  │ decide()  │       │ decide()  │  │
-│              └───────────┘  └───────────┘       └───────────┘  │
-│                                          │  Action zurück       │
-│                                          ▼                      │
-│                        Simulation wendet Aktionen an           │
-│                        (Bewegung, Kollisionen mit Level,       │
-│                         Coin-Pickup, Hazard-Check)              │
-│                                                                │
-│                        ┌───────────────────────────────────┐  │
-│                        │        Scoring / Leaderboard        │  │
-│                        └───────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
+
+Das fruehe Konzept mit 16-Bot-Heats, geteilter Welt und 150-ms-Ticks ist
+abgeloest. Aktuell gibt es Single-Elimination mit zwei oder vier Bots pro
+Match, je eine getrennte `RaceScene`-Welt pro Bot im gemeinsamen Canvas und
+ein Bot-Intervall von etwa 33 ms. Die Spiellogik bleibt vollstaendig im Browser.
 
 ## Komponenten
 
-### 1. Bot-Import
-- UI zum Hochladen/Auswählen von `.js`-Dateien (Drag&Drop oder Ordner-Scan via File System
-  Access API, sofern Browser-Unterstützung ausreicht; sonst klassischer `<input type="file"
-  multiple webkitdirectory>`).
-- Validierung: Datei muss eine Funktion `decide` exportieren/definieren (einfacher Parse-Check,
-  z.B. per Function-Constructor-Test in einem Worker, bevor sie "zugelassen" wird).
-- Zuordnung: Dateiname → Bot-Name, zufällige/feste Farbe & Sprite-Variante.
+| Komponente | Verantwortung |
+| --- | --- |
+| `packages/bot-contract/` | State, Actions, Modulvalidierung, `ToolsApi`, `RouteOption` und Guard |
+| `packages/bot-navigation/` | Reiner lokaler Planner, Bewegungsprognose, Planbesitz und begrenzte Recovery |
+| `client/src/sandbox/` | Modul-Worker, Ready-Barriere, Timeouts, versionierte Tools je Bot |
+| `client/src/game/state/` | Snapshot realer Bodies/Objekte und additive Navigation-Observation |
+| `client/src/game/scenes/RaceScene.ts` | Gemeinsame Spielregeln fuer Vorschau und Match |
+| `client/src/match/MatchRunner.ts` | Getrennte Szenen und Kamera-Viewports pro Teilnehmer |
+| `client/src/game/trace/` | Begrenzte Versuchstraces und vorsichtige Diagnose |
+| `client/vite/botTracePlugin.ts` | Vorhandene Persistenz der Vorschau-Traces unter `client/src/bot/runs/` |
 
-### 2. Heat-Manager
-- Verwaltet die Liste aller eingepflegten Bots.
-- Teilt sie in Gruppen à 16 auf (konfigurierbar), verwaltet Rundenreihenfolge.
-- Startet pro Heat eine neue Simulation/Szene, sammelt danach die Ergebnisse ein.
+Navigation hat keine Phaser-, DOM- oder Netzwerkabhaengigkeit. Sie wird mit dem
+Framework gebaut und im Worker bereitgestellt, **nicht** in Besucherdateien
+kopiert. `choose` bewertet lokale Ziele/Routen an sicheren Entscheidungsgrenzen;
+die Navigatorinstanz besitzt das laufende Manoever. Der unveraenderte
+Low-Level-Action-Vertrag bleibt fuer Bots ohne Framework-Version erhalten.
+Details: [02-bot-api.md](02-bot-api.md).
 
-### 3. Phaser Game Instance – Grid aus Mini-Ansichten
-- **Eine gemeinsame Level-Szene** (Tilemap, Collectibles, Hazards) wird einmal geladen.
-- Pro Bot im aktuellen Heat: ein eigener Sprite in derselben Szene + eine eigene
-  **Kamera (`this.cameras.add(...)`)**, die nur diesen Bot verfolgt und in eine Grid-Zelle
-  gerendert wird (Phaser unterstützt mehrere Kameras mit eigenem Viewport auf einer Szene –
-  das ist performanter als 16 komplett separate Scene-Instanzen).
-- Kein Kollisions-Handling zwischen Bot-Sprites (eigene Physics-Gruppe pro Bot oder
-  `collideWorldBounds` ja, Bot-zu-Bot-Kollision explizit deaktiviert).
+## Beobachtung und Ausfuehrung
 
-### 4. Web-Worker-Pool
-- Ein Worker pro Bot im aktiven Heat (bei 16 Bots: 16 Worker – das ist unkritisch für moderne
-  Browser/Hardware).
-- Kommunikationsprotokoll (Vorschlag):
-  ```ts
-  // Main Thread → Worker
-  { type: "init", code: string }              // einmalig beim Laden
-  { type: "tick", state: BotState }            // pro Simulationsschritt
+Snapshots stammen aus derselben abgeschlossenen Physikphase. Bewegte Hazards
+melden Instanzpositionen, Velocity wird einmal pro Beobachtung fortgeschrieben,
+nicht bei Kollisionscallbacks. Respawn/Controllerwechsel setzen die Historie
+zurueck. Verbleibende Block-Collider und freigelegte Fruechte bleiben sichtbar.
+Die optionale Navigation-Observation beschreibt effektive Body-Geometrie,
+solide/One-Way-Kollision, Epoche, Frame, Physikraster und externe Impulse.
 
-  // Worker → Main Thread
-  { type: "ready" }
-  { type: "action", action: Action, tick: number }
-  { type: "error", message: string, tick: number }  // z.B. Syntax-/Laufzeitfehler
-  ```
-- Timeout-Handling im Main Thread: Falls innerhalb von z.B. 5ms keine Antwort auf `tick`
-  kommt, wird `idle` angenommen und mitgezählt (siehe 02-bot-api.md, Punkt 5).
+Vor dem ersten Tick wartet die Laufzeit auf `module-ready`: Modul und Tools
+muessen geladen sein, bevor das Tick-Budget gilt.
+Arcade verwendet Fixedstep mit 60 Hz; Botentscheidungen laufen etwa alle 33 ms.
+Es gibt maximal eine ausstehende Workeranfrage. State-Tick, Worker-Request,
+Epoche und tatsaechlicher Anwendungsframe sind unterschiedliche Groessen.
+Spaete/veraltete Antworten werden nicht einer neuen Szene oder Revision
+zugeschrieben. Produktives Roundtrip-Limit: 5 ms, wiederholte Fehler pausieren
+den Bot. Guard und Worker sind keine umfassende Fremdcode-Sicherheitsgarantie.
 
-### 5. Simulation
-- Fixer Tick-Loop (~150ms) unabhängig vom Render-Loop (Phaser `time.addEvent` oder eigener
-  `setInterval`/`requestAnimationFrame`-Akkumulator).
-- Pro Tick: State für jeden Bot bauen → an Worker senden → Antworten sammeln (mit Timeout) →
-  Aktionen auf die Spielwelt anwenden → Kollisionen/Coin-Pickup/Hazard-Treffer/Ziel-Erreichen
-  prüfen → Score-Update.
-- Rendering läuft weiterhin mit 60fps, interpoliert zwischen den Tick-Zielpositionen für
-  flüssige Optik (optional, kann für MVP auch weggelassen werden – "snap to tile" reicht
-  fürs erste).
+## Ausprobieren und Feedback
 
-### 6. Scoring/Leaderboard
-- Siehe [05-scoring-und-heats.md](05-scoring-und-heats.md).
+Die bestehende Vorschau `/code` laeuft im lokalen Vite-Client. Speichern von
+`current-bot.js` loest einen vollstaendigen Reload aus; Szene und Worker starten
+mit dem neuen Code. Kein weiterer Dienst oder separater Testablauf ist noetig.
+Besucher und Agent klaeren Name und Strategie, sehen den Lauf an und besprechen
+eine passende Verbesserung. Ablauf: [04-devkcode-profil.md](04-devkcode-profil.md).
 
-## Technologie-Stack (Vorschlag)
+Die vorhandenen Traces unter `client/src/bot/runs/` beschreiben einzelne
+Versuche vom Start/Respawn bis Tod, Ziel, Zeitlimit oder Abbruch, nicht automatisch
+den Gesamtlauf. Vor der Zuordnung zum aktuellen Code `run.botRevision` pruefen.
+Zuerst `run`, `summary` und `findings` lesen, dann relevante `events`/`windows`.
+Ereignisse sind Fakten, Diagnosen Hinweise; gekuerzte Ausschnitte erklaeren nicht
+den gesamten Lauf. Vorhandene v1-Traces bleiben lesbar. Weder Unit-Tests noch
+ein einzelner Vorschau-Lauf belegen allgemeine Zuverlaessigkeit oder Standlast.
 
-| Bereich | Technologie |
-|---|---|
-| Rendering/Spiel-Engine | Phaser 3 (Arcade Physics reicht, kein Matter.js nötig) |
-| Sprache | TypeScript |
-| Bot-Sandbox | Web Worker (Standard-Browser-API, kein zusätzliches Sandboxing-Framework nötig) |
-| Build | Vite (schnell, einfach für ein Stand-Setup, kein Server nötig – reiner Static Build) |
-| Persistenz | Keine Backend-Persistenz nötig; Leaderboard optional als LocalStorage/JSON-Export |
+## Betriebsarten
 
-## Warum kein Server? (für die Spielsimulation)
+- `npm run dev`: lokaler Vite-Client fuer die Besucherstation, kein Hub.
+- `/code`: Botbau-Vorschau; `/dev` bezeichnet die bisherige Stationsansicht.
+- `npm run present`: Hub-Server mit WebSocket-Gateway und Vite-/Static-Hosting
+  fuer `/admin` und `/present`. Keine Spielsimulation auf dem Server.
+- `npm run reset-bot`: ausschliesslich expliziter Betreiber-Reset zwischen
+  Sessions. Kopiert die Vorlage und entfernt Session-Traces.
 
-Der Nutzer möchte die eigentliche Spielsimulation explizit clientseitig ausführen.
-Vorteile für den Messestand:
-- Kein Netzwerk/WLAN-Abhängigkeit, kein Server-Setup/-Ausfallrisiko vor Ort.
-- Einfaches Deployment: ein Laptop/Rechner reicht, Build kann sogar offline laufen.
-- Nachteil: Kein zentrales Leaderboard über mehrere Rechner/Stationen hinweg – siehe
-  nächster Abschnitt für die Auflösung dieses Punkts.
+Ein Framework-Update ersetzt vorhandene `current-bot.js` nicht automatisch.
+Die Vorlage ist daher nicht automatisch der aktuell laufende Bot.
+Vorschau, Upload und Turnier verwenden denselben Workerpfad und Release.
+Waehrend einer Turnierserie wird dieser Release nicht gewechselt. Ein Bot hat
+keinen eigenen Build, Wrapper oder beigelegten Core.
 
-## Startbefehle: `/dev` vs. Präsentationsrechner
+## Hub und Turnier
 
-> Entschieden in `.features/dev-station-mode/`.
+Der zentrale Node-Hub ist Relay und Speicher fuer Admin/Presentation, keine
+Bot-Sandbox und kein Physikserver. Er haelt Bot-Registry und Turnierzustand im
+Speicher; neue Clients erhalten Snapshots. Nach Serverneustart werden die
+Bot-Dateien erneut hochgeladen. Besucherstationen senden ihre Arbeitsdatei
+nicht automatisch zum Hub; manueller Transfer bleibt Betreiberaufgabe.
 
-Root-`package.json` unterscheidet zwei, nie gleichzeitig auf demselben Rechner
-laufende Betriebsarten explizit über den Skriptnamen:
+Die Validierung bleibt dreigeteilt:
 
-- **`npm run dev`** – startet **ausschließlich** den Vite-Dev-Server für
-  `@arena/client` (reiner Client-Prozess, kein Node-Hub-Server, kein
-  WebSocket-Gateway). Dafür ist jede `/dev`-Station gedacht.
-- **`npm run present`** – startet den Hub-Server (`@arena/server`, siehe
-  unten "Zentraler Server für Multi-Stationen-Betrieb") mit
-  WebSocket-Gateway + Vite-Middleware. Dafür ist ausschließlich der
-  Präsentations-/Admin-Rechner gedacht (`/admin` + `/present`).
-- **`npm run reset-bot`** – setzt die aktive Bot-Arbeitsdatei einer
-  `/dev`-Station (`client/src/bot/current-bot.js`) auf die Standardvorlage
-  zurück (manuell auszuführen, kein automatischer Reset).
+1. `/admin`: statischer Guard und Modulvalidierung im Browser-Worker vor Upload.
+2. Server: erneuter textueller Guard fuer eingehende `bot-add`-Nachrichten,
+   ohne Bot-Code auszufuehren.
+3. `/present`: erneute Modulvalidierung im eigenen Worker vor dem Lauf.
 
-## Zentraler Server für Multi-Stationen-Betrieb (/present, /admin, Broadcast an /dev)
-
-> Entschieden in `.features/arena-hub-server/` (siehe dort `requirements.md` und
-> `design.md` für Details).
-
-Für den Betrieb von 4–5 unabhängigen `/dev`-Stationen plus einem zentralen
-Präsentations-/Admin-Rechner wird die "kein Server"-Entscheidung **eingeschränkt**
-(nicht aufgehoben): Für `/present` und `/admin` gibt es einen zentralen
-Node.js-Prozess, der **ausschließlich** als WebSocket-Router/Relay und
-Static-File-Host fungiert – er enthält keine Spiellogik, keine Bot-Sandbox, kein
-Scoring. Die eigentliche Simulation bleibt vollständig clientseitig, wie oben
-beschrieben.
-
-- `/admin` kann darüber Broadcast-Nachrichten an alle anderen verbundenen
-  Clients senden (z.B. eine Test-Ping-Nachricht als PoC).
-- `/present` empfängt diese Broadcasts und zeigt sie an.
-- `/dev`-Stationen können denselben Broadcast-Kanal ebenfalls empfangen
-  (Roundtrip-Nachweis), sind aber ansonsten unabhängige, isolierte Prozesse pro
-  Stationsrechner – sie kennen den Präsentationsrechner nicht und haben (noch)
-  keine Bot-Entwicklungslogik an den Server angebunden.
-- Die Bot-Registry lebt ausschließlich im Speicher des laufenden Servers.
-  Nach einem Neustart werden die `.js`-Dateien in `/admin` erneut ausgewählt.
-
-**Wichtige Klarstellung zu `/dev`:** Eine `/dev`-Station ist und bleibt ein
-rein lokaler, isolierter Vite-Client-Prozess (`npm run dev`, siehe oben) ohne
-jede WebSocket-/Server-Anbindung. `/dev` dient ausschließlich dazu, dass am
-Stand (mit Hilfe von `devkcode`) direkt in der Quelldatei
-`client/src/bot/current-bot.js` eine `decide(state)`-Funktion entsteht, die
-danach lokal (z.B. per USB-Stick) vom Rechner kopiert wird – siehe
-`.features/dev-station-mode/` und `docs/09-bot-artefakt-und-turnier.md`.
-`/dev` "weiß" nichts von `/admin`, `/present` oder anderen Stationen.
-
-### Bot-Sammelstelle (`.features/bot-collection-point/`)
-
-Damit `/admin` und `/present` **denselben Stand an eingereichten Bot-Artefakten**
-sehen, gibt es eine zentrale Sammelstelle im Hub-Server:
-
-- Der Hub-Server hält eine flüchtige **In-Memory-Bot-Registry** mit den
-  eingereichten Bot-Artefakten (Quellcode + Metadaten wie Name/Autor/Farbe).
-- `/admin` und `/present` lesen/abonnieren dieselbe Registry über den
-  bestehenden WebSocket-Kanal – beide sehen also garantiert denselben Stand.
-  Neu verbundene Clients erhalten sofort einen vollständigen Snapshot.
-- Der Server bleibt reiner Relay/Speicher: Er **führt den Bot-Code nicht
-  aus** (keine Bot-Sandbox, keine Simulation auf dem Server).
-- Als Zwischenlösung für das **Einspeisen** in die Sammelstelle: `/admin` bietet
-  einen manuellen Datei-Upload (Drag&Drop/File-Input) für `.js`-Bot-Artefakte an.
-  `/dev` ist daran **nicht** angebunden. Nach einem Server-Neustart ist dieser
-  manuelle Upload erneut erforderlich.
-
-**Validierung ist dreigeteilt:**
-
-1. `/admin` führt vor dem Upload `checkStaticGuard` aus und lädt den Quelltext
-   in der bestehenden Browser-Worker-Sandbox, um `name`/`author`/`color` zu
-   extrahieren (`validateBotArtifact`). Ungültige Dateien werden lokal abgelehnt
-   und gar nicht erst an den Server gesendet.
-2. Der Server prüft eingehende `bot-add`-Nachrichten erneut mit
-   `checkStaticGuard` (textuell, keine Code-Ausführung) und verwirft Verstöße.
-   Das ist reines Gatekeeping gegen Clients, die die UI umgehen.
-3. `/present` validiert jedes Bot-Modul beim tatsächlichen Laden erneut in
-   seiner eigenen Worker-Sandbox (letzte Verteidigungslinie).
-
-**Explizit weiterhin offen:** Wie das fertige Bot-Artefakt (`current-bot.js`)
-von einer `/dev`-Station **auf den Admin-Rechner** gelangt (z.B. USB-Stick,
-manuelles Kopieren, künftig evtl. ein eigener Transportmechanismus), ist
-**nicht** Teil dieser Server-Infrastruktur und bewusst ungelöst – siehe
-`docs/09-bot-artefakt-und-turnier.md`.
+`TournamentService` und `SingleEliminationStrategy` verwalten Gruppen und
+Weiterkommen. Stage-Level werden vor Turnierstart gewaehlt; fehlende weitere
+Stages verwenden das zuletzt konfigurierte Level. Jede `RaceScene` besitzt
+eigene Fruechte, Hazards und Physik, sodass ein Bot keinem anderen Objekte
+wegnehmen kann. Details: [09-bot-artefakt-und-turnier.md](09-bot-artefakt-und-turnier.md).

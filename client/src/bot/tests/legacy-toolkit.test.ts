@@ -12,12 +12,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkStaticGuard } from "@arena/bot-contract";
 import { describe, expect, it } from "vitest";
-import defaultBot, { createNavigator } from "./current-bot.template.js";
+import defaultBot, { createNavigator } from "./legacy-toolkit.fixture.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const templateSource = readFileSync(join(here, "current-bot.template.js"), "utf-8");
+const templateSource = readFileSync(join(here, "legacy-toolkit.fixture.js"), "utf-8");
 
-describe("current-bot.template.js", () => {
+describe("legacy toolkit fixture (historical behavior, not framework physics)", () => {
   it("passes the static guard (no forbidden keyword, not even in comments)", () => {
     const result = checkStaticGuard(templateSource);
     expect(result.allowed).toBe(true);

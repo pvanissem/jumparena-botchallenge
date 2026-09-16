@@ -7,15 +7,51 @@ import type { HazardKind, UtilityKind } from "@arena/bot-contract";
 import type { DynamicTileState } from "../level/tiles";
 import type { LevelDef } from "../level/types";
 
+export interface WorldRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Structural until the additive contract is published by its owner. */
+export interface NavigationObservation {
+  version: 1;
+  epoch: number;
+  frame: number;
+  observedAtMs: number;
+  physicsStepMs: number;
+  body: WorldRect;
+  movement: {
+    jumpStartedAtMs: number | null;
+    impulseKind: "jump" | "boingo" | "stomp" | "none";
+    impulseAtMs: number | null;
+    sourceId: string | null;
+  };
+  viewport: WorldRect;
+  goalBounds?: WorldRect;
+  boingoJumpVelocity: number;
+  stompJumpVelocity: number;
+}
+
 export interface WorldSnapshot {
+  levelId?: string;
   level: LevelDef;
   dynamic: DynamicTileState;
-  visibleCoins: ReadonlyArray<{ id: string; x: number; y: number; value: number }>;
+  goalBounds?: WorldRect;
+  visibleCoins: ReadonlyArray<{
+    id: string;
+    x: number;
+    y: number;
+    value: number;
+    bounds?: WorldRect;
+  }>;
   hazards: ReadonlyArray<{
     id: string;
     kind: HazardKind;
     x: number;
     y: number;
+    bounds?: WorldRect;
     active: boolean;
     /** Ob sich die Gefahr gerade ankündigt (Spikehead-Vorwarnphase). */
     warning: boolean;
@@ -26,5 +62,11 @@ export interface WorldSnapshot {
     vx?: number;
     vy?: number;
   }>;
-  utilities: ReadonlyArray<{ id: string; kind: UtilityKind; x: number; y: number }>;
+  utilities: ReadonlyArray<{
+    id: string;
+    kind: UtilityKind;
+    x: number;
+    y: number;
+    bounds?: WorldRect;
+  }>;
 }

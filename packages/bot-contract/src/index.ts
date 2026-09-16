@@ -1,7 +1,15 @@
 export type { BotModule, BotModuleValidation } from "./botModule";
-export { SUPPORTED_API_VERSION, validateBotModule } from "./botModule";
-
+export { SUPPORTED_API_VERSION, SUPPORTED_FRAMEWORK_VERSION, validateBotModule } from "./botModule";
 export type { HazardKind, UtilityKind } from "./hazards";
+export type {
+  ChooseRoute,
+  NavigationBounds,
+  NavigationObservation,
+  RelativeBounds,
+  RouteOption,
+  StrategyContext,
+  ToolsApi,
+} from "./navigation";
 export type {
   Action,
   BotState,

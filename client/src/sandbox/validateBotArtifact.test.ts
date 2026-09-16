@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createBotWorkerRuntime } from "./botWorkerRuntime";
 import { validateBotArtifact } from "./validateBotArtifact";
 import type { HostToWorkerMessage, WorkerLike, WorkerToHostMessage } from "./workerLike";
 
@@ -30,6 +31,63 @@ function createControllableWorker(): {
 }
 
 describe("validateBotArtifact", () => {
+  it.each([1, 2])("uses the shared runtime validation for frameworkVersion %s", async (version) => {
+    const { worker, emit, received } = createControllableWorker();
+    const runtime = createBotWorkerRuntime(() => ({
+      decide: () => [],
+      getDiagnostics: () => null,
+      reset() {},
+    }));
+    const source = `export default { apiVersion: 1, frameworkVersion: ${version}, decide() { return []; } };`;
+    const result = validateBotArtifact(source, "tools.js", () => worker);
+    emit(runtime.init({ apiVersion: 1, frameworkVersion: version, decide: () => [] }));
+    expect(received).toEqual([{ type: "init", code: source }]);
+    if (version === 1)
+      await expect(result).resolves.toMatchObject({
+        valid: true,
+        name: "tools",
+        frameworkVersion: 1,
+      });
+    else
+      await expect(result).resolves.toEqual({
+        valid: false,
+        reason: "frameworkVersion 2 nicht unterstützt",
+      });
+  });
+
+  it("does not infer framework metadata from legacy source comments", async () => {
+    const { worker, emit } = createControllableWorker();
+    const source =
+      "/* frameworkVersion: 1 */ export default { apiVersion: 1, decide() { return []; } };";
+    const result = validateBotArtifact(source, "legacy.js", () => worker);
+    emit(createBotWorkerRuntime().init({ apiVersion: 1, decide: () => [] }));
+    await expect(result).resolves.toMatchObject({ valid: true });
+    expect(await result).not.toHaveProperty("frameworkVersion");
+  });
+
+  it("settles worker errors immediately and cleans up only once", async () => {
+    const { worker, emit } = createControllableWorker();
+    const result = validateBotArtifact("export default {}", "bad.js", () => worker);
+    worker.onerror?.({ message: "load failed" });
+    await expect(result).resolves.toEqual({ valid: false, reason: "load failed" });
+    emit({ type: "module-ready" });
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("settles synchronous postMessage failures and terminates the worker", async () => {
+    const { worker } = createControllableWorker();
+    worker.postMessage = () => {
+      throw new Error("clone failed");
+    };
+    await expect(validateBotArtifact("export default {}", "bad.js", () => worker)).resolves.toEqual(
+      {
+        valid: false,
+        reason: "Error: clone failed",
+      }
+    );
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves with valid metadata when the worker reports module-ready", async () => {
     const { worker, emit } = createControllableWorker();
 

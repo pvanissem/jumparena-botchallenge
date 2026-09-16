@@ -10,23 +10,46 @@ Default-Export:
 
 ```js
 export default {
-  apiVersion: 1,          // Bot-API-Version
-  name: "Blitz-Bot",       // optional (sonst Dateiname)
-  author: "Anna",          // optional
-  color: "#ff5da2",        // optional (sonst automatische Farbe)
-  decide(state) {          // PFLICHT
-    return "right";        // "left" | "right" | "jump" | "idle" | "sprint-left" | "sprint-right"
+  apiVersion: 1,
+  frameworkVersion: 1,
+  name: "Blitz-Bot",
+  author: "Anna",
+  color: "#ff5da2",
+  decide(state, tools) {
+    return tools.navigate({
+      choose(context, options) {
+        const goals = options.filter((option) => option.target.kind === "goal");
+        goals.sort((a, b) => b.route.goalProgressPx - a.route.goalProgressPx || a.id.localeCompare(b.id));
+        return goals[0]?.id ?? null;
+      },
+    });
   },
 };
 ```
 
-- Nur `decide` ist Pflicht; alles andere hat Fallbacks.
+- `apiVersion: 1` und `decide` sind Pflicht. `name`, `author`, `color` sind
+  technisch optional, Besucherbots erhalten aber nichtleere Namen.
 - `apiVersion` schützt über einen mehrstündigen Event vor echten Breaking
   Changes: Bots aus Runde 1 laufen auch in Runde 20.
-- Referenzformat + dokumentierte API als Kommentar: siehe
-  `client/src/bot/current-bot.template.js` (siehe "Import" unten – das ist
-  seit `.features/dev-station-mode/` die lebende Referenz direkt in der
-  Datei, die devkcode bearbeitet, statt separater Beispiel-Bot-Dateien).
+- `frameworkVersion: 1` fordert die Tools-API aus [02-bot-api.md](02-bot-api.md)
+  an. Ohne dieses Feld laufen alte v1-Bots weiter mit `decide(state)` und
+  `Action[]` als Rueckgabe. Unbekannte Framework-Versionen werden abgelehnt.
+- Arbeitsdatei, Vorschau und Upload verwenden dieselben unveraenderten
+  Bytes von `client/src/bot/current-bot.js`, maximal 200.000 Bytes. Kein Bundler,
+  Wrapper, zweites Autorenformat oder Exportbefehl ist erforderlich.
+- Die kurze Vorlage `current-bot.template.js` und die kompletten Bots unter
+  `examples/strategies/` brauchen keine beigelegte Bibliothek. Navigation gehoert
+  zum Betreiber-Framework und wird jedem Tools-Bot separat im Worker bereitgestellt.
+  Alte Beispieldateien bleiben unveraendert; Bestandsbots werden nicht migriert.
+
+### Gemeinsamer Framework-Release
+
+Vorschau, Uploadvalidierung und Turnier muessen dieselbe
+Framework-Version und denselben Worker-Initialisierungspfad verwenden. Vor dem
+ersten Tick wird `module-ready` abgewartet. Ein Update des Frameworks kann auch
+das Verhalten unveraenderter Bot-Dateien aendern; waehrend einer Turnierserie
+bleibt der Release deshalb eingefroren. Navigation ist kein eingebetteter Core
+im Bot. Keine Nachladung vom Netz.
 
 ## Import in `/dev` (kein Server, keine Dateiauswahl, deterministische Datei)
 
@@ -40,15 +63,19 @@ export default {
 - Die Bot-Logik lebt in `client/src/bot/current-bot.js` (git-ignoriert,
   Vorlage in `current-bot.template.js`, eingecheckt). devkcode bearbeitet
   diese Datei **direkt**, kein Upload, kein Picker, kein Ordner-Scan.
-- `/dev` lädt den Quelltext dieser Datei per Vite-`?raw`-Import und führt ihn
+- `/code` (Besucheransicht) und `/dev` laden den Quelltext per Vite-`?raw`-Import und fuehren ihn
   unverändert über die bestehende Sandbox aus (siehe "Sandbox" unten).
 - Jede Änderung an `current-bot.js` löst über Vites HMR automatisch einen
-  vollständigen Reload von `/dev` aus – Level, Racer-Status und
+  vollstaendigen Reload von `/code` beziehungsweise `/dev` aus; Level, Racer-Status und
   BotRunner/Worker starten dadurch garantiert frisch mit dem neuen Code, ohne
   manuellen Klick.
 - Zwischen zwei Besuchern setzt `npm run reset-bot` (Repo-Root) die Datei auf
   die Standardvorlage zurück; die fertige Datei wird davor manuell (z.B. per
   USB-Stick) vom Stationsrechner kopiert – siehe unten "Weiterhin offen/t.b.d."
+- Reset leert auch `client/src/bot/runs/`.
+  Er ist ausschliesslich explizite Betreiberaktion; Einfuehrung oder Update
+  des Frameworks ersetzt keinen bestehenden Besuchercode automatisch.
+  Die neue Vorlage ist deshalb nicht automatisch der aktuell laufende Bot.
 - Damit ist die ursprüngliche „kein Server"-Entscheidung aus `docs/03`
   weiterhin gültig –   `/dev` läuft als reiner Vite-Client-Prozess
   (`npm run dev`, siehe `docs/03-architektur.md`) ohne jede WebSocket-/
@@ -73,13 +100,15 @@ export default {
 
 Jeder Bot läuft in einem **eigenen Web Worker** (Modul-Worker):
 
-1. **Statischer Guard** (`sandbox/staticGuard.ts`): schneller Regex-Vorfilter
+1. **Statischer Guard** (`@arena/bot-contract`): schneller Regex-Vorfilter
    gegen `import`/`require`/`fetch`/`window`/`document`/`eval`/… – erste, nicht
    alleinige Verteidigungslinie.
 2. **Dynamischer Import**: Der Quelltext wird als Blob-URL an den Worker
    übergeben, der ihn per `import()` lädt und validiert.
-3. **Tick-Loop**: Pro Simulations-Tick (~150ms) sendet der Main-Thread den
-   `BotState`, der Worker antwortet mit einer Action.
+3. **Tick-Loop**: Nach `module-ready` sendet der Main-Thread etwa alle 33 ms
+   einen beobachteten `BotState`, der Worker antwortet mit `Action[]`.
+   Maximal eine Anfrage ist gleichzeitig offen. State-Tick, Epoche und
+   Anwendungsframe werden korreliert; veraltete Antworten werden verworfen.
 4. **Fehlertoleranz**: Laufzeitfehler → `idle` für diesen Tick. Verpasst der
    Worker zu viele Ticks in Folge (vermutlich Endlosschleife), wird er per
    `worker.terminate()` **hart beendet** und der Bot pausiert – kein
@@ -87,6 +116,8 @@ Jeder Bot läuft in einem **eigenen Web Worker** (Modul-Worker):
 
 Der harte Kill ist der Grund, warum echter Fremd-Code zwingend im Worker läuft
 (nicht im Main-Thread): nur so lässt sich eine echte Endlosschleife stoppen.
+Das produktive Roundtrip-Budget betraegt 5 ms. Guard und Worker sind begrenzte
+Schutzmassnahmen, keine umfassende Isolation beliebigen Fremdcodes.
 
 ## Turniermodus
 
@@ -141,7 +172,15 @@ und leitet Bracket, Match-Result und Match-Progress weiter.
 - `client/src/components/BracketView.tsx` – Bracket mit Level + Rundenstatus
   pro Runde
 
-## Testmodus (`/dev`)
+## Ausprobieren (`/code`)
+
+Die Botbau-Vorschau liegt unter `/code`; `/dev` bezeichnet die bisherige
+Stationsansicht. Der normale Vite-Start mit `npm run dev` genuegt. Botname und
+Strategie besprechen, Arbeitsdatei bearbeiten, speichern und den automatischen
+Reload abwarten. Gemeinsam den Bot laufen lassen, vorhandene Traces lesen,
+das beobachtete Verhalten erklaeren und eine passende Verbesserung vorschlagen.
+Kein weiterer Testaufbau ist erforderlich. Details:
+[04-devkcode-profil.md](04-devkcode-profil.md).
 
 `/dev` bietet zwei Testmodi (siehe `.features/dev-station-mode/`):
 „Selbst spielen" (Tastatur, ← → / Leertaste) und „Bot laufen lassen"
@@ -149,8 +188,13 @@ und leitet Bracket, Match-Result und Match-Progress weiter.
 Beide laufen im selben Level, nützlich zum Ausprobieren und Debuggen –
 unabhängig vom späteren Turniermodus in `/present`.
 
-Im Bot-Modus zeichnet `/dev` Lauf-Telemetrie auf. Ein Run entspricht einem
+Im Bot-Modus zeichnen `/code` und `/dev` Lauf-Telemetrie auf. Ein Run entspricht einem
 einzelnen Versuch vom Start beziehungsweise Respawn bis Tod, Ziel, Zeitlimit
 oder Abbruch. Jeder Run wird als eigene zeitgestempelte JSON-Datei unter
 `client/src/bot/runs/` gespeichert; `/present` zeichnet keine Telemetrie auf.
-`npm run reset-bot` leert diesen Ordner für die nächste Besucher-Session.
+Vor der Zuordnung zum aktuellen Code `run.botRevision` pruefen. Zuerst `run`,
+`summary` und `findings` lesen, dann relevante `events`-/`windows`-Ausschnitte.
+Ereignisse sind Fakten, Diagnosen Hinweise, gekuerzte Traces kein vollstaendiger
+Laufnachweis. Fehlende Laeufe und nicht ausgefuehrte Browser-/Lastpruefungen
+offenlassen; keine allgemeine Leistungssteigerung aus einem Versuch ableiten.
+Nur ein expliziter Betreiber-Reset leert den Ordner fuer die naechste Session.

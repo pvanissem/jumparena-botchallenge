@@ -3,7 +3,7 @@
  * testbar ist, ohne von `window.Worker` abzuhängen (Dependency Inversion,
  * siehe `.features/bot-decide-api/design.md`).
  */
-import type { Action, BotState } from "@arena/bot-contract";
+import type { BotState } from "@arena/bot-contract";
 
 export interface WorkerLike {
   postMessage(message: HostToWorkerMessage): void;
@@ -13,12 +13,22 @@ export interface WorkerLike {
    * Deklaration (in TS-Interfaces syntaktisch ohnehin nicht zulässig).
    */
   onmessage: (event: { data: WorkerToHostMessage }) => void;
+  onerror?: (event: { message: string }) => void;
+  onmessageerror?: (event: unknown) => void;
   terminate(): void;
+}
+
+/** tick is a transport request ID; stateTick and epoch identify the observation. */
+export interface TickCorrelation {
+  tick: number;
+  stateTick?: number;
+  stateFrame?: number;
+  epoch?: number;
 }
 
 export type HostToWorkerMessage =
   | { type: "init"; code: string }
-  | { type: "tick"; tick: number; state: BotState };
+  | ({ type: "tick"; state: BotState } & TickCorrelation);
 
 /**
  * `module-ready` ist KEIN generisches "ready"-Signal, sondern liefert die
@@ -29,7 +39,14 @@ export type HostToWorkerMessage =
  * (siehe `.features/dev-station-mode/design.md`, US-4).
  */
 export type WorkerToHostMessage =
-  | { type: "action"; tick: number; actions: Action[] }
-  | { type: "error"; tick: number; message: string }
+  | ({ type: "action"; actions: unknown; navigation?: unknown } & TickCorrelation)
+  | ({ type: "error"; message: string } & TickCorrelation)
   | { type: "module-invalid"; reason: string }
-  | { type: "module-ready"; name?: string; author?: string; color?: string };
+  | {
+      type: "module-ready";
+      name?: string;
+      author?: string;
+      color?: string;
+      /** Optional declaration from the validated module, absent for legacy bots. */
+      frameworkVersion?: 1;
+    };

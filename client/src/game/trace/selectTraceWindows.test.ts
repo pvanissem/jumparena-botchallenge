@@ -25,6 +25,14 @@ function sample(tick: number): TraceTickSample {
 }
 
 describe("selectTraceWindows", () => {
+  it("takes exactly 45 observation ticks before and ten after an isolated anchor", () => {
+    const samples = Array.from({ length: 200 }, (_, tick) => sample(tick));
+    const windows = selectTraceWindows(samples, [{ tick: 100, reason: "plan" }]);
+    expect(windows).toHaveLength(1);
+    expect(windows[0]).toMatchObject({ fromTick: 55, toTick: 110 });
+    expect(windows[0].samples).toHaveLength(56);
+  });
+
   it("clamps and merges overlapping windows", () => {
     const samples = Array.from({ length: 100 }, (_, tick) => sample(tick));
     const windows = selectTraceWindows(samples, [

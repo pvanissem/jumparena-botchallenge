@@ -5,7 +5,7 @@
  * - `/dev`  (DevPage):  Entwickler-Ansicht mit Level-Auswahl und Phaser-
  *                       Physik-Debug-Overlay.
  * - `/code` (CodePage): Messestand-Ansicht – keine Level-Auswahl (immer
- *                       Level 1), kein Debug-Overlay.
+ *                       Messelevel), kein Debug-Overlay.
  *
  * Bewusst EINE Komponente mit Varianten-Props statt zwei Kopien (DRY): die
  * Toolbar-Logik (Modus, Neustart, Audio, HUD, Bot-Diagnose, Trace) ist in
@@ -31,8 +31,8 @@ type BotDiagnosis = Pick<
 >;
 
 export interface ArenaPageProps {
-  /** Blendet die Level-Auswahl ein. Ohne Auswahl bleibt `levelId` auf
-   *  `DEFAULT_LEVEL_ID` (Level 1), da `setLevelId` nie aufgerufen wird. */
+  /** Blendet die Level-Auswahl ein (Default: Level 1).
+   *  Ohne Auswahl bleibt die Messestand-Ansicht beim urspruenglichen Level 1. */
   showLevelSelect?: boolean;
   /** Reicht das Phaser-Arcade-Debug-Overlay an `ArenaView` durch. */
   physicsDebug?: boolean;
@@ -50,6 +50,10 @@ function renderBotDiagnosis(diagnosis: BotDiagnosis): string {
       return `🔴 Bot ungültig: ${diagnosis.pausedReason}`;
     case "guard-rejected":
       return `🔴 Bot blockiert: ${diagnosis.pausedReason}`;
+    case "init-timeout":
+      return "🔴 Bot-Start fehlgeschlagen: Zeitlimit bei der Initialisierung";
+    case "worker-error":
+      return `🔴 Bot-Worker fehlgeschlagen: ${diagnosis.pausedReason}`;
     case "too-many-failures":
       return "🔴 Bot pausiert: reagiert nicht rechtzeitig / wirft wiederholt Fehler";
     case "disposed":

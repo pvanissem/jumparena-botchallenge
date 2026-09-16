@@ -17,6 +17,7 @@ export const MOVEMENT_TUNING = {
   SPRINT_JUMP_VELOCITY: -650,
   /** Sprungkraft eines Trampolin-Bounces (negativ = nach oben). */
   BOINGO_JUMP_VELOCITY: -820,
+  STOMP_JUMP_VELOCITY: -280,
   /** Garantierte Mindest-Halte-Zeit eines Sprungs (> 150ms Bot-Tick-Intervall). */
   MIN_JUMP_HOLD_MS: 180,
   /** Schwerkraft (Arcade-Physik-Y-Achse, siehe `ArenaView.tsx`). Hochgezogen

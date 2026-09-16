@@ -3,7 +3,36 @@
 ## Grundidee
 
 Ein einfaches, Super-Mario-Bros-artiges 2D-Sidescroller-Level (Tilemap-basiert), das für alle
-Bots eines Heats identisch ist.
+Bots eines Matches identisch ist, mit getrennten Welten je Bot.
+
+## Besucherlevel und Strategien
+
+`/code` verwendet das urspruengliche Level 1 (`level-one`). Die Verbesserung
+des Bot-Baus veraendert weder Levelgeometrie noch die verfuegbaren Levels.
+
+| Referenz | Gewuenschte unterscheidbare Wahl |
+| --- | --- |
+| Sprinter | Ziel-Fortschritt pro Zeit, kein gezielter Sammelumweg |
+| Sammler | Erreichbare Fruechte pro Zusatzzeit, bis 320 px Umweg; Endspurt ab 65 s bzw. letztem Leben |
+| Vorsichtiger | Geringes Risiko, grosse Landepuffer, keine explizite Stomp-Wahl |
+
+Strategien stehen als komplette Ein-Datei-Bots unter `examples/strategies/`.
+Sie bewerten angebotene Ziele/Routen statt fest codierter Levelkoordinaten.
+`local-progress` garantiert keinen Weg durch unsichtbares Gelaende; auch
+Zielnaehe ersetzt keinen Landungsnachweis. Versteckte Bloecke sind zunaechst
+Hindernisse, keine Sammelziele. Ausgeloeste Bloecke bleiben solide; freigelegte
+Fruechte werden erst dann als sichtbare Ziele beruecksichtigt.
+
+## Nachweisgrenzen
+
+Unit-Tests der Levelgeometrie und Strategieauswahl beweisen keine Phaser-
+Erreichbarkeit. Zum Ausprobieren die bestehende Vorschau `/code` verwenden:
+Bot-Datei speichern, automatischen Reload abwarten und den Lauf ansehen.
+Vorhandene Versuchstraces unter `client/src/bot/runs/` helfen, die beobachtete
+Routenwahl zu erklaeren. Ein einzelner Lauf ist kein allgemeiner Leistungsnachweis;
+nicht ausgefuehrte Browser- und Lastpruefungen bleiben offen.
+Der alte `toolkit-test` mit unerreichbarem Ziel bleibt ein Negativfall,
+kein Anlass fuer einen erzwungenen blinden Sprung.
 
 ## Level-Elemente
 

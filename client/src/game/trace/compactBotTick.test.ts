@@ -62,7 +62,7 @@ function stateFixture(): BotState {
 }
 
 describe("compactBotTick", () => {
-  it("keeps diagnostic fields, rounds numbers, and limits large lists", () => {
+  it("keeps diagnostic fields and visible geometry beyond legacy list prefixes", () => {
     const sample = compactBotTick(stateFixture());
 
     expect(sample).toMatchObject({
@@ -74,10 +74,59 @@ describe("compactBotTick", () => {
       gapAhead: { present: true, distance: 31.79 },
       decision: null,
     });
-    expect(sample.coins).toHaveLength(3);
-    expect(sample.platforms).toHaveLength(4);
+    expect(sample.coins).toHaveLength(5);
+    expect(sample.platforms).toHaveLength(6);
     expect(sample).not.toHaveProperty("tuning");
     expect(sample).not.toHaveProperty("livesRemaining");
+  });
+
+  it("copies utilities, bounds, body, impulse and observation correlation without aliases", () => {
+    const state = stateFixture();
+    state.utilities = [
+      {
+        id: "boingo-1",
+        kind: "boingo",
+        dx: 20,
+        dy: 30,
+        bounds: { dx: 10, dy: 20, width: 20, height: 20 },
+      },
+    ];
+    state.platforms[5] = {
+      ...state.platforms[5],
+      id: "landing",
+      collision: "one-way-up",
+      bounds: { dx: 5, dy: 6, width: 16, height: 16 },
+    };
+    state.navigation = {
+      version: 1,
+      epoch: 3,
+      frame: 77,
+      observedAtMs: 1234.56,
+      physicsStepMs: 1000 / 60,
+      body: { x: 1.23456, y: 2, width: 24, height: 32 },
+      movement: {
+        jumpStartedAtMs: null,
+        impulseKind: "boingo",
+        impulseAtMs: 1200,
+        sourceId: "boingo-1",
+      },
+      viewport: { x: 0, y: 0, width: 800, height: 540 },
+      boingoJumpVelocity: -700,
+      stompJumpVelocity: -400,
+    };
+    const sample = compactBotTick(state);
+    expect(sample).toMatchObject({
+      stateTick: 7,
+      epoch: 3,
+      stateFrame: 77,
+      navigation: state.navigation,
+      utilities: state.utilities,
+    });
+    expect(sample.platforms[5]).toEqual({ ...state.platforms[5], dx: 5.12, dy: 5.46 });
+    state.utilities[0].bounds = { dx: 10, dy: 20, width: 999, height: 20 };
+    state.navigation.body.width = 999;
+    expect(sample.utilities?.[0].bounds?.width).toBe(20);
+    expect(sample.navigation?.body.width).toBe(24);
   });
 
   it("produces JSON-safe data even when the source contains Infinity", () => {

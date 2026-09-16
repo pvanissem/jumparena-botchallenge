@@ -16,6 +16,10 @@ describe("LEVEL_IDS", () => {
 });
 
 describe("isValidLevelId", () => {
+  it("lehnt das zurueckgenommene zusaetzliche Messelevel ab", () => {
+    expect(isValidLevelId("level-messe")).toBe(false);
+  });
+
   it.each(LEVEL_IDS)("akzeptiert die bekannte ID '%s'", (id) => {
     expect(isValidLevelId(id)).toBe(true);
   });

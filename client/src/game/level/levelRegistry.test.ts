@@ -19,6 +19,7 @@ describe("LEVEL_REGISTRY", () => {
         "level-four",
         "level-five",
         "level-six",
+        "toolkit-test",
       ])
     );
     for (const entry of LEVEL_REGISTRY) {
@@ -45,6 +46,12 @@ describe("LEVEL_REGISTRY", () => {
 });
 
 describe("getLevelById", () => {
+  it("does not include an additional visitor level", () => {
+    expect(() => getLevelById("level-messe")).toThrow();
+    expect(getLevelById(DEFAULT_LEVEL_ID)).toBe(LEVEL_ONE);
+    expect(new Set(LEVEL_REGISTRY.map((entry) => entry.id)).size).toBe(LEVEL_REGISTRY.length);
+  });
+
   it("returns LEVEL_ONE for 'level-one'", () => {
     expect(getLevelById("level-one")).toBe(LEVEL_ONE);
   });
