@@ -163,7 +163,11 @@ keinen zusätzlichen Server, keine GUI oder Testinfrastruktur starten. Fehlt die
 den Betreiber darauf hinweisen. Ein Checkpoint-Prüfstart ersetzt keinen vollständigen Lauf.
 
 Nutze zuerst den Read-only-Reader (Node 22.14+), nicht komplette JSON-Traces.
-Alle folgenden Befehle gelten aus **`client/src/bot/`**:
+Alle folgenden Befehle gelten aus **`client/src/bot/`**. Ausgabe direkt lesen:
+**keine Umleitung (`>`/`tee`), keine temporären Dateien (`/tmp` eingeschlossen),
+keine Kopien der Traces und keine zusätzlichen Dateirechte anfordern.** Der Reader
+begrenzt die Ausgabe selbst. Nicht versuchen, diese Grenze durch Dateiablage,
+eigene Skripte oder einen vollständigen Rohdaten-Dump zu umgehen.
 
 ```sh
 npm --prefix ../../.. run -s bot:trace
@@ -186,8 +190,11 @@ npm --prefix ../../.. run -s bot:trace -- focus DATEINAME TICK
 4. **Beleg bewerten:** `hints` sind Ableitungen, Events beobachtete Fakten.
    `coverage` nennt fehlende Ticks und den tatsächlich betrachteten Tick;
    `traceTruncation` ursprüngliche Kürzungen, `omitted*` zusätzliche Auslassungen.
-   Fehlende Geometrie/Frames nicht erfinden. Nur bei konkreter offener Frage einen kleinen
-   Originalausschnitt nachladen. Bei `outputLimited` ist keine vollständige Ausgabe gezeigt.
+   Fehlende Geometrie/Frames nicht erfinden. Bei `outputLimited` die erhaltene Kurzdiagnose
+   verwenden: Strings/Listen können zusätzlich gekürzt sein. Für eine andere konkrete
+   Frage einen anderen belegten Tick mit `focus` ansehen; denselben Aufruf nicht endlos
+   wiederholen. Reicht die Evidenz nicht, genau das benennen. Keine Rohdaten-Ausweichroute,
+   keine temporäre Datei und keine Rechteausweitung wegen einer Ausgabegrenze.
 5. **Eine Ursache bearbeiten:** Technischen Fehler zuerst beheben; sonst Beobachtung →
    Hypothese → kleine Änderung → neuer Lauf. Keine Gruppe von Gewichten blind gleichzeitig
    ändern. Prüfe neben dem Problem auch das zuvor funktionierende Verhalten und den Wunsch.
@@ -203,6 +210,7 @@ Erfüllung des Wunschs getrennt beurteilen. „Fertig“ setzt einen tatsächlic
 Nachweis voraus; sonst ausdrücklich „implementiert, noch nicht im Lauf bestätigt“ sagen.
 Ein bestandener Lauf beweist keine universelle oder fehlerfreie Strategie.
 
-Falls der externe Agent den Reader nicht ausführen darf: keine Installation oder Änderung
-von Profilrechten. Die vorhandenen kleinen Rohdaten-Ausschnitte lesen und die Einschränkung
-benennen. Das externe Profil muss der Betreiber freischalten.
+Falls der Reader fehlt, fehlschlägt oder im externen Profil nicht ausführbar ist:
+die konkrete Einschränkung kurz benennen. Kein Paket installieren, keine Profilrechte
+ändern/anfordern und keine temporären Dateien oder Ersatzskripte erzeugen. Ohne passende
+Diagnose keine Testergebnisse behaupten. Die Bereitstellung des Readers ist Betreiberarbeit.

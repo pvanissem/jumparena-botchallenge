@@ -120,13 +120,75 @@ export function focusTrace(trace: BotRunTrace, tick: number, revision: string) {
   };
 }
 
+function compactOutput(value: unknown, limit: number, depth = 0): unknown {
+  if (typeof value === "string") return value.length > 200 ? `${value.slice(0, 200)}…` : value;
+  if (value === null || typeof value !== "object") return value;
+  if (depth >= 8) return "[Detail ausgelassen]";
+  if (Array.isArray(value))
+    return value.slice(0, limit).map((item) => compactOutput(item, limit, depth + 1));
+  const source = value as Record<string, unknown>;
+  const result = Object.fromEntries(
+    Object.entries(source)
+      .slice(0, 24)
+      .map(([key, item]) => [key, compactOutput(item, limit, depth + 1)])
+  );
+  if (Array.isArray(source.items) && typeof source.omitted === "number")
+    result.omitted = source.omitted + Math.max(0, source.items.length - limit);
+  return result;
+}
+
 export function serializeReport(report: unknown): string {
   const json = JSON.stringify(report);
-  return json.length <= 12000
-    ? json
-    : JSON.stringify({
-        outputLimited: true,
-        message:
-          "Ausgabe überschreitet 12000 Zeichen. Engeren Rohdaten-Ausschnitt gezielt lesen; keine vollständige Ausgabe dargestellt.",
-      });
+  if (json.length <= 12000) return json;
+  const nextStep =
+    "Diese Kurzdiagnose direkt auswerten. Fehlende Evidenz benennen; keine Umleitung, temporären Dateien oder zusätzlichen Dateirechte verwenden.";
+  for (const limit of [6, 3, 1]) {
+    const reduced = compactOutput(report, limit) as Record<string, unknown>;
+    const original = report as Record<string, unknown>;
+    for (const [list, count] of [
+      ["hints", "omittedHints"],
+      ["recentEvents", "omittedEvents"],
+    ]) {
+      if (Array.isArray(original[list]) && Array.isArray(reduced[list])) {
+        reduced[count] =
+          Number(original[count] ?? 0) + original[list].length - reduced[list].length;
+      }
+    }
+    if (reduced.coverage && Array.isArray(reduced.timeline)) {
+      (reduced.coverage as Record<string, unknown>).shownSamples = reduced.timeline.length;
+    }
+    const result = JSON.stringify({
+      ...reduced,
+      outputLimited: true,
+      reduction: { maxListItems: limit, maxStringCharacters: 200, detailsMayBeOmitted: true },
+      nextStep,
+    });
+    if (result.length <= 12000) return result;
+  }
+  // Pathological input still retains the small set of fields needed to identify the attempt.
+  const source = report as Record<string, unknown>;
+  const scalar = (v: unknown) =>
+    typeof v === "string"
+      ? v.slice(0, 200)
+      : typeof v === "number" || typeof v === "boolean"
+        ? v
+        : null;
+  const attempt = source?.attempt as Record<string, unknown> | undefined;
+  const summary = source?.summary as Record<string, unknown> | undefined;
+  return JSON.stringify({
+    file: scalar(source?.file),
+    currentCode: scalar(source?.currentCode),
+    attempt: {
+      sessionId: scalar(attempt?.sessionId),
+      botRevision: scalar(attempt?.botRevision),
+      result: scalar(attempt?.result),
+    },
+    summary: {
+      deathCause: scalar(summary?.deathCause),
+      technicalErrors: scalar(summary?.technicalErrors),
+    },
+    outputLimited: true,
+    detailsOmitted: true,
+    nextStep,
+  });
 }

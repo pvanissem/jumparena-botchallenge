@@ -139,6 +139,36 @@ describe("compact trace reader", () => {
     expect(report.snapshot?.platforms.items[0].id).toBe("p29");
     expect(report.snapshot?.platforms.omitted).toBe(24);
   });
+  it("keeps actionable evidence when a summary exceeds the output budget", () => {
+    const input = trace();
+    input.findings[0].message = "long hint ".repeat(4000);
+    const report = { file: "attempt.json", ...summarizeTrace(input, "bot-old") };
+    const output = serializeReport(report);
+    const reduced = JSON.parse(output);
+    expect(output.length).toBeLessThanOrEqual(12000);
+    expect(reduced.outputLimited).toBe(true);
+    expect(reduced.file).toBe("attempt.json");
+    expect(reduced.currentCode).toBe(true);
+    expect(reduced.summary.deathCause).toBe("pit-fall");
+    expect(reduced.hints[0].ticks.from).toBe(1);
+    expect(reduced.recentEvents[0].tick).toBe(30);
+    expect(reduced.attempt.botRevision).toBe("bot-old");
+    expect(reduced.nextStep).not.toMatch(/Rohdaten.*lesen/);
+  });
+  it("keeps the target and geometry in an oversized focus report", () => {
+    const input = trace();
+    input.windows[0].samples[15].decision = {
+      kind: "runtime-error",
+      tick: 15,
+      actions: [],
+      message: "error".repeat(5000),
+    };
+    const reduced = JSON.parse(serializeReport(focusTrace(input, 15, "bot-old")));
+    expect(reduced.outputLimited).toBe(true);
+    expect(reduced.coverage.requestedTick).toBe(15);
+    expect(reduced.snapshot.position).toEqual({ x: 15, y: 10 });
+    expect(reduced.snapshot.decision.kind).toBe("runtime-error");
+  });
   it("always emits valid bounded JSON", () => {
     const output = serializeReport({ message: "x".repeat(30000) });
     expect(output.length).toBeLessThanOrEqual(12000);

@@ -42,9 +42,16 @@ npm --prefix ../../.. run -s bot:trace -- focus DATEINAME TICK
    wird nicht ausgegeben. Fehlende ältere Checkpoint-Daten bleiben `null`.
 
 Ausgabe: JSON, höchstens 12000 Zeichen. Das ist eine Zeichengrenze, keine feste
-Tokenzahl. Überschreitet ein ungewöhnlicher Datensatz sie, wird eine ausdrückliche
-Ersatzmeldung ausgegeben; niemals abgeschnittenes JSON. Für seltene Detailfragen
-gezielt einen kleinen Ausschnitt der angegebenen Originaldatei lesen.
+Tokenzahl. Zu große Berichte werden stufenweise verdichtet: lange Texte gekürzt,
+Listen verkleinert und Details ausgelassen. `outputLimited` und `reduction` zeigen
+das an; Identität und Kernbefunde bleiben soweit möglich erhalten. Im äußersten
+Fallback bleiben Versuch und Ergebnis mit `detailsOmitted`, keine bloße Fehlermeldung.
+
+Ausgabe direkt lesen. Keine Umleitung nach Dateien, kein `tee`, kein `/tmp`, keine
+Trace-Kopien und keine zusätzlichen Dateirechte. Bei `outputLimited` die Kurzdiagnose
+nutzen oder einen anderen belegten Tick mit `focus` ansehen. Reichen die Daten nicht,
+fehlende Evidenz benennen, statt Rohdaten zu dumpen oder Ersatzskripte zu bauen.
+Bei fehlendem/gesperrtem Reader die Einschränkung melden; Einrichtung ist Betreiberarbeit.
 
 ## Aussagegrenzen
 
