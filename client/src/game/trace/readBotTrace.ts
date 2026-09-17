@@ -18,6 +18,15 @@ const identity = (trace: BotRunTrace, revision: string) => ({
 
 /** Projection only: findings remain hints, not newly asserted root causes. */
 export function summarizeTrace(trace: BotRunTrace, revision: string) {
+  const transitions = [
+    ...new Map(trace.windows.flatMap((w) => w.samples).map((s) => [s.tick, s])).values(),
+  ]
+    .sort((a, b) => a.tick - b.tick)
+    .flatMap((s) =>
+      s.decision?.navigation?.statusTransition
+        ? [{ tick: s.tick, ...s.decision.navigation.statusTransition }]
+        : []
+    );
   return {
     ...identity(trace, revision),
     summary: trace.summary,
@@ -25,6 +34,10 @@ export function summarizeTrace(trace: BotRunTrace, revision: string) {
     omittedHints: Math.max(0, trace.findings.length - 5),
     recentEvents: trace.events.slice(-6),
     omittedEvents: Math.max(0, trace.events.length - 6),
+    statusTransitions: {
+      items: transitions.slice(-6),
+      omitted: Math.max(0, transitions.length - 6),
+    },
     windows: clipped(
       trace.windows.map((w) => ({
         from: w.fromTick,
@@ -50,6 +63,9 @@ function timelineSample(s: TraceTickSample) {
     command: s.decision?.navigation?.planId ?? null,
     phase: s.decision?.navigation?.phase ?? null,
     reason: s.decision?.navigation?.reason ?? null,
+    ...(s.decision?.navigation?.statusTransition
+      ? { statusTransition: s.decision.navigation.statusTransition }
+      : {}),
   };
 }
 

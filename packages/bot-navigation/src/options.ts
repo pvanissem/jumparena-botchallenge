@@ -62,6 +62,23 @@ export function movementOptions(s: BotState): MovementOption[] {
         )
     );
   }
+  function walkFruitValue(aim: number) {
+    const path = {
+      ...body,
+      x: Math.min(body.x, aim - body.width / 2),
+      width: body.width + Math.abs(aim - center),
+    };
+    const picked = new Set<string>();
+    let value = 0;
+    for (const coin of s.coins) {
+      if (!coin.id || !coin.bounds || picked.has(coin.id)) continue;
+      if (intersects(path, absolute(s, coin.bounds))) {
+        picked.add(coin.id);
+        value += coin.value;
+      }
+    }
+    return value;
+  }
   const result: MovementOption[] = [];
   function add(
     move:
@@ -75,7 +92,7 @@ export function movementOptions(s: BotState): MovementOption[] {
     result.push({
       command: { ...move, id: `option:${n.epoch}:${s.tick}:${result.length}` },
       progress: ((move.x ?? center) - center) * direction,
-      fruitValue,
+      fruitValue: move.kind === "walk" ? walkFruitValue(move.x) : fruitValue,
       durationMs: Math.round(time * 1000),
     });
   }

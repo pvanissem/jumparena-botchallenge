@@ -45,6 +45,48 @@ function state(tick: number): BotState {
 }
 
 describe("BotRunRecorder", () => {
+  it("anchors a previous command failure even when the current diagnostic is unchanged", () => {
+    const initial = { position: { x: 10, y: 20 }, coinsCollected: 0, fruitScore: 0 };
+    const recorder = new BotRunRecorder({
+      levelId: "test",
+      sessionId: "test",
+      botRevision: "bot",
+      startedAt: "2026-09-17",
+      initial,
+    });
+    for (let tick = 0; tick < 600; tick++) {
+      recorder.recordState(state(tick));
+      recorder.recordDecision({
+        tick,
+        kind: "ok",
+        actions: ["right"],
+        navigation: {
+          targetId: null,
+          routeId: null,
+          planId: "walk",
+          phase: "execute",
+          reason: "approach",
+          relevantObjectIds: [],
+          ...(tick === 100
+            ? {
+                statusTransition: {
+                  commandId: "old",
+                  targetId: "floor",
+                  state: "failed" as const,
+                  phase: "flight" as const,
+                  reason: "wrong-landing",
+                },
+              }
+            : {}),
+        },
+      });
+    }
+    const trace = recorder.snapshot(initial);
+    expect(trace?.windows.some((w) => w.reason.includes("wrong-landing"))).toBe(true);
+    expect(
+      trace?.windows.flatMap((w) => w.samples).find((s) => s.tick === 100)?.decision
+    ).toHaveProperty("navigation.statusTransition.commandId", "old");
+  });
   it("keeps action correlation without expanding diagnostic windows to the whole run", () => {
     const initial = { position: { x: 10, y: 20 }, coinsCollected: 0, fruitScore: 0 };
     const recorder = new BotRunRecorder({

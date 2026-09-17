@@ -1,4 +1,10 @@
-import type { Action, BotState, NavigationObservation, TileType } from "@arena/bot-contract";
+import type {
+  Action,
+  BotState,
+  ControlStatus,
+  NavigationObservation,
+  TileType,
+} from "@arena/bot-contract";
 
 export type RunResult = "death" | "finished" | "time-limit" | "aborted" | "bot-paused";
 
@@ -12,6 +18,8 @@ export interface NavigationDiagnostic {
   searchBudgetStatus?: "available" | "exhausted" | "pending";
   navigationActions?: Action[];
   actionOverride?: "navigation-output-overridden";
+  /** Change observed for the previous command before decide(), separate from its next choice. */
+  statusTransition?: ControlStatus & { commandId: string; targetId: string | null };
 }
 
 export interface TraceDecisionCorrelation {

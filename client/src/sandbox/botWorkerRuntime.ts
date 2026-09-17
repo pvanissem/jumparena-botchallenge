@@ -9,6 +9,7 @@ import {
   validateBotModule,
 } from "@arena/bot-contract";
 import { validateNavigationDiagnostic } from "../game/trace/navigationDiagnostic";
+import type { NavigationDiagnostic } from "../game/trace/types";
 import type { HostToWorkerMessage, WorkerToHostMessage } from "./workerLike";
 
 /** Structural injection boundary for the observation-driven movement controller. */
@@ -24,11 +25,17 @@ export type MovementControllerFactory = () => WorkerMovementController;
 export function createBotWorkerRuntime(createController?: MovementControllerFactory) {
   let bot: BotModule | null = null;
   let controller: WorkerMovementController | null = null;
+  let previous: {
+    command: ControlCommand;
+    status: ControlStatus;
+    epoch: number | undefined;
+  } | null = null;
 
   return {
     init(candidate: unknown): WorkerToHostMessage {
       bot = null;
       controller = null;
+      previous = null;
       const validation = validateBotModule(candidate);
       if (!validation.valid) return { type: "module-invalid", reason: validation.reason };
       try {
@@ -56,6 +63,8 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
       let used = false;
       let navigationActions: DecideResult | undefined;
       let command: ControlCommand | undefined;
+      let observed: ControlStatus | undefined;
+      let statusTransition: NavigationDiagnostic["statusTransition"];
       try {
         if (!bot) throw new Error("Bot-Modul ist nicht bereit");
         let actions: unknown;
@@ -63,7 +72,23 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
           const current = controller;
           if (!current) throw new Error("Controller ist nicht bereit");
           // Observe contacts/respawn before the visitor chooses its next command.
-          current.status(state);
+          observed = current.status(state);
+          if (
+            previous &&
+            !state.justRespawned &&
+            previous.epoch === state.navigation?.epoch &&
+            observed.commandId !== null &&
+            observed.commandId === previous.status.commandId &&
+            (observed.state !== previous.status.state ||
+              observed.phase !== previous.status.phase ||
+              observed.reason !== previous.status.reason)
+          ) {
+            statusTransition = {
+              ...observed,
+              commandId: observed.commandId,
+              targetId: previous.command.kind === "walk" ? null : previous.command.platformId,
+            };
+          }
           const assertActive = () => {
             if (!active) throw new Error("Tools sind nur synchron innerhalb von decide gueltig");
           };
@@ -94,12 +119,16 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
           actions = decide(state);
         }
         active = false;
-        const status = used ? controller?.status(state) : undefined;
+        const status = used ? controller?.status(state) : statusTransition ? observed : undefined;
+        const diagnosticCommand = command ?? (statusTransition ? previous?.command : undefined);
         // Preserve the existing trace schema without inventing a route or search budget.
         const navigation =
           status &&
           validateNavigationDiagnostic({
-            targetId: command && command.kind !== "walk" ? command.platformId : null,
+            targetId:
+              diagnosticCommand && diagnosticCommand.kind !== "walk"
+                ? diagnosticCommand.platformId
+                : null,
             routeId: null,
             planId: status.commandId,
             phase:
@@ -110,18 +139,24 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
                   : "wait",
             reason: status.reason ?? status.phase ?? status.state,
             relevantObjectIds:
-              command?.kind === "boingo"
-                ? [command.utilityId, command.platformId]
-                : command?.kind === "jump"
-                  ? [command.platformId]
+              diagnosticCommand?.kind === "boingo"
+                ? [diagnosticCommand.utilityId, diagnosticCommand.platformId]
+                : diagnosticCommand && diagnosticCommand.kind !== "walk"
+                  ? [diagnosticCommand.platformId]
                   : [],
             navigationActions,
+            ...(statusTransition ? { statusTransition } : {}),
           });
+        previous =
+          command && status
+            ? { command, status: { ...status }, epoch: state.navigation?.epoch }
+            : null;
         if (
           bot.frameworkVersion === 2 &&
           (!used || JSON.stringify(actions) !== JSON.stringify(navigationActions))
         ) {
           controller?.reset();
+          previous = null;
         }
         return { type: "action", ...correlation, actions, ...(navigation ? { navigation } : {}) };
       } catch (error) {

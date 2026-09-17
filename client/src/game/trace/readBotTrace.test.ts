@@ -85,6 +85,56 @@ function trace(): BotRunTrace {
   };
 }
 describe("compact trace reader", () => {
+  it("summarizes bounded, deduplicated status transitions with their previous command IDs", () => {
+    const input = trace();
+    for (const s of input.windows[0].samples) {
+      s.decision = {
+        kind: "ok",
+        tick: s.tick,
+        actions: [],
+        navigation: {
+          targetId: null,
+          routeId: null,
+          planId: "new",
+          phase: "execute",
+          reason: "approach",
+          relevantObjectIds: [],
+          statusTransition: {
+            commandId: `old-${s.tick}`,
+            targetId: "floor",
+            state: "failed",
+            phase: "flight",
+            reason: "wrong-landing",
+          },
+        },
+      };
+    }
+    input.windows.push(input.windows[0]);
+    const report = summarizeTrace(input, "bot-old");
+    expect(report).toHaveProperty("statusTransitions.omitted", 25);
+    expect(report).toHaveProperty(
+      "statusTransitions.items",
+      Array.from({ length: 6 }, (_, i) => ({
+        tick: 25 + i,
+        commandId: `old-${25 + i}`,
+        targetId: "floor",
+        state: "failed",
+        phase: "flight",
+        reason: "wrong-landing",
+      }))
+    );
+  });
+  it.each([1, 2] as const)("does not invent transitions for old schema-%s traces", (version) => {
+    const input = trace();
+    input.schemaVersion = version;
+    expect(summarizeTrace(input, "bot-old")).toHaveProperty("statusTransitions", {
+      items: [],
+      omitted: 0,
+    });
+    expect(focusTrace(input, 15, "bot-old").timeline.every((s) => !("statusTransition" in s))).toBe(
+      true
+    );
+  });
   it("keeps attempt identity, revision mismatch and truncation without raw samples", () => {
     const report = summarizeTrace(trace(), "bot-new");
     expect(report.currentCode).toBe(false);

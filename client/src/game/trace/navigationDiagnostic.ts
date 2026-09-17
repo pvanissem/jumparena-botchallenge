@@ -12,6 +12,7 @@ const keys = new Set([
   "searchBudgetStatus",
   "navigationActions",
   "actionOverride",
+  "statusTransition",
 ]);
 const text = (value: unknown, max: number): value is string =>
   typeof value === "string" && value.length > 0 && value.length <= max;
@@ -24,6 +25,25 @@ export function validateNavigationDiagnostic(
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
   const d = value as Record<string, unknown>;
   if (Object.keys(d).some((key) => !keys.has(key))) return undefined;
+  if (d.statusTransition !== undefined) {
+    const t = d.statusTransition as Record<string, unknown>;
+    if (
+      !t ||
+      typeof t !== "object" ||
+      Array.isArray(t) ||
+      Object.keys(t).some(
+        (key) => !["commandId", "targetId", "state", "phase", "reason"].includes(key)
+      ) ||
+      !text(t.commandId, 128) ||
+      !(t.targetId === null || text(t.targetId, 128)) ||
+      !["running", "succeeded", "failed"].includes(t.state as string) ||
+      !(
+        t.phase === null || ["approach", "launch", "flight", "landing"].includes(t.phase as string)
+      ) ||
+      !(t.reason === null || text(t.reason, 256))
+    )
+      return undefined;
+  }
   if (
     !["targetId", "routeId", "planId"].every((key) => d[key] === null || text(d[key], 128)) ||
     !["select", "execute", "wait", "recover", "blocked"].includes(d.phase as string) ||
@@ -45,6 +65,7 @@ export function validateNavigationDiagnostic(
     ...d,
     relevantObjectIds: [...d.relevantObjectIds],
   } as unknown as NavigationDiagnostic;
+  if (result.statusTransition) result.statusTransition = { ...result.statusTransition };
   if (result.navigationActions) {
     result.navigationActions = [...result.navigationActions];
     if (

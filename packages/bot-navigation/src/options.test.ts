@@ -9,7 +9,55 @@ function scene(offset = 0) {
   s.platforms = [platform("arbitrary-floor", -100, 16, 800)];
   return s;
 }
+function fruit(id: string, dx: number, dy = 0, value = 10) {
+  return { id, dx, dy, value, bounds: { dx: dx - 4, dy: dy - 4, width: 8, height: 8 } };
+}
 describe("observed movement options", () => {
+  it.each([0, 1700])(
+    "counts intersecting fruit once along the complete walk at offset %s",
+    (offset) => {
+      const s = scene(offset);
+      const wide = fruit("wide", 60);
+      wide.bounds.width = 100;
+      const tiny = fruit("tiny-between-steps", 83, 0, 5);
+      tiny.bounds.width = 1;
+      s.coins = [
+        wide,
+        wide,
+        tiny,
+        fruit("above", 120, -80, 100),
+        fruit("past-end", 280, 0, 100),
+        fruit("behind", -40, 0, 100),
+      ];
+      expect(movementOptions(s).find((o) => o.command.kind === "walk")).toMatchObject({
+        fruitValue: 15,
+      });
+    }
+  );
+  it("counts fruit on a leftward walk using relative collider bounds", () => {
+    const s = scene();
+    s.goalDirection.dx = -900;
+    s.platforms = [platform("floor", -500, 16, 800)];
+    s.coins = [fruit("left", -80), fruit("right", 80, 0, 100)];
+    expect(movementOptions(s).find((o) => o.command.kind === "walk")).toMatchObject({
+      fruitValue: 10,
+    });
+  });
+  it("lets a fruit-oriented bot prefer walking through fruit to jumping over it", () => {
+    const s = scene();
+    s.coins = [fruit("on-foot", 100)];
+    const options = movementOptions(s);
+    const jumps = options.filter((o) => o.command.kind === "jump" && o.progress > 200);
+    expect(jumps.length).toBeGreaterThan(0);
+    expect(jumps.every((o) => o.fruitValue === 0)).toBe(true);
+    const choose = (fruitWeight: number) =>
+      [...options].sort(
+        (a, b) =>
+          b.progress + fruitWeight * b.fruitValue - (a.progress + fruitWeight * a.fruitValue)
+      )[0];
+    expect(choose(0).command.kind).toBe("jump");
+    expect(choose(100).command.kind).toBe("walk");
+  });
   it("offers walking on observed ground without a level identity", () => {
     expect(movementOptions(scene())).toEqual(
       expect.arrayContaining([
@@ -163,6 +211,10 @@ it("offers a stopping point before inactive fire and limits the crossing length"
   const walks = movementOptions(s).filter((o) => o.command.kind === "walk");
   expect(walks.some((o) => (o.command.x ?? 0) < 180)).toBe(true);
   expect(walks.every((o) => (o.command.x ?? 0) < 240)).toBe(true);
+  s.coins = [fruit("approach", 40), fruit("crossing", 100, 0, 5), fruit("past-end", 180, 0, 100)];
+  const valued = movementOptions(s).filter((o) => o.command.kind === "walk");
+  expect(valued.find((o) => (o.command.x ?? 0) < 180)?.fruitValue).toBe(10);
+  expect(valued.find((o) => (o.command.x ?? 0) > 180)?.fruitValue).toBe(15);
 });
 
 it("can run out from a low ceiling before jumping at its edge", () => {
@@ -198,6 +250,10 @@ it("retreats far enough to clear an overhead block before retrying a jump", () =
     },
   ];
   expect(movementOptions(s).some((o) => o.command.kind === "walk" && o.progress < -48)).toBe(true);
+  s.coins = [fruit("retreat", -40), fruit("forward", 30, 0, 100)];
+  expect(
+    movementOptions(s).find((o) => o.command.kind === "walk" && o.progress < -48)?.fruitValue
+  ).toBe(10);
 });
 
 it("offers a drop onto a lower surface when a low ceiling prevents jumping", () => {

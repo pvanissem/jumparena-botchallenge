@@ -1,6 +1,9 @@
 import type { Action, ControlCommand, ControlStatus, ToolsApi } from "@arena/bot-contract";
 import { createMovementController } from "@arena/bot-navigation";
 import { describe, expect, it, vi } from "vitest";
+import { BotRunRecorder } from "../game/trace/BotRunRecorder";
+import { validateNavigationDiagnostic } from "../game/trace/navigationDiagnostic";
+import { focusTrace } from "../game/trace/readBotTrace";
 import { createBotWorkerRuntime } from "./botWorkerRuntime";
 import { navigation, sampleState } from "./testUtils/sampleState";
 
@@ -28,6 +31,87 @@ function setup() {
 }
 
 describe("worker control tools v2", () => {
+  it.each(["wait", "replace", "continue"])(
+    "preserves wrong-landing through recording and reading when the bot chooses %s",
+    (choice) => {
+      const runtime = createBotWorkerRuntime(createMovementController);
+      const jump: ControlCommand = { id: "old-jump", kind: "jump", platformId: "floor", x: 232 };
+      const state = structuredClone({ ...sampleState, navigation });
+      state.platforms = [{ id: "floor", dx: 0, dy: 32, width: 400, height: 16, kind: "ground" }];
+      const initial = { position: state.position, coinsCollected: 0, fruitScore: 0 };
+      const recorder = new BotRunRecorder({
+        levelId: "test",
+        sessionId: "test",
+        botRevision: "bot",
+        startedAt: "2026-09-17",
+        initial,
+      });
+      runtime.init({
+        apiVersion: 1,
+        frameworkVersion: 2,
+        decide: (_: unknown, tools: ToolsApi) => {
+          if (tools.status().state !== "failed" && state.tick < 45) return tools.run(jump);
+          if (choice === "wait") return [];
+          return tools.run(choice === "replace" ? command : jump);
+        },
+      });
+      function tick() {
+        recorder.recordState(state);
+        const response = runtime.tick({
+          ...request,
+          tick: state.tick,
+          stateTick: state.tick,
+          state,
+        });
+        if (response.type !== "action") throw Error(JSON.stringify(response));
+        const diagnostic = validateNavigationDiagnostic(response.navigation);
+        expect(diagnostic).toEqual(response.navigation);
+        recorder.recordDecision({
+          ...response,
+          kind: "ok",
+          actions: response.actions as Action[],
+          navigation: diagnostic,
+        });
+        return { ...response, navigation: diagnostic };
+      }
+      tick();
+      state.tick++;
+      state.navigation.observedAtMs += 33;
+      state.onGround = false;
+      state.navigation.body.y = -50;
+      tick();
+      state.tick++;
+      state.navigation.observedAtMs += 33;
+      state.onGround = true;
+      state.navigation.body.y = 0;
+      const response = tick();
+      const transition = {
+        commandId: "old-jump",
+        targetId: "floor",
+        state: "failed",
+        phase: "flight",
+        reason: "wrong-landing",
+      };
+      expect(response.navigation).toMatchObject({
+        planId: choice === "replace" ? "walk-1" : "old-jump",
+        statusTransition: transition,
+      });
+      const trace = recorder.snapshot(initial);
+      if (!trace) throw Error("Expected trace");
+      expect(focusTrace(trace, state.tick, "bot").timeline).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ tick: state.tick, statusTransition: transition }),
+        ])
+      );
+      state.tick++;
+      state.navigation.observedAtMs += 33;
+      expect(tick().navigation?.statusTransition).toBeUndefined();
+      state.tick++;
+      state.justRespawned = true;
+      state.navigation.epoch++;
+      expect(tick().navigation?.statusTransition).toBeUndefined();
+    }
+  );
   it("loads v2 metadata and rejects v1 before constructing a controller", () => {
     const { runtime, factory } = setup();
     expect(runtime.init({ apiVersion: 1, frameworkVersion: 1, decide: () => [] })).toMatchObject({

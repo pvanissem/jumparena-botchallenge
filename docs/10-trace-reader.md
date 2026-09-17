@@ -34,12 +34,29 @@ npm --prefix ../../.. run -s bot:trace -- focus DATEINAME TICK
 2. `list`: höchstens fünf neueste lesbare Versuche mit Session, Revision, Ergebnis
    und `currentCode`. Jeder Eintrag ist ein Versuch, keine ganze Session.
 3. `summary DATEI`: Metadaten, Summary, höchstens fünf abgeleitete Hinweise,
-   sechs letzte Ereignisse und acht gespeicherte Fenster; keine Roh-Samples.
+   sechs letzte Ereignisse, bis zu sechs letzte aufgezeichnete Auftragsstatuswechsel
+   (`statusTransitions`) und acht gespeicherte Fenster; keine Roh-Samples.
 4. `focus DATEI TICK`: ±15 Ticks, höchstens sieben ausgewählte Zeitpunkte und ein
    Geometrie-Snapshot des nächsten gespeicherten Ticks in diesem Bereich.
    `coverage` zeigt fehlende Ticks und die Zahl der tatsächlich gezeigten Samples.
    Pro Objektart höchstens sechs Objekte, bekannte Ziel-IDs zuerst. Eine Tile-Matrix
    wird nicht ausgegeben. Fehlende ältere Checkpoint-Daten bleiben `null`.
+
+### Auftragsfehler vor der nächsten Entscheidung
+
+Neue Aufzeichnungen enthalten optional `navigation.statusTransition`: den vor
+`decide()` beobachteten Statuswechsel des bisherigen Auftrags mit `commandId`,
+`targetId`, `state`, `phase` und `reason`. Beispielsweise bleibt `wrong-landing`
+erhalten, wenn der Bot unmittelbar wartet oder einen neuen Auftrag startet.
+Der Wechsel wird einmal aufgezeichnet und vom Recorder als Fenster-Anker berücksichtigt.
+
+`summary.statusTransitions.items` zeigt die letzten gespeicherten Wechsel samt Tick,
+`omitted` zählt weitere gespeicherte Wechsel. Im `focus` steht die Information bei
+den betreffenden Timeline-Samples und in der Snapshot-Entscheidung. Ein neuer Auftrag
+steht weiterhin separat unter `command`/`planId`; der Fehler gehört zur
+`statusTransition.commandId`. Bei Warten ohne neuen Auftrag beschreibt die Diagnose
+den gerade beendeten Auftrag. Ältere Traces enthalten diese Information nicht;
+eine leere Liste ist deshalb kein Nachweis, dass keine Auftragsfehler auftraten.
 
 Ausgabe: JSON, höchstens 12000 Zeichen. Das ist eine Zeichengrenze, keine feste
 Tokenzahl. Zu große Berichte werden stufenweise verdichtet: lange Texte gekürzt,

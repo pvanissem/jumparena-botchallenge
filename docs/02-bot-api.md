@@ -149,7 +149,7 @@ Es liefert lokale Kandidaten für Laufen, Springen, Fallen und Boingo mit:
 interface MovementOption {
   command: ControlCommand;
   progress: number;   // Pixel in Zielrichtung, Rückweg negativ
-  fruitValue: number; // geschätzte Fruchtpunkte auf der Flugbahn
+  fruitValue: number; // geschätzte Fruchtpunkte auf dem Laufweg bzw. der Flugbahn
   durationMs: number; // geschätzte Dauer
 }
 ```
@@ -158,6 +158,12 @@ Angebote bewegen den Bot nicht. `current-bot.js` bewertet sie anhand frei
 editierbarer Gewichtungen und Regeln und führt die gewählte Bewegung mit run aus.
 Das vollständige Beispiel ist `examples/strategies/visitor-builder.js`; der Agent
 kann darin auch Funktionen ersetzen, eigene Manöver ausführen und Bedingungen ergänzen.
+
+Laufangebote einschließlich Annäherung und Rückzug bewerten sichtbare Früchte mit
+ID und `bounds`, deren Collider der Bot-Körper auf dem Weg zum angebotenen Laufziel
+berührt. Jede Frucht zählt pro Angebot höchstens einmal; Früchte oberhalb oder
+jenseits des Wegs zählen nicht. Ohne Collider wird kein Laufweg-Ertrag angenommen.
+Der geschätzte Wert ist keine Bestätigung einer tatsächlichen Sammlung.
 
 Es gibt keine Levelimporte, festgelegten Routen oder Sonderbehandlung bestimmter
 Objekt-IDs. options prüft lokale Flugbahnen gegen sichtbare Plattformen und Gefahren.

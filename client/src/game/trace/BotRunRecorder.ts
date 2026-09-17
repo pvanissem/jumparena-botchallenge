@@ -106,6 +106,7 @@ export class BotRunRecorder {
             navigation.phase,
             navigation.reason,
             navigation.actionOverride,
+            navigation.statusTransition,
           ])
         : undefined;
       const changed = identity !== previousNavigation;
@@ -114,7 +115,7 @@ export class BotRunRecorder {
         ? [
             {
               tick: sample.tick,
-              reason: `navigation: ${navigation.actionOverride ?? navigation.reason}`,
+              reason: `navigation: ${navigation.statusTransition?.reason ?? navigation.actionOverride ?? navigation.reason}`,
             },
           ]
         : [];

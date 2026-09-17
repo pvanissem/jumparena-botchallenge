@@ -13,6 +13,33 @@ const diagnostic = {
 };
 
 describe("validateNavigationDiagnostic", () => {
+  const transition = {
+    commandId: "old",
+    targetId: "floor",
+    state: "failed",
+    phase: "flight",
+    reason: "wrong-landing",
+  };
+  it("validates and snapshots an observed command transition", () => {
+    const input = { ...diagnostic, statusTransition: { ...transition } };
+    const result = validateNavigationDiagnostic(input);
+    expect(result).toEqual(input);
+    input.statusTransition.reason = "changed";
+    expect(result).toHaveProperty("statusTransition.reason", "wrong-landing");
+  });
+  it.each([
+    null,
+    [],
+    {},
+    { ...transition, state: "invented" },
+    { ...transition, commandId: null },
+    { ...transition, targetId: 42 },
+    { ...transition, reason: "x".repeat(257) },
+    { ...transition, phase: "invented" },
+    { ...transition, extra: {} },
+  ])("rejects malformed transitions: %j", (statusTransition) => {
+    expect(validateNavigationDiagnostic({ ...diagnostic, statusTransition })).toBeUndefined();
+  });
   it("uses UTF-8 bytes at the inclusive 2-KiB boundary, including the override marker", () => {
     const value = { ...diagnostic, relevantObjectIds: Array(17).fill("x".repeat(100)) };
     const baseBytes = new TextEncoder().encode(JSON.stringify(value)).byteLength;
