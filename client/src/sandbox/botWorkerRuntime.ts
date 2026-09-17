@@ -5,6 +5,7 @@ import {
   type ControlStatus,
   type DecideResult,
   type MovementOption,
+  type NavigationIntent,
   type ToolsApi,
   validateBotModule,
 } from "@arena/bot-contract";
@@ -18,6 +19,8 @@ export interface WorkerMovementController {
   status(state: BotState): ControlStatus;
   reset(): void;
   options?(state: BotState): MovementOption[];
+  navigate?(state: BotState, intent: NavigationIntent): DecideResult;
+  command?(): ControlCommand | null;
 }
 
 export type MovementControllerFactory = () => WorkerMovementController;
@@ -93,6 +96,17 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
             if (!active) throw new Error("Tools sind nur synchron innerhalb von decide gueltig");
           };
           const tools: ToolsApi = Object.freeze({
+            navigate: (intent: NavigationIntent) => {
+              assertActive();
+              if (used) throw new Error("run/navigate darf pro Tick nur einmal aufgerufen werden");
+              if (!current.navigate) throw new Error("navigate ist nicht verfügbar");
+              used = true;
+              const result = current.navigate(state, intent);
+              const selected = current.command?.();
+              command = selected ? { ...selected } : undefined;
+              navigationActions = [...result];
+              return result;
+            },
             run: (next: ControlCommand) => {
               assertActive();
               if (used) throw new Error("run darf pro Tick nur einmal aufgerufen werden");
@@ -139,11 +153,13 @@ export function createBotWorkerRuntime(createController?: MovementControllerFact
                   : "wait",
             reason: status.reason ?? status.phase ?? status.state,
             relevantObjectIds:
-              diagnosticCommand?.kind === "boingo"
-                ? [diagnosticCommand.utilityId, diagnosticCommand.platformId]
-                : diagnosticCommand && diagnosticCommand.kind !== "walk"
-                  ? [diagnosticCommand.platformId]
-                  : [],
+              diagnosticCommand?.kind === "stomp"
+                ? [diagnosticCommand.hazardId, diagnosticCommand.platformId]
+                : diagnosticCommand?.kind === "boingo"
+                  ? [diagnosticCommand.utilityId, diagnosticCommand.platformId]
+                  : diagnosticCommand && diagnosticCommand.kind !== "walk"
+                    ? [diagnosticCommand.platformId]
+                    : [],
             navigationActions,
             ...(statusTransition ? { statusTransition } : {}),
           });

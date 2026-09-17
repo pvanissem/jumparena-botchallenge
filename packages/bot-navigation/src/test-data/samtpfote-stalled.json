@@ -1,0 +1,264 @@
+{
+  "tick": 0,
+  "navigation": {
+    "version": 1,
+    "epoch": 1,
+    "frame": 10794,
+    "observedAtMs": 0,
+    "physicsStepMs": 16.666666666666668,
+    "body": {
+      "x": 510.22964444444415,
+      "y": 461.6,
+      "width": 28.799999999999997,
+      "height": 38.4
+    },
+    "movement": {
+      "jumpStartedAtMs": null,
+      "impulseKind": "none",
+      "impulseAtMs": null,
+      "sourceId": null
+    },
+    "lastImpulse": {
+      "sequence": 2,
+      "kind": "jump",
+      "atMs": 542.1200000000001,
+      "sourceId": null
+    },
+    "viewport": {
+      "x": 124.62964444444412,
+      "y": -59.19999999999999,
+      "width": 800,
+      "height": 1080
+    },
+    "boingoJumpVelocity": -820,
+    "stompJumpVelocity": -280
+  },
+  "position": {
+    "x": 524.63,
+    "y": 480.8
+  },
+  "velocity": {
+    "vx": 0,
+    "vy": 0
+  },
+  "facing": "right",
+  "onGround": true,
+  "isSprinting": false,
+  "sprintRampProgress": 0,
+  "gapAhead": {
+    "present": true,
+    "distance": 131.37
+  },
+  "goalDirection": {
+    "dx": 7267.37,
+    "dy": 3.2
+  },
+  "justRespawned": false,
+  "tookDamage": false,
+  "hazards": [
+    {
+      "id": "stachlinger-1",
+      "bounds": {
+        "dx": 31.770355555555852,
+        "dy": 13.599999999999966,
+        "width": 2.4,
+        "height": 12
+      },
+      "dx": 35.37,
+      "dy": 11.2,
+      "kind": "stachlinger",
+      "active": true,
+      "warning": false,
+      "stompable": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "id": "ninjafrog-1",
+      "bounds": {
+        "dx": -284.90824444447486,
+        "dy": -5.199999999999989,
+        "width": 21.599999999999998,
+        "height": 26.4
+      },
+      "dx": -274.11,
+      "dy": 3.2,
+      "kind": "ninjafrog",
+      "active": true,
+      "warning": false,
+      "stompable": true,
+      "vx": -60,
+      "vy": 0
+    },
+    {
+      "id": "ninjafrog-2",
+      "bounds": {
+        "dx": 373.96205555559163,
+        "dy": -5.199999999999989,
+        "width": 21.599999999999998,
+        "height": 26.4
+      },
+      "dx": 384.76,
+      "dy": 3.2,
+      "kind": "ninjafrog",
+      "active": true,
+      "warning": false,
+      "stompable": true,
+      "vx": 70,
+      "vy": 0
+    }
+  ],
+  "coins": [
+    {
+      "id": "coin-3",
+      "dx": 295.37,
+      "dy": -28.8,
+      "value": 10,
+      "bounds": {
+        "dx": 280.3703555555559,
+        "dy": -43.80000000000001,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "id": "coin-1",
+      "dx": -324.63,
+      "dy": -28.8,
+      "value": 5,
+      "bounds": {
+        "dx": -339.6296444444441,
+        "dy": -43.80000000000001,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "id": "coin-10",
+      "dx": 379.37,
+      "dy": -170.8,
+      "value": 15,
+      "bounds": {
+        "dx": 364.3703555555559,
+        "dy": -185.8,
+        "width": 30,
+        "height": 30
+      }
+    }
+  ],
+  "utilities": [],
+  "platforms": [
+    {
+      "id": "level-one:platform:0",
+      "collision": "solid",
+      "dx": -524.63,
+      "dy": 19.2,
+      "width": 320,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-one:platform:1",
+      "collision": "solid",
+      "dx": -92.63,
+      "dy": 19.2,
+      "width": 224,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-one:platform:2",
+      "collision": "solid",
+      "dx": 259.37,
+      "dy": 19.2,
+      "width": 256,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-one:platform:8",
+      "collision": "one-way-up",
+      "dx": -188.63,
+      "dy": -120.8,
+      "width": 48,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "level-one:platform:9",
+      "collision": "one-way-up",
+      "dx": 355.37,
+      "dy": -130.8,
+      "width": 48,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "block-1",
+      "collision": "solid",
+      "dx": -20.63,
+      "dy": -58.8,
+      "width": 33.6,
+      "height": 28.8,
+      "kind": "block"
+    }
+  ],
+  "checkpoints": [],
+  "respawnPoint": {
+    "checkpointId": null,
+    "x": 80,
+    "y": 388
+  },
+  "isAlive": true,
+  "nearbyTiles": [],
+  "timeElapsedMs": 0,
+  "coinsCollected": 0,
+  "livesRemaining": 3,
+  "worldBounds": {
+    "width": 8192,
+    "height": 540
+  },
+  "tuning": {
+    "tickMs": 33,
+    "minJumpHoldMs": 180,
+    "gravity": 900,
+    "tileSize": 16,
+    "baseMoveSpeed": 200,
+    "sprintMoveSpeed": 320,
+    "sprintRampMs": 450,
+    "baseJumpVelocity": -560,
+    "sprintJumpVelocity": -650,
+    "botWidth": 24,
+    "botHeight": 32
+  },
+  "nearestCoin": {
+    "id": "coin-3",
+    "dx": 295.37,
+    "dy": -28.8,
+    "value": 10,
+    "bounds": {
+      "dx": 280.3703555555559,
+      "dy": -43.80000000000001,
+      "width": 30,
+      "height": 30
+    }
+  },
+  "nearestHazard": {
+    "id": "stachlinger-1",
+    "bounds": {
+      "dx": 31.770355555555852,
+      "dy": 13.599999999999966,
+      "width": 2.4,
+      "height": 12
+    },
+    "dx": 35.37,
+    "dy": 11.2,
+    "kind": "stachlinger",
+    "active": true,
+    "warning": false,
+    "stompable": false,
+    "vx": 0,
+    "vy": 0
+  },
+  "nearestUtility": null
+}

@@ -1,0 +1,442 @@
+{
+  "tick": 136,
+  "navigation": {
+    "version": 1,
+    "epoch": 1,
+    "frame": 543,
+    "observedAtMs": 4524.859999999999,
+    "physicsStepMs": 16.666666666666668,
+    "body": {
+      "x": 853.1175555555549,
+      "y": 291.6,
+      "width": 28.799999999999997,
+      "height": 38.4
+    },
+    "movement": {
+      "jumpStartedAtMs": null,
+      "impulseKind": "none",
+      "impulseAtMs": null,
+      "sourceId": null
+    },
+    "lastImpulse": {
+      "sequence": 6,
+      "kind": "jump",
+      "atMs": 3866.409999999999,
+      "sourceId": null
+    },
+    "viewport": {
+      "x": 467.51755555555485,
+      "y": -229.2,
+      "width": 800,
+      "height": 1080
+    },
+    "boingoJumpVelocity": -820,
+    "stompJumpVelocity": -280
+  },
+  "position": {
+    "x": 867.52,
+    "y": 310.8
+  },
+  "velocity": {
+    "vx": 208.91,
+    "vy": 0
+  },
+  "facing": "right",
+  "onGround": true,
+  "isSprinting": true,
+  "sprintRampProgress": 0.07,
+  "gapAhead": {
+    "present": true,
+    "distance": 76.48
+  },
+  "goalDirection": {
+    "dx": 2192.48,
+    "dy": 173.2
+  },
+  "justRespawned": false,
+  "tookDamage": false,
+  "hazards": [
+    {
+      "id": "loderix-1",
+      "bounds": {
+        "dx": -133.51755555555485,
+        "dy": -4,
+        "width": 12,
+        "height": 26.4
+      },
+      "dx": -127.52,
+      "dy": 3.2,
+      "kind": "loderix",
+      "active": false,
+      "warning": false,
+      "stompable": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "id": "stachlinger-1",
+      "bounds": {
+        "dx": -51.11755555555487,
+        "dy": 175.59999999999997,
+        "width": 2.4,
+        "height": 12
+      },
+      "dx": -47.52,
+      "dy": 173.2,
+      "kind": "stachlinger",
+      "active": true,
+      "warning": false,
+      "stompable": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "id": "spikehead-1",
+      "bounds": {
+        "dx": 18.082444444445173,
+        "dy": -225.20000000000002,
+        "width": 28.799999999999997,
+        "height": 28.799999999999997
+      },
+      "dx": 32.48,
+      "dy": -210.8,
+      "kind": "spikehead",
+      "active": false,
+      "warning": true,
+      "stompable": false,
+      "vx": 0,
+      "vy": 0
+    }
+  ],
+  "coins": [
+    {
+      "id": "coin-8",
+      "dx": 192.48,
+      "dy": -28.8,
+      "value": 25,
+      "bounds": {
+        "dx": 177.48244444444515,
+        "dy": -43.80000000000001,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "id": "coin-5",
+      "dx": 192.48,
+      "dy": 141.2,
+      "value": 5,
+      "bounds": {
+        "dx": 177.48244444444515,
+        "dy": 126.19999999999999,
+        "width": 30,
+        "height": 30
+      }
+    },
+    {
+      "id": "coin-6",
+      "dx": -307.52,
+      "dy": -28.8,
+      "value": 15,
+      "bounds": {
+        "dx": -322.51755555555485,
+        "dy": -43.80000000000001,
+        "width": 30,
+        "height": 30
+      }
+    }
+  ],
+  "utilities": [
+    {
+      "id": "boingo-1",
+      "dx": 312.48,
+      "dy": 175.2,
+      "kind": "boingo",
+      "bounds": {
+        "dx": 296.88244444444524,
+        "dy": 180,
+        "width": 31.2,
+        "height": 12
+      }
+    }
+  ],
+  "platforms": [
+    {
+      "id": "level-five:platform:1",
+      "collision": "solid",
+      "dx": -387.52,
+      "dy": 189.2,
+      "width": 384,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-five:platform:2",
+      "collision": "solid",
+      "dx": 140.48,
+      "dy": 189.2,
+      "width": 272,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-five:platform:5",
+      "collision": "one-way-up",
+      "dx": -347.52,
+      "dy": 19.2,
+      "width": 96,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "level-five:platform:6",
+      "collision": "one-way-up",
+      "dx": -187.52,
+      "dy": 19.2,
+      "width": 96,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "level-five:platform:7",
+      "collision": "one-way-up",
+      "dx": -27.52,
+      "dy": 19.2,
+      "width": 112,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "level-five:platform:8",
+      "collision": "one-way-up",
+      "dx": 142.48,
+      "dy": 19.2,
+      "width": 112,
+      "height": 16,
+      "kind": "float"
+    },
+    {
+      "id": "block-2",
+      "collision": "solid",
+      "dx": 236.48,
+      "dy": 111.2,
+      "width": 33.6,
+      "height": 28.8,
+      "kind": "block"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "checkpoint-2",
+      "dx": 162.48244444444515,
+      "dy": 157.2,
+      "bounds": {
+        "dx": 124.48244444444515,
+        "dy": 119.19999999999999,
+        "width": 76.8,
+        "height": 76.8
+      },
+      "reached": false,
+      "active": false
+    },
+    {
+      "id": "checkpoint-1",
+      "dx": -347.51755555555485,
+      "dy": 157.2,
+      "bounds": {
+        "dx": -385.51755555555485,
+        "dy": 119.19999999999999,
+        "width": 76.8,
+        "height": 76.8
+      },
+      "reached": true,
+      "active": true
+    }
+  ],
+  "respawnPoint": {
+    "checkpointId": "checkpoint-1",
+    "x": 520,
+    "y": 468
+  },
+  "isAlive": true,
+  "nearbyTiles": [
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ]
+  ],
+  "timeElapsedMs": 0,
+  "coinsCollected": 0,
+  "livesRemaining": 3,
+  "worldBounds": {
+    "width": 8192,
+    "height": 540
+  },
+  "tuning": {
+    "tickMs": 33,
+    "minJumpHoldMs": 180,
+    "gravity": 900,
+    "tileSize": 16,
+    "baseMoveSpeed": 200,
+    "sprintMoveSpeed": 320,
+    "sprintRampMs": 450,
+    "baseJumpVelocity": -560,
+    "sprintJumpVelocity": -650,
+    "botWidth": 24,
+    "botHeight": 32
+  },
+  "nearestCoin": {
+    "id": "coin-6",
+    "dx": 180.82,
+    "dy": -28.8,
+    "value": 12,
+    "bounds": {
+      "dx": 165.81608888889195,
+      "dy": -43.80000000000001,
+      "width": 30,
+      "height": 30
+    }
+  },
+  "nearestHazard": {
+    "id": "stachlinger-2",
+    "bounds": {
+      "dx": -72.78391111110795,
+      "dy": 13.599999999999966,
+      "width": 2.4,
+      "height": 12
+    },
+    "dx": -69.18,
+    "dy": 11.2,
+    "kind": "stachlinger",
+    "active": true,
+    "warning": false,
+    "stompable": false,
+    "vx": 0,
+    "vy": 0
+  },
+  "nearestUtility": {
+    "id": "boingo-1",
+    "dx": -137.18,
+    "dy": 5.2,
+    "kind": "boingo",
+    "bounds": {
+      "dx": -152.78391111110795,
+      "dy": 10,
+      "width": 31.2,
+      "height": 12
+    }
+  }
+}

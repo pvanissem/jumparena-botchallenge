@@ -1,6 +1,6 @@
 // Leere Strategie-Hülle: Ohne eigene Auswahl bleibt der Bot stehen.
 // API und Anweisungen: docs/02-bot-api.md und client/src/bot/AGENTS.md.
-// Vollständiges Beispiel: examples/strategies/visitor-builder.js.
+// Zielstrategien: examples/navigation/ (Sprinter, Sammler, vorsichtiger Bot).
 
 // Hier übersetzt der Agent Besucherwünsche in Gewichtung und eigene Regeln.
 const weights = { progress: 1, fruit: 0.15, time: 0.15 };
@@ -23,6 +23,17 @@ function selectMovement(state, options) {
   return null;
 }
 
+// Bevorzugter Einstieg: Hier nur das Besucherziel bestimmen.
+// Zum Beispiel: { target: { kind: "goal" }, caution: "careful" }
+// Oder: { target: { kind: "coin", id: state.coins[0].id } }
+// Die Navigation übernimmt Bewegungsaufträge und lokale Wiederholungen.
+// Eigene Bewegungsregeln: { target: { kind: "goal" }, choose(moves) { ... } }
+// choose gibt eine angebotene id oder null zurück. Beispiele: high-route.js,
+// ground-route.js und hopper.js unter examples/navigation/.
+function selectGoal(state) {
+  return null;
+}
+
 export default {
   apiVersion: 1,
   frameworkVersion: 2,
@@ -31,6 +42,8 @@ export default {
   author: "Gast",
   decide(state, tools) {
     if (!state.navigation) return [];
+    const intent = selectGoal(state);
+    if (intent) return tools.navigate(intent);
     if (epoch !== state.navigation.epoch || state.justRespawned) {
       epoch = state.navigation.epoch;
       command = null;

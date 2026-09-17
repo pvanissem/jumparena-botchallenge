@@ -6,6 +6,7 @@ import type {
   NavigationBounds,
   RelativeBounds,
 } from "@arena/bot-contract";
+import { holdForStomp } from "./stompControl";
 
 const idle = (): ControlStatus => ({ commandId: null, state: "idle", phase: null, reason: null });
 const overlaps = (a: NavigationBounds, b: NavigationBounds) =>
@@ -27,7 +28,7 @@ function valid(c: ControlCommand) {
     typeof c.id !== "string" ||
     !c.id.trim() ||
     c.id.length > 80 ||
-    !["walk", "jump", "boingo", "drop"].includes(c.kind)
+    !["walk", "jump", "boingo", "drop", "stomp"].includes(c.kind)
   )
     return false;
   if (c.sprint !== undefined && typeof c.sprint !== "boolean") return false;
@@ -43,9 +44,11 @@ function valid(c: ControlCommand) {
     c.platformId.length > 0 &&
     c.platformId.length <= 128 &&
     (c.x === undefined || Number.isFinite(c.x)) &&
-    (c.kind !== "jump" ||
+    ((c.kind !== "jump" && c.kind !== "stomp") ||
       c.holdMs === undefined ||
       (Number.isFinite(c.holdMs) && c.holdMs >= 0 && c.holdMs <= 1200)) &&
+    (c.kind !== "stomp" ||
+      (typeof c.hazardId === "string" && c.hazardId.length > 0 && c.hazardId.length <= 128)) &&
     (c.kind !== "boingo" ||
       (typeof c.utilityId === "string" && c.utilityId.length > 0 && c.utilityId.length <= 128))
   );
@@ -121,6 +124,10 @@ export function createMovementController() {
             }
           : null;
     if (impulse?.kind === "jump" && a.launchAt === null) a.launchAt = impulse.atMs;
+    if (c.kind === "stomp" && impulse?.kind === "stomp" && impulse.sourceId === c.hazardId) {
+      a.bounced = true;
+      result.reason = "stomp-confirmed";
+    }
     if (c.kind === "boingo" && impulse?.kind === "boingo") {
       if (impulse.sourceId !== c.utilityId) {
         fail("wrong-boingo");
@@ -143,6 +150,10 @@ export function createMovementController() {
         return;
       }
       if ((a.airborne || impulse) && s.onGround && s.velocity.vy >= 0) {
+        if (c.kind === "stomp" && !a.bounced) {
+          fail("stomp-missed");
+          return;
+        }
         if (c.kind === "boingo" && !a.bounced) {
           fail("bounce-missed");
           return;
@@ -196,6 +207,13 @@ export function createMovementController() {
         fail("target-too-narrow");
         return;
       }
+    }
+    if (
+      command.kind === "stomp" &&
+      !s.hazards.some((h) => h.id === command.hazardId && h.stompable && h.active && h.bounds)
+    ) {
+      fail("stomp-target-missing");
+      return;
     }
     if (
       command.kind === "boingo" &&
@@ -265,9 +283,20 @@ export function createMovementController() {
     )
       return fail("blocked");
     if (
-      s.hazards.some(
-        (h) => (h.active || h.warning) && h.bounds && overlaps(next, absolute(s, h.bounds))
-      )
+      s.hazards.some((h) => {
+        if (!(h.active || h.warning) || !h.bounds) return false;
+        const actual = absolute(s, h.bounds);
+        if (overlaps(next, actual)) return true;
+        if (h.kind !== "spikehead" || !(h.warning || h.vy > 0)) return false;
+        const column = { ...actual, height: Math.max(actual.height, b.y + b.height - actual.y) };
+        // Allow escape from an occupied fall column, but never enter it.
+        const overlap = (body: NavigationBounds) =>
+          Math.max(
+            0,
+            Math.min(body.x + body.width, column.x + column.width) - Math.max(body.x, column.x)
+          );
+        return overlaps(next, column) && overlap(next) >= overlap(b);
+      })
     )
       return fail("danger-ahead");
     return steer(s, aim, sprint);
@@ -286,6 +315,7 @@ export function createMovementController() {
         "utilityId",
         "holdMs",
         "runUpMs",
+        "hazardId",
       ] as const;
       if (
         keys.some(
@@ -316,17 +346,43 @@ export function createMovementController() {
         actions.push("jump");
       return actions;
     }
-    const actions = steer(s, a.aim, c.sprint);
+    let aim = a.aim;
+    if (c.kind === "stomp" && !a.bounced) {
+      const h = s.hazards.find((h) => h.id === c.hazardId && h.active && h.bounds);
+      if (h?.bounds) {
+        const enemy = absolute(s, h.bounds);
+        const feet = n.body.y + n.body.height;
+        const vy = s.onGround ? s.tuning.baseJumpVelocity : s.velocity.vy;
+        const time = Math.min(
+          0.35,
+          Math.max(
+            0,
+            (-vy + Math.sqrt(Math.max(0, vy * vy + 2 * s.tuning.gravity * (enemy.y - feet)))) /
+              s.tuning.gravity
+          )
+        );
+        aim = enemy.x + enemy.width / 2 + h.vx * time;
+      }
+    }
+    const actions = steer(s, aim, c.sprint);
     if (c.kind === "jump" && !a.airborne && n.observedAtMs - a.startedAt < (c.runUpMs ?? 0)) {
       result.phase = "approach";
       return actions;
     }
     if (
-      c.kind === "jump" &&
+      (c.kind === "jump" || (c.kind === "stomp" && !a.bounced)) &&
       a.startedGrounded &&
       (s.onGround ||
         a.launchAt === null ||
-        n.observedAtMs - a.launchAt < (c.holdMs ?? Number.POSITIVE_INFINITY)) &&
+        (c.kind === "stomp"
+          ? holdForStomp(
+              n.observedAtMs - a.launchAt,
+              c.holdMs ?? 180,
+              s.tuning.minJumpHoldMs,
+              aim - n.body.x - n.body.width / 2,
+              n.body.width
+            )
+          : n.observedAtMs - a.launchAt < (c.holdMs ?? Number.POSITIVE_INFINITY))) &&
       (!a.airborne || s.velocity.vy < 0)
     )
       actions.push("jump");

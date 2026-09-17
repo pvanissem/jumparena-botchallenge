@@ -1,0 +1,373 @@
+{
+  "tick": 0,
+  "navigation": {
+    "version": 1,
+    "epoch": 1,
+    "frame": 3070,
+    "observedAtMs": 0,
+    "physicsStepMs": 16.666666666666668,
+    "body": {
+      "x": 3653.523555555582,
+      "y": 461.6,
+      "width": 28.799999999999997,
+      "height": 38.4
+    },
+    "movement": {
+      "jumpStartedAtMs": null,
+      "impulseKind": "none",
+      "impulseAtMs": null,
+      "sourceId": null
+    },
+    "lastImpulse": {
+      "sequence": 31,
+      "kind": "jump",
+      "atMs": 24831.773333333393,
+      "sourceId": null
+    },
+    "viewport": {
+      "x": 3267.923555555582,
+      "y": -59.19999999999999,
+      "width": 800,
+      "height": 1080
+    },
+    "boingoJumpVelocity": -820,
+    "stompJumpVelocity": -280
+  },
+  "position": {
+    "x": 3667.92,
+    "y": 480.8
+  },
+  "velocity": {
+    "vx": 262.23,
+    "vy": 0
+  },
+  "facing": "right",
+  "onGround": true,
+  "isSprinting": true,
+  "sprintRampProgress": 0.52,
+  "gapAhead": {
+    "present": true,
+    "distance": 156.08
+  },
+  "goalDirection": {
+    "dx": 4124.08,
+    "dy": 3.2
+  },
+  "justRespawned": false,
+  "tookDamage": false,
+  "hazards": [
+    {
+      "id": "schnetzler-1",
+      "bounds": {
+        "dx": 40.983844444422175,
+        "dy": -10.800000000000011,
+        "width": 28,
+        "height": 28
+      },
+      "dx": 54.98,
+      "dy": 3.2,
+      "kind": "schnetzler",
+      "active": true,
+      "warning": false,
+      "stompable": false,
+      "vx": 60,
+      "vy": 0
+    },
+    {
+      "id": "ninjafrog-3",
+      "bounds": {
+        "dx": -131.816155555578,
+        "dy": -5.199999999999989,
+        "width": 21.599999999999998,
+        "height": 26.4
+      },
+      "dx": -121.02,
+      "dy": 3.2,
+      "kind": "ninjafrog",
+      "active": true,
+      "warning": false,
+      "stompable": true,
+      "vx": 60,
+      "vy": 0
+    },
+    {
+      "id": "ninjafrog-4",
+      "bounds": {
+        "dx": 348.183844444422,
+        "dy": -5.199999999999989,
+        "width": 21.599999999999998,
+        "height": 26.4
+      },
+      "dx": 358.98,
+      "dy": 3.2,
+      "kind": "ninjafrog",
+      "active": true,
+      "warning": false,
+      "stompable": true,
+      "vx": 60,
+      "vy": 0
+    },
+    {
+      "id": "schnetzler-2",
+      "bounds": {
+        "dx": 390.5934277777469,
+        "dy": -10.800000000000011,
+        "width": 28,
+        "height": 28
+      },
+      "dx": 404.59,
+      "dy": 3.2,
+      "kind": "schnetzler",
+      "active": true,
+      "warning": false,
+      "stompable": false,
+      "vx": -65,
+      "vy": 0
+    }
+  ],
+  "coins": [],
+  "utilities": [],
+  "platforms": [
+    {
+      "id": "level-one:platform:7",
+      "collision": "solid",
+      "dx": -835.92,
+      "dy": 19.2,
+      "width": 544,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-one:platform:13",
+      "collision": "solid",
+      "dx": -163.92,
+      "dy": 19.2,
+      "width": 320,
+      "height": 16,
+      "kind": "ground"
+    },
+    {
+      "id": "level-one:platform:14",
+      "collision": "solid",
+      "dx": 284.08,
+      "dy": 19.2,
+      "width": 288,
+      "height": 16,
+      "kind": "ground"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "checkpoint-4",
+      "dx": -163.92355555558197,
+      "dy": -12.800000000000011,
+      "bounds": {
+        "dx": -201.92355555558197,
+        "dy": -50.80000000000001,
+        "width": 76.8,
+        "height": 76.8
+      },
+      "reached": false,
+      "active": false
+    },
+    {
+      "id": "checkpoint-5",
+      "dx": 284.07644444441803,
+      "dy": -12.800000000000011,
+      "bounds": {
+        "dx": 246.07644444441803,
+        "dy": -50.80000000000001,
+        "width": 76.8,
+        "height": 76.8
+      },
+      "reached": false,
+      "active": false
+    }
+  ],
+  "respawnPoint": {
+    "checkpointId": null,
+    "x": 80,
+    "y": 388
+  },
+  "isAlive": true,
+  "nearbyTiles": [
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "hazard",
+      "hazard",
+      "hazard",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "hazard",
+      "hazard",
+      "hazard",
+      "empty"
+    ],
+    [
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "hazard",
+      "hazard",
+      "hazard",
+      "solid"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ],
+    [
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty",
+      "empty"
+    ]
+  ],
+  "timeElapsedMs": 0,
+  "coinsCollected": 0,
+  "livesRemaining": 3,
+  "worldBounds": {
+    "width": 8192,
+    "height": 540
+  },
+  "tuning": {
+    "tickMs": 33,
+    "minJumpHoldMs": 180,
+    "gravity": 900,
+    "tileSize": 16,
+    "baseMoveSpeed": 200,
+    "sprintMoveSpeed": 320,
+    "sprintRampMs": 450,
+    "baseJumpVelocity": -560,
+    "sprintJumpVelocity": -650,
+    "botWidth": 24,
+    "botHeight": 32
+  },
+  "nearestCoin": {
+    "id": "coin-6",
+    "dx": 180.82,
+    "dy": -28.8,
+    "value": 12,
+    "bounds": {
+      "dx": 165.81608888889195,
+      "dy": -43.80000000000001,
+      "width": 30,
+      "height": 30
+    }
+  },
+  "nearestHazard": {
+    "id": "stachlinger-2",
+    "bounds": {
+      "dx": -72.78391111110795,
+      "dy": 13.599999999999966,
+      "width": 2.4,
+      "height": 12
+    },
+    "dx": -69.18,
+    "dy": 11.2,
+    "kind": "stachlinger",
+    "active": true,
+    "warning": false,
+    "stompable": false,
+    "vx": 0,
+    "vy": 0
+  },
+  "nearestUtility": {
+    "id": "boingo-1",
+    "dx": -137.18,
+    "dy": 5.2,
+    "kind": "boingo",
+    "bounds": {
+      "dx": -152.78391111110795,
+      "dy": 10,
+      "width": 31.2,
+      "height": 12
+    }
+  }
+}

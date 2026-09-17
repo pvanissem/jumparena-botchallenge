@@ -139,7 +139,7 @@ describe("worker control tools v2", () => {
     const decide = vi.fn((_state, tools: ToolsApi) => {
       expect(status).toHaveBeenCalledWith(request.state);
       expect(Object.isFrozen(tools)).toBe(true);
-      expect(Object.keys(tools)).toEqual(["run", "status", "options"]);
+      expect(Object.keys(tools)).toEqual(["navigate", "run", "status", "options"]);
       expect(tools.status()).toMatchObject({ commandId: "walk-1" });
       return tools.run(command);
     });

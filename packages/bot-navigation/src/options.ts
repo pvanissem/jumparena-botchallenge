@@ -5,6 +5,7 @@ import type {
   NavigationBounds,
   RelativeBounds,
 } from "@arena/bot-contract";
+import { holdForStomp } from "./stompControl";
 
 const intersects = (a: NavigationBounds, b: NavigationBounds, margin = 0) =>
   a.x < b.x + b.width + margin &&
@@ -21,7 +22,7 @@ const absolute = (s: BotState, b: RelativeBounds) => ({
 /** Local, approximate maneuver checks using only the current observation.
  * No level data, search graph or success guarantee; the motor checks actual landing.
  */
-export function movementOptions(s: BotState): MovementOption[] {
+export function movementOptions(s: BotState, clearance = 8, allowStomp = false): MovementOption[] {
   if (!s.navigation || !s.onGround || !s.isAlive) return [];
   const n = s.navigation;
   const body = n.body,
@@ -41,26 +42,66 @@ export function movementOptions(s: BotState): MovementOption[] {
   const support = observedSupport;
   const hazards = s.hazards.flatMap((h) =>
     h.bounds && (h.active || h.warning || h.kind === "loderix")
-      ? [{ ...absolute(s, h.bounds), vx: h.vx, vy: h.vy, active: h.active || h.warning }]
+      ? [
+          {
+            id: h.id,
+            ...absolute(s, h.bounds),
+            actual: absolute(s, h.bounds),
+            fallingSoon: h.kind === "spikehead" && (h.warning || h.vy > 0),
+            ...(h.kind === "spikehead" && (h.warning || h.vy > 0)
+              ? {
+                  height: Math.max(h.bounds.height, feet - (s.position.y + h.bounds.dy)),
+                }
+              : {}),
+            vx: h.vx,
+            vy: h.vy,
+            active: h.active || h.warning,
+          },
+        ]
       : []
   );
-  function danger(b: NavigationBounds, time: number, flight = false) {
-    // Do not extrapolate a turning enemy indefinitely along its current velocity.
+  function danger(
+    b: NavigationBounds,
+    time: number,
+    flight = false,
+    retreat?: NavigationBounds,
+    attackId?: string
+  ) {
     const horizon = Math.min(time, 0.25);
-    return hazards.some(
-      (h) =>
-        (flight || h.active) &&
-        intersects(
-          b,
-          {
-            x: h.x + h.vx * horizon - Math.min(65, Math.abs(h.vx) * time),
-            y: h.y + h.vy * horizon - Math.min(45, Math.abs(h.vy) * time),
-            width: h.width + 2 * Math.min(65, Math.abs(h.vx) * time),
-            height: h.height + 2 * Math.min(45, Math.abs(h.vy) * time),
-          },
-          8 + Math.min(20, (Math.abs(h.vx) + Math.abs(h.vy)) * horizon * 0.25)
-        )
-    );
+    const separation = (a: NavigationBounds, h: NavigationBounds) =>
+      Math.max(
+        h.x - a.x - a.width,
+        a.x - h.x - h.width,
+        h.y - a.y - a.height,
+        a.y - h.y - h.height
+      );
+    return hazards.some((h) => {
+      if (attackId && h.id === attackId) return false;
+      if (!flight && !h.active) return false;
+      const predicted = {
+        x: h.x + h.vx * horizon - Math.min(65, Math.abs(h.vx) * time),
+        y: h.fallingSoon ? h.y : h.y + h.vy * horizon - Math.min(45, Math.abs(h.vy) * time),
+        width: h.width + 2 * Math.min(65, Math.abs(h.vx) * time),
+        height: h.height + 2 * Math.min(45, Math.abs(h.vy) * time),
+      };
+      let margin = clearance + Math.min(20, (Math.abs(h.vx) + Math.abs(h.vy)) * horizon * 0.25);
+      const initialGap = separation(body, h);
+      // Leave an already occupied forecast column; the real head is still above us.
+      // Do not confuse future danger with a current solid collider.
+      if (
+        !flight &&
+        h.fallingSoon &&
+        intersects(body, h) &&
+        separation(retreat ?? b, h) > initialGap &&
+        !intersects(b, h.actual, clearance)
+      )
+        return false;
+      // A safety buffer must not trap a body that is not actually colliding.
+      // Only a retreat whose entire swept path preserves that gap qualifies.
+      if (retreat && initialGap > 0 && separation(b, predicted) >= initialGap - 0.001)
+        margin = Math.min(margin, Math.max(0, initialGap - 0.001));
+      return intersects(b, predicted, margin);
+    });
   }
   function walkFruitValue(aim: number) {
     const path = {
@@ -85,6 +126,7 @@ export function movementOptions(s: BotState): MovementOption[] {
       | Omit<Extract<ControlCommand, { kind: "walk" }>, "id">
       | Omit<Extract<ControlCommand, { kind: "jump" }>, "id">
       | Omit<Extract<ControlCommand, { kind: "drop" }>, "id">
+      | Omit<Extract<ControlCommand, { kind: "stomp" }>, "id">
       | Omit<Extract<ControlCommand, { kind: "boingo" }>, "id">,
     time: number,
     fruitValue: number
@@ -152,8 +194,23 @@ export function movementOptions(s: BotState): MovementOption[] {
     startFeet = feet,
     bounce = false,
     runUpMs = 0,
-    drop = false
+    drop = false,
+    attackId?: string
   ) {
+    const landing = platforms.find((p) => p.id === targetId);
+    if (
+      landing &&
+      s.hazards.some((h) => {
+        if (h.kind !== "spikehead" || !h.bounds) return false;
+        const head = absolute(s, h.bounds);
+        return (
+          head.y + head.height < landing.y &&
+          aim + body.width / 2 + clearance > head.x &&
+          aim - body.width / 2 - clearance < head.x + head.width
+        );
+      })
+    )
+      return null;
     const t = s.tuning,
       dt = 1 / 60;
     let x = startX,
@@ -165,6 +222,8 @@ export function movementOptions(s: BotState): MovementOption[] {
       : t.baseJumpVelocity + (t.sprintJumpVelocity - t.baseJumpVelocity) * ramp;
     if (drop) vy = 0;
     let launched = runUpMs === 0;
+    const victim = attackId ? s.hazards.find((h) => h.id === attackId && h.bounds) : undefined;
+    let stomped = false;
     const picked = new Set<string>();
     let fruitValue = 0;
     for (let frame = 1; frame <= 150; frame++) {
@@ -174,7 +233,24 @@ export function movementOptions(s: BotState): MovementOption[] {
       const speed =
         t.baseMoveSpeed +
         (t.sprintMoveSpeed - t.baseMoveSpeed) * Math.min(1, ramp + (dt * 1000) / t.sprintRampMs);
-      const remaining = aim - x;
+      const enemy = victim?.bounds ? absolute(s, victim.bounds) : null;
+      if (enemy && victim) {
+        enemy.x += victim.vx * elapsed;
+        enemy.y += victim.vy * elapsed;
+      }
+      const contactTime = enemy
+        ? Math.min(
+            0.35,
+            Math.max(
+              0,
+              (-vy + Math.sqrt(Math.max(0, vy * vy + 2 * t.gravity * (enemy.y - previousFeet)))) /
+                t.gravity
+            )
+          )
+        : 0;
+      const intercept =
+        enemy && victim && !stomped ? enemy.x + enemy.width / 2 + victim.vx * contactTime : aim;
+      const remaining = intercept - x;
       if (Math.abs(remaining) > Math.max(3, (speed * t.tickMs) / 2000)) {
         x += Math.sign(remaining) * speed * dt;
         ramp = Math.min(1, ramp + (dt * 1000) / t.sprintRampMs);
@@ -212,16 +288,34 @@ export function movementOptions(s: BotState): MovementOption[] {
         vy = t.baseJumpVelocity + (t.sprintJumpVelocity - t.baseJumpVelocity) * ramp;
         launched = true;
       }
-      if (!bounce && elapsed * 1000 - runUpMs > Math.max(t.minJumpHoldMs, holdMs) && vy < 0) vy = 0;
+      if (
+        !bounce &&
+        !stomped &&
+        (attackId
+          ? !holdForStomp(elapsed * 1000 - runUpMs, holdMs, t.minJumpHoldMs, remaining, body.width)
+          : elapsed * 1000 - runUpMs > Math.max(t.minJumpHoldMs, holdMs)) &&
+        vy < 0
+      )
+        vy = 0;
       vy += t.gravity * dt;
       y += vy * dt;
       const b = { x: x - body.width / 2, y, width: body.width, height: body.height };
-      if (danger(b, elapsed, true)) return null;
+      if (danger(b, elapsed, true, undefined, attackId)) return null;
+      if (enemy && !stomped && intersects(b, enemy)) {
+        if (vy <= 0 || previousFeet > enemy.y + 2) return null;
+        stomped = true;
+        vy = n.stompJumpVelocity;
+      }
       for (const p of platforms) {
         if (!intersects(b, p)) continue;
         if (vy > 0 && previousFeet <= p.y + 1) {
           const fullySupported = b.x >= p.x + 1 && b.x + b.width <= p.x + p.width - 1;
-          if (p.id === targetId && fullySupported && Math.abs(x - aim) < 14)
+          if (
+            p.id === targetId &&
+            fullySupported &&
+            Math.abs(x - aim) < 14 &&
+            (!attackId || stomped)
+          )
             return { time: elapsed, fruitValue };
           return null;
         }
@@ -321,8 +415,58 @@ export function movementOptions(s: BotState): MovementOption[] {
       }
     }
   }
-  const forward = result.filter((o) => o.progress > 0);
-  if (forward.length) return forward;
+  if (allowStomp) {
+    for (const h of s.hazards) {
+      if (!h.id || !h.bounds || !h.active || !h.stompable) continue;
+      const enemy = absolute(s, h.bounds);
+      for (const p of platforms) {
+        if (!p.id || p.width < body.width + 2 || p.kind === "ceiling") continue;
+        if (
+          enemy.x + enemy.width <= p.x ||
+          enemy.x >= p.x + p.width ||
+          Math.abs(enemy.y + enemy.height - p.y) > 40
+        )
+          continue;
+        const aim = Math.max(
+          p.x + body.width / 2 + 8,
+          Math.min(p.x + p.width - body.width / 2 - 8, enemy.x + enemy.width / 2 + h.vx * 0.5)
+        );
+        for (const holdMs of [180, 300, 450, 650]) {
+          const path = flight(aim, p.id, holdMs, center, feet, false, 0, false, h.id);
+          if (path)
+            add(
+              { kind: "stomp", hazardId: h.id, platformId: p.id, x: aim, sprint: true, holdMs },
+              path.time,
+              path.fruitValue
+            );
+        }
+      }
+    }
+  }
+  // A usable forward move must not hide an intentional fruit detour.
+  for (const coin of s.coins) {
+    if (!coin.bounds || coin.dx * direction >= 0) continue;
+    const aim = s.position.x + coin.dx;
+    if (Math.abs(aim - center) > 240) continue;
+    const path = {
+      ...body,
+      x: Math.min(body.x, aim - body.width / 2),
+      width: body.width + Math.abs(aim - center),
+    };
+    if (
+      path.x < support.x + 2 ||
+      path.x + path.width > support.x + support.width - 2 ||
+      danger(path, Math.abs(aim - center) / s.tuning.baseMoveSpeed) ||
+      platforms.some((p) => p !== support && p.collision !== "one-way-up" && intersects(path, p))
+    )
+      continue;
+    if (walkFruitValue(aim) > 0)
+      add(
+        { kind: "walk", x: aim, sprint: false },
+        Math.abs(aim - center) / s.tuning.baseMoveSpeed,
+        0
+      );
+  }
   const retreatDistance = underOverhang ? 100 : 48;
   const retreat = Math.max(
     support.x + body.width / 2 + 2,
@@ -338,7 +482,7 @@ export function movementOptions(s: BotState): MovementOption[] {
     retreatBody.x >= support.x + 2 &&
     retreatBody.x + body.width <= support.x + support.width - 2 &&
     Math.abs(retreat - center) >= 12 &&
-    !danger(retreatPath, 0.5) &&
+    !danger(retreatPath, 0.5, false, retreatBody) &&
     !platforms.some(
       (p) => p !== support && p.collision !== "one-way-up" && intersects(retreatPath, p)
     )

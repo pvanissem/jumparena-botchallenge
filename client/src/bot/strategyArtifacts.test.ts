@@ -86,6 +86,9 @@ function observe(
 ): { command: ControlCommand | null; result: string[] } {
   let command: ControlCommand | null = null;
   const result = bot.decide(input, {
+    navigate: () => {
+      throw new Error("Legacy bot unexpectedly navigates");
+    },
     options: () => {
       throw new Error("Legacy example unexpectedly calls options");
     },
@@ -378,6 +381,26 @@ describe.each(["examples/strategies/messe-demo.js"])("explicit Level 1 route: %s
 });
 
 describe("fresh visitor template", () => {
+  it("lets visitors select a goal without maintaining movement commands", () => {
+    const bot = load("client/src/bot/current-bot.template.js", [
+      "function selectGoal(state) {\n  return null;",
+      'function selectGoal(state) {\n  return { target: { kind: "goal" } };',
+    ]);
+    let selected: unknown;
+    const tools: ToolsApi = {
+      navigate: (intent) => {
+        selected = intent;
+        return ["sprint-right"];
+      },
+      run: () => {
+        throw Error("No visitor motor bookkeeping needed");
+      },
+      options: () => [],
+      status: () => ({ state: "idle", commandId: null, reason: null, phase: null }),
+    };
+    expect(bot.decide(state(), tools)).toEqual(["sprint-right"]);
+    expect(selected).toEqual({ target: { kind: "goal" } });
+  });
   it("supports selecting an offer, keeping its command and resetting on respawn", () => {
     const bot = load("client/src/bot/current-bot.template.js", [
       "return null;",
@@ -390,6 +413,9 @@ describe("fresh visitor template", () => {
     let status: ControlStatus = { commandId: null, state: "idle", phase: null, reason: null };
     let chosen: ControlCommand | null = null;
     const tools: ToolsApi = {
+      navigate: () => {
+        throw new Error("Legacy bot unexpectedly navigates");
+      },
       options: () => available,
       status: () => status,
       run: (c) => {
@@ -415,6 +441,9 @@ describe("fresh visitor template", () => {
       const controller = createMovementController();
       expect(
         bot.decide(input, {
+          navigate: () => {
+            throw new Error("Legacy bot unexpectedly navigates");
+          },
           options: () => controller.options(input),
           status: () => controller.status(input),
           run: () => {
@@ -484,6 +513,9 @@ describe("editable environment strategy", () => {
     function chosen(bot: ReturnType<typeof load>) {
       let id: string | null = null;
       bot.decide(state(), {
+        navigate: () => {
+          throw new Error("Legacy bot unexpectedly navigates");
+        },
         options: () => options,
         status: () => ({ commandId: null, state: "idle", phase: null, reason: null }),
         run: (c) => {
@@ -538,6 +570,9 @@ it("visitor waits for an observed fire opening before walking through it", () =>
     let selected: ControlCommand | null = null;
     const c = createMovementController();
     bot.decide(input, {
+      navigate: () => {
+        throw new Error("Legacy bot unexpectedly navigates");
+      },
       options: () => c.options(input),
       status: () => c.status(input),
       run: (cmd) => {

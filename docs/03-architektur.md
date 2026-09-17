@@ -8,7 +8,8 @@ current-bot.js (eine unveraenderte Datei)
   -> Guard + Browser-Modul-Worker + Modulvalidierung
   -> module-ready
   -> decide(state, tools) bei frameworkVersion: 2
-       tools.run(command) / tools.status() -> @arena/bot-navigation
+       tools.navigate(intent) -> lokale Zielnavigation -> Bewegungsmotor
+       tools.run(command) / tools.status() / tools.options() -> @arena/bot-navigation
      oder decide(state) fuer Bots ohne Framework-Version
   -> Action[] + optionale Navigationsdiagnose
   -> korrelierte Anwendung in folgenden RaceScene-Physikschritten
@@ -23,8 +24,8 @@ ein Bot-Intervall von etwa 33 ms. Die Spiellogik bleibt vollstaendig im Browser.
 
 | Komponente | Verantwortung |
 | --- | --- |
-| `packages/bot-contract/` | State, Actions, Modulvalidierung, `ToolsApi`, `ControlCommand`, `ControlStatus` und Guard |
-| `packages/bot-navigation/` | Beobachteter Ablauf für walk/jump/boingo und eindeutiger Befehlsbesitz |
+| `packages/bot-contract/` | State, Actions, Modulvalidierung, `ToolsApi`, `NavigationIntent`, `ControlCommand`, `ControlStatus` und Guard |
+| `packages/bot-navigation/` | Lokale Zielnavigation, Bewegungsangebote, beobachteter Ablauf für walk/jump/drop/boingo und eindeutiger Befehlsbesitz |
 | `client/src/sandbox/` | Modul-Worker, Ready-Barriere, Timeouts, versionierte Tools je Bot |
 | `client/src/game/state/` | Snapshot realer Bodies/Objekte und additive Navigation-Observation |
 | `client/src/game/scenes/RaceScene.ts` | Gemeinsame Spielregeln fuer Vorschau und Match |
@@ -34,10 +35,27 @@ ein Bot-Intervall von etwa 33 ms. Die Spiellogik bleibt vollstaendig im Browser.
 
 Navigation hat keine Phaser-, DOM- oder Netzwerkabhaengigkeit. Sie wird mit dem
 Framework gebaut und im Worker bereitgestellt, **nicht** in Besucherdateien
-kopiert. Der Besuchercode wählt Ziele und Regeln. Der Controller führt jeweils
-einen expliziten Auftrag aus und meldet beobachteten Erfolg oder Fehler. Es gibt
-keinen Planner und keine zweite Physiksimulation. Der unveraenderte
-Low-Level-Action-Vertrag bleibt fuer Bots ohne Framework-Version erhalten.
+kopiert. Der Besuchercode wählt mit `navigate` das Ziel (`goal`, sichtbare Frucht
+oder Plattform) sowie `caution` und `allowBoingo`. Die Zielnavigation bewertet
+standardmäßig die Bewegungsangebote. Optional übernimmt `intent.choose` diese
+Auswahl synchron im Worker anhand unveränderlicher, beschreibender Angebote.
+Der Callback gibt eine aktuelle Angebots-ID oder bewusstes Warten zurück;
+der Motor behält Anlauf, Flug und Landung. So kann Besuchercode Routen- und
+Manöverregeln ändern, ohne eigene Physiksteuerung zu schreiben. Die Zielnavigation
+hält Ausführungszustand und übernimmt vorbereitende
+Manöver sowie begrenzte Wiederherstellung. Sie hat keine vollständige Levelkarte
+oder garantierte Route. Angebote schätzen Flugbahnen anhand sichtbarer Geometrie;
+maßgeblich bleiben die tatsächlichen Kontakte und Impulse aus der RaceScene.
+
+Der Bewegungsmotor führt jeweils einen konkreten Auftrag aus und meldet dessen
+beobachteten Erfolg oder Fehler. Besucher können ihn weiterhin unmittelbar mit
+`run` steuern und über `options` eigene Manöver auswählen. Der Worker erlaubt pro
+Entscheidung höchstens einen Ausführungsaufruf (`navigate` oder `run`). Gibt der Bot
+eigene abweichende Actions zurück oder nutzt keinen Ausführungsaufruf, setzt er
+die Helfersteuerung zurück. Der unveränderte Low-Level-Action-Vertrag bleibt auch
+für Bots ohne Framework-Version erhalten. Die gemeinsame Navigation verändert
+weder Level, Sichtfeld, Physik, Lebensbudget noch Scoring und gibt keine
+Erfolgsgarantie. Referenzstrategien liegen in `examples/navigation/`.
 Details: [02-bot-api.md](02-bot-api.md).
 
 ## Beobachtung und Ausfuehrung

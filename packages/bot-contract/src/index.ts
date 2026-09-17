@@ -6,6 +6,8 @@ export type {
   ControlTools,
   ControlTools as ToolsApi,
   MovementOption,
+  NavigationIntent,
+  NavigationChoice,
 } from "./commands";
 export type { HazardKind, UtilityKind } from "./hazards";
 export type {

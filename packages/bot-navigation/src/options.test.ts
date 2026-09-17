@@ -13,6 +13,35 @@ function fruit(id: string, dx: number, dy = 0, value = 10) {
   return { id, dx, dy, value, bounds: { dx: dx - 4, dy: dy - 4, width: 8, height: 8 } };
 }
 describe("observed movement options", () => {
+  it("stops earlier before a spike when a larger clearance is requested", () => {
+    const s = scene();
+    s.platforms.push(platform("roof", -100, -45, 800, 16));
+    s.hazards = [
+      {
+        kind: "stachlinger",
+        dx: 130,
+        dy: 8,
+        bounds: { dx: 126, dy: 0, width: 8, height: 16 },
+        active: true,
+        warning: false,
+        stompable: false,
+        vx: 0,
+        vy: 0,
+      },
+    ];
+    const forward = (margin: number) =>
+      Math.max(...movementOptions(s, margin).map((o) => o.progress));
+    expect(forward(20)).toBeGreaterThan(0);
+    expect(forward(20)).toBeLessThan(forward(8));
+  });
+  it("keeps a reachable fruit detour behind the bot even when forward movement exists", () => {
+    const s = scene();
+    s.platforms = [platform("floor", -500, 16, 1000)];
+    s.coins = [fruit("treasure-behind", -80, 0, 30)];
+    const options = movementOptions(s);
+    expect(options.some((o) => o.progress > 0)).toBe(true);
+    expect(options.some((o) => o.progress < 0 && o.fruitValue === 30)).toBe(true);
+  });
   it.each([0, 1700])(
     "counts intersecting fruit once along the complete walk at offset %s",
     (offset) => {
@@ -145,7 +174,7 @@ it("does not plan a landing inside a currently inactive timed hazard", () => {
       vy: 0,
     },
   ];
-  expect(movementOptions(s).filter((o) => o.command.kind === "jump")).toEqual([]);
+  expect(movementOptions(s).filter((o) => o.command.kind === "jump" && o.progress > 0)).toEqual([]);
 });
 
 it("can leave a low overhang on foot before considering a jump", () => {

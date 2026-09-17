@@ -27,7 +27,8 @@ Lesezugriff vom Besucher-Arbeitsverzeichnis aus:
 | Quelle | Zweck |
 | --- | --- |
 | `../../../docs/02-bot-api.md` | Verbindliche Felder, Einheiten und Aufträge |
-| `../../../examples/strategies/visitor-builder.js` | Bearbeitbare Beispielstrategie mit Fehler- und Feuerbehandlung |
+| `../../../examples/navigation/` | Beispiele für Zielwahl, Fruchtsuche und Vorsichtspräferenzen |
+| `../../../examples/strategies/visitor-builder.js` | Fortgeschrittene eigene Manöversteuerung mit `options`/`run` |
 | `../../../docs/10-trace-reader.md` | Diagnosebefehle und Aussagegrenzen |
 | `./runs/` | Tatsächliche Versuchsdaten, vorzugsweise über den Reader |
 
@@ -46,8 +47,9 @@ Lesezugriff vom Besucher-Arbeitsverzeichnis aus:
    Tempo, Früchte, Umwege, Risiko, Checkpoints oder Endspurt. Keine technischen Fragen.
 2. Fasse in einem Satz zusammen, welches Verhalten du umsetzt. Unterscheide feste
    Vorgaben von Präferenzen: „kein Boingo“ ist ein Filter, „mehr Früchte“ eine Bewertung.
-3. Baue die kleinste vollständige Strategie in der vorhandenen Datei: Angebote prüfen,
-   auswählen, ausführen, Ergebnis behandeln. Ändere Funktionen bei Bedarf, nicht nur Zahlen.
+3. Baue die kleinste vollständige Strategie in der vorhandenen Datei: Ziel auswählen,
+   mit `tools.navigate` verfolgen, Beobachtungen und Ergebnis behandeln. Ändere Funktionen
+   bei Bedarf, nicht nur Zahlen. Die gemeinsame Navigation übernimmt die Motorik.
 4. Speichern und in der bestehenden Vorschau prüfen. Konkrete Fehler im Rahmen des
    Wunschs selbst beheben; für eine andere Strategie den Besucher entscheiden lassen.
 5. Kurz erklären: was der Bot versucht, was im Lauf tatsächlich passiert ist und welche
@@ -55,30 +57,86 @@ Lesezugriff vom Besucher-Arbeitsverzeichnis aus:
 
 ### Die leere Hülle richtig aktivieren
 
-Nach einem Betreiber-Reset enthält die Datei `weights`, `score(option)`,
-`selectMovement(state, options)` und die Auftragsverwaltung in `decide`.
-**`selectMovement` gibt zunächst `null` zurück. Nur Gewichte zu ändern aktiviert nichts.**
-Fülle diese Funktion aus: ein vollständiges Angebot auswählen oder `null` zum Warten.
-Die Auftragsverwaltung übernimmt daraus `selected.command`.
+Die tatsächliche Datei zuerst lesen: Ein Framework-Update ersetzt keine vorhandene
+Besucherdatei. Die leere Hülle gibt ohne gewählte Strategie `[]` zurück. Nach Klärung
+des Wunschs in `decide` einen passenden Navigationswunsch zurückgeben, beispielsweise
+`return tools.navigate({ target: { kind: "goal" } });`. Eine ältere Hülle mit
+`selectMovement` darf dafür gezielt angepasst werden; vorhandene Besucherideen bewahren.
 
 | Besucherwunsch | Umsetzung in der Bot-Datei |
 | --- | --- |
-| Schnell zum Ziel | Fortschritt/Dauer bewerten; unnötige Umwege vermeiden |
-| Mehr Früchte | `fruitValue` stärker gewichten, gegen Dauer/Fortschritt abwägen |
-| Kein Boingo | Angebote mit `command.kind === "boingo"` vor der Bewertung entfernen |
-| Nach 30 Sekunden Endspurt | Bewertung anhand von `state.timeElapsedMs` ändern |
-| Erst Checkpoint sichern | Geeignete sichtbare Fahne ansteuern, Aktivierung abwarten |
-| Vorsichtig spielen | Konkrete Gefahren-/Warteregeln, keine erfundene Risikozahl |
+| Schnell zum Ziel | `target: { kind: "goal" }` |
+| Ninja-Frogs stompen | `enemies: "stomp"`; bestätigten Treffer und Landung prüfen |
+| Möglichst wenig springen | `movement: "ground"`; notwendige Hindernissprünge bleiben erlaubt |
+| Boingo nur als letzte Vorwärtsoption | `allowBoingo: "fallback"`; Rückwege gelten nicht als brauchbare Vorwärtsalternative |
+| Mehr Früchte | Sichtbare Frucht wählen und `target: { kind: "coin", id }` verfolgen; danach neu entscheiden |
+| Kein Boingo | `allowBoingo: false` |
+| Nach 30 Sekunden Endspurt | Ab `state.timeElapsedMs >= 30000` Ziel auf `goal` wechseln |
+| Bestimmte Plattform erreichen | Sichtbare Plattform-ID als `target: { kind: "platform", id }` wählen |
+| Erst Checkpoint sichern | Geeignete sichtbare Plattform ansteuern, tatsächlichen Fahnenkontakt separat prüfen |
+| Vorsichtig spielen | `caution: "careful"`; beobachtetes Verhalten prüfen, keine Sicherheitsgarantie |
 
-Für die erste bewegte Strategie die benötigten Teile von `visitor-builder.js` lesen:
-Bewertung, begrenzte Fehlversuchssperre und beobachtete Feuerphasen. Gezielt übernehmen,
-nicht vorhandenen Besuchercode pauschal ersetzen. Das Beispiel ist keine garantierte
-Lösung für alle Level: Es hält laufende Aufträge und reagiert währenddessen nicht
-vollständig auf neu auftauchende Gefahren. Prüfe übernommene Schwellen und Richtungsannahmen.
+Für die erste bewegte Strategie die passenden Beispiele in `examples/navigation/`
+lesen. Besucher wählen Ziele, Umwege, Fruchtprioritäten und erlaubte Risiken; sie sollen
+keine Absprungkoordinaten, Feuerphasen-Timer oder Pendelreparaturen in ihre Datei einbauen
+müssen. Die gemeinsame Navigation übernimmt die vorbereitenden Bewegungen und begrenzte
+Wiederherstellung. Das ist keine Garantie für alle Level oder Gegnerbegegnungen.
+Die Beispiele gezielt anpassen, vorhandenen Besuchercode nicht pauschal ersetzen.
 `examples/experimental/` enthält gescheiterte Heuristiken; `messe-demo.js` eine feste
 Level-1-Route. Beide sind keine geeignete allgemeine Startbasis.
 
-## Wahrnehmen, wählen, ausführen
+## Ziele verfolgen
+
+- `tools.navigate({ target, caution, allowBoingo })` liefert die zurückzugebenden Actions.
+  Ziele: `goal`, `coin` mit ID aus `state.coins`, `platform` mit ID aus `state.platforms`.
+  Ziele und eigene Prioritäten anhand sichtbarer Beobachtungen auswählen.
+- `caution` erlaubt `normal` (Standard) oder `careful`; es ist eine Präferenz, keine
+  berechnete Risikozahl. `allowBoingo` ist standardmäßig erlaubt; `false` schließt es aus.
+- Pro Tick höchstens einmal `navigate` **oder** `run` aufrufen. `status`/`options` dürfen
+  zusätzlich gelesen werden. Tools selbst niemals über den Aufruf hinaus speichern.
+- Das gewählte Ziel weiter übergeben, solange es verfolgt werden soll; keine eigenen
+  Motorbefehle oder ständig neue Befehls-IDs für die Zielnavigation verwalten.
+  Ein neues Ziel kann erst nach einem laufenden Flugmanöver übernommen werden.
+- Fehlende Ziele und gemeldete Blockaden strategisch behandeln. Eine verschwundene
+  Frucht kann auch außerhalb des Sichtfelds liegen; Verschwinden beweist keine Sammlung.
+  Leere Actions beweisen weder Erfolg noch Sicherheit.
+- Rohe Actions bleiben erlaubt. Ohne `navigate`/`run` oder mit abweichend zurückgegebenen
+  Actions wird die Helfersteuerung zurückgesetzt. Ein blindes `return []` im Flug ist
+  deshalb keine zusätzliche Sicherheitsmaßnahme.
+
+## Bewegungsauswahl nach Besucherwunsch
+
+Für „Frogs stompen“, „möglichst am Boden bleiben“ und „Boingo nur wenn nötig“
+zuerst die obigen Navigationspräferenzen verwenden. Beispiel:
+`examples/navigation/stomper.js`. Keine zweite Flugsteuerung, eigene
+Abfangformel oder rohe Luft-Übernahme für diese unterstützten Wünsche bauen.
+`crossesEnemy` allein ist kein Stomp. Ein angebotenes `kind: "stomp"` benennt
+mit `hazardId` den Gegner und verwaltet Flug, bestätigten Bounce und Landung.
+`stomp-confirmed` bestätigt den Treffer; ein einzelner Treffer ist kein
+Nachweis einer zuverlässigen Gesamtstrategie. Vollständige Läufe wiederholen.
+
+Für „oben bleiben“, „weniger springen“, „kurze Sprünge“ oder „Gegner überspringen
+statt warten“ `tools.navigate({ target, choose(moves) { ... } })` verwenden.
+`choose` gibt eine angebotene `id` oder `null` zurück. Verfügbare Merkmale:
+`kind`, `platformId`, `rise` (Landungshöhe), `distance`, `progress`, `durationMs`,
+`fruitValue`, `crossesEnemy`. Details und Grenzen: `docs/02-bot-api.md`.
+
+Der Besucher-Agent schreibt die Auswahlregeln aus Wahrnehmung, Zeit und eigenem
+Gedächtnis. Die Navigation verwaltet Ausführung, Anlauf, Flug und Landung.
+Keine Manöver-IDs zwischen Ticks speichern oder Absprungkoordinaten erraten.
+Beispiele: `examples/navigation/high-route.js` und `ground-route.js`.
+
+Vorher/Nachher an derselben Situation prüfen: tatsächlich gewählte Plattform,
+Lauf/Sprung, Warten oder Rückweg. Eine andere Endpunktzahl allein reicht nicht.
+Absichtliches Warten braucht eine beobachtbare Bedingung zum Weitergehen.
+Ohne `choose` bleibt reine Zielwahl möglich. Beispiele sind keine garantierten
+Lösungsstrategien für alle Level.
+
+## Eigene Manöver mit `options` und `run`
+
+Diese Ebene bleibt für vorhandene Bots und bewusst selbst gesteuerte Bewegungen
+verfügbar. Die folgenden Regeln zur Befehlsverwaltung betreffen `run`, nicht die
+normale Zielwahl mit `navigate`.
 
 `tools.options()` liefert lokale Bewegungsangebote aus dem aktuellen sichtbaren State:
 

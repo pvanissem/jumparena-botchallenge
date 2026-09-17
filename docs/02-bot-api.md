@@ -140,6 +140,133 @@ bestätigen keine Aktivierung. `checkpoint.active` beziehungsweise
 `respawnPoint.checkpointId` bestätigen sie nach dem Kontakt. Traces enthalten
 beide neuen Felder für die Diagnose.
 
+## Ziele wählen mit `tools.navigate`
+
+Für neue Besucherstrategien ist `tools.navigate(intent)` der Einstieg. Der Bot
+wählt ein Ziel und seine Risikopräferenzen; die gemeinsame Navigation wählt lokale
+Bewegungen und übernimmt deren Ausführung, vorbereitende Manöver und begrenzte
+Wiederherstellung. Dafür braucht die Besucherdatei keine Befehls-IDs oder eigenen
+Absprung-, Anlauf- und Rückzugsregeln.
+
+```ts
+interface NavigationIntent {
+  target: { kind: "goal" } | { kind: "coin"; id: string }
+    | { kind: "platform"; id: string };
+  caution?: "normal" | "careful";
+  enemies?: "avoid" | "stomp";
+  movement?: "normal" | "ground";
+  allowBoingo?: boolean | "fallback";
+  choose?: (choices: readonly NavigationChoice[]) => string | null;
+}
+```
+
+```js
+decide(state, tools) {
+  return tools.navigate({
+    target: { kind: "goal" },
+    caution: "careful",
+    allowBoingo: false,
+  });
+}
+```
+
+`goal` verfolgt die beobachtete Zielrichtung. Für eine bestimmte Frucht oder
+Plattform die ID aus `state.coins` beziehungsweise `state.platforms` auswählen;
+fest codierte Level-IDs sind keine allgemeine Strategie. Fehlende explizite Ziele
+können mit `target-missing` scheitern. Eine verschwundene Frucht allein beweist
+keine Sammlung, da auch das Sichtfeld begrenzt ist.
+
+`enemies: "stomp"` aktiviert gezielte Stomp-Angebote auf sichtbare, aktive,
+stompbare Gegner. Der Motor verfolgt die Gegner-ID im Flug, berücksichtigt den
+Stomp-Bounce und bestätigt Erfolg erst nach einem passenden beobachteten
+Stomp-Impuls und anschließender Landung. Verschwinden allein ist kein Erfolg.
+Die Prüfung berücksichtigt andere Gefahren und eine Landefläche; bewegliche
+Gegner können trotzdem ihre Richtung ändern und den Versuch scheitern lassen.
+Ohne diese Option gilt `enemies: "avoid"`.
+
+`movement: "ground"` bevorzugt längere Laufwege. Kurze Annäherungen verdrängen
+notwendige Hindernissprünge nicht pauschal. `allowBoingo: "fallback"` bietet
+Boingos erst an, wenn nach den Fehlversuchs- und Wiederholungssperren keine
+andere Vorwärtsbewegung übrig bleibt. Ein nutzloser Rückweg sperrt sie nicht.
+Dies ist eine lokale Auswahl, kein Beweis globaler Unentbehrlichkeit.
+Beispiel: `examples/navigation/stomper.js`.
+
+`caution` ist eine Präferenz für die Manöverwahl (`normal` ohne Angabe), keine
+Risikozahl oder Sicherheitszusage. `allowBoingo: false` schließt Boingo-Manöver
+aus; ohne Angabe sind sie erlaubt. Die Strategie kann Ziele und Präferenzen
+anhand neuer Beobachtungen ändern. Ein laufendes Flugmanöver darf dabei zunächst
+zu Ende gesteuert werden, bevor das neue Ziel übernommen wird.
+
+Pro Entscheidung höchstens einmal **entweder `navigate` oder `run`** aufrufen und
+die gelieferten Actions zurückgeben. `options()` und `status()` bleiben lesend
+verfügbar. Ohne Ausführungsaufruf oder bei abweichend zurückgegebenen Actions
+wird die Helfersteuerung zurückgesetzt; rohe Actions behalten die Kontrolle.
+`tools.status()` liefert den beobachteten Zustand und gegebenenfalls einen Grund.
+Warten oder eine leere Action-Liste bestätigt keinen Zielerfolg.
+
+Die Navigation kennt ausschließlich den sichtbaren State und garantiert weder
+Erreichbarkeit noch gefahrlose Bewegung oder Zielankunft. Die Beispiele in
+`examples/navigation/` zeigen Zielwahl, Fruchtauswahl und Vorsichtspräferenzen;
+ihre tatsächliche Leistung muss in der bestehenden Vorschau geprüft werden.
+Die leere Vorlage startet weiterhin keine Navigation ohne Besucherstrategie.
+
+### Eigene Bewegungsentscheidungen
+
+`choose` wählt das nächste Manöver aus den aktuell ausführbar geschätzten Angeboten.
+Es gibt eine angebotene `id` oder `null` für bewusstes Warten zurück. Ohne Callback
+wählt weiterhin die Navigation. Eine eigene Auswahl wird nicht durch die
+Standardstrategie ersetzt; Gefahrenprüfung, Fehlversuchssperren und `allowBoingo`
+gelten weiterhin.
+
+```ts
+interface NavigationChoice {
+  readonly id: string; // nur in dieser Auswahl gültig, nicht speichern
+  readonly kind: "walk" | "jump" | "drop" | "boingo" | "stomp";
+  readonly platformId: string | null;
+  readonly progress: number; // Pixel Richtung Levelziel; Rückweg negativ
+  readonly distance: number; // horizontale Strecke in Pixeln
+  readonly rise: number; // Landung über aktuellen Füßen; positiv = höher
+  readonly durationMs: number; // geschätzte gesamte Manöverdauer
+  readonly fruitValue: number;
+  readonly crossesEnemy: boolean;
+  readonly hazardId?: string; // konkreter Gegner bei einem Stomp-Angebot
+}
+```
+
+`crossesEnemy` bedeutet: Der horizontale Weg überquert eine sichtbare bewegte oder
+stompbare Gefahr nahe der aktuellen Standhöhe. Es ist keine Kollisionsprognose
+oder Stomp-Garantie. `rise` beschreibt die Landung, nicht den Sprungscheitelpunkt.
+
+Beispiel für „Nimm lieber die oberen Plattformen“:
+
+```js
+return tools.navigate({
+  target: { kind: "goal" },
+  choose(moves) {
+    const upper = moves.filter(m => m.rise > 30 && m.progress > 0);
+    upper.sort((a, b) => b.rise - a.rise || b.progress - a.progress);
+    return upper[0]?.id ?? moves[0]?.id ?? null;
+  },
+});
+```
+
+Regeln können auch kürzere Sprünge anhand `durationMs`, bestimmte Plattformen oder
+angebotene Sprünge mit `crossesEnemy` bevorzugen. Die Angebote sind bereits nach
+Standardbewertung sortiert. Array und Einträge sind unveränderlich; zum Sortieren
+zuerst `filter` oder `[...moves]` verwenden.
+
+Der Callback läuft synchron im Bot-Worker, sobald ein neues Manöver auswählbar
+ist. Laufende Aufträge werden bis zum beobachteten Ende ausgeführt. Neu erstellte
+Callbacks brechen keinen Flug ab. Auch im Callback bleibt höchstens ein
+Ausführungsaufruf pro Tick erlaubt. Ungültige Rückgaben sind Botfehler.
+`null` bei vorhandenen Angeboten meldet `strategy-wait`; absichtliches Warten zählt
+nicht als Motorstillstand. Ohne Angebote bleibt die normale Erkennung einer
+blockierten Navigation aktiv.
+Die Strategie muss selbst eine Bedingung zum Weitergehen liefern. Erfolglose
+Motoraufträge bleiben begrenzt. Freie Regeln ersetzen keine Sicherheitsgarantie.
+
+Beispiele: `examples/navigation/high-route.js` und `ground-route.js`.
+
 ## Wahrnehmungsbasierte Bewegungsangebote
 
 `tools.options()` untersucht ausschließlich den aktuellen sichtbaren State.
@@ -154,7 +281,7 @@ interface MovementOption {
 }
 ```
 
-Angebote bewegen den Bot nicht. `current-bot.js` bewertet sie anhand frei
+Angebote bewegen den Bot nicht. Bei einer eigenen Manöverstrategie bewertet `current-bot.js` sie anhand frei
 editierbarer Gewichtungen und Regeln und führt die gewählte Bewegung mit run aus.
 Das vollständige Beispiel ist `examples/strategies/visitor-builder.js`; der Agent
 kann darin auch Funktionen ersetzen, eigene Manöver ausführen und Bedingungen ergänzen.
@@ -178,8 +305,9 @@ Ausführung. Das leere Template gibt weiterhin ausschließlich [] zurück.
 ## Bewegungshelfer, Framework-Version 2
 
 Bei eigenen Low-Level-Manövern entscheidet die Bot-Datei über Ziel, Risiko, Boingo-Nutzung und Fortsetzung.
-`@arena/bot-navigation` führt nur den gewählten Auftrag aus. Es gibt keinen
-Autoplaner und keine automatisch vorgeschlagenen Ersatzrouten.
+Bei `tools.run` führt `@arena/bot-navigation` nur den gewählten Auftrag aus und
+wählt keine Ersatzbewegung. Die darüberliegende Zielnavigation wird ausdrücklich
+mit `tools.navigate` aktiviert.
 
 ```ts
 type ControlCommand =
@@ -187,6 +315,8 @@ type ControlCommand =
   | { id: string; kind: "walk"; x: number; sprint?: boolean }
   | { id: string; kind: "jump"; platformId: string;
       x?: number; sprint?: boolean; holdMs?: number; runUpMs?: number }
+  | { id: string; kind: "stomp"; hazardId: string; platformId: string;
+      x?: number; sprint?: boolean; holdMs?: number }
   | { id: string; kind: "boingo"; utilityId: string; platformId: string;
       x?: number; sprint?: boolean };
 interface ControlStatus {
@@ -196,6 +326,7 @@ interface ControlStatus {
   reason: string | null;
 }
 interface ControlTools {
+  readonly navigate: (intent: NavigationIntent) => Action[];
   readonly options: () => MovementOption[];
   readonly run: (command: ControlCommand) => Action[];
   readonly status: () => ControlStatus;
@@ -210,6 +341,25 @@ den normalen Sprung bis zum Ende des beobachteten Aufstiegs. Die Physikwerte ble
 
 `drop` läuft gezielt über eine Kante und steuert im Fall zur sichtbaren
 Zielplattform, ohne Sprungimpuls. Der Motor bestätigt die tatsächliche Landung.
+
+`stomp` verfolgt die angegebene sichtbare Gegner-ID während des Fluges und
+landet nach dem bestätigten Bounce auf `platformId` bei `x`. Ohne passenden
+Stomp-Impuls meldet die Landung `stomp-missed`. `stomp-confirmed` im laufenden
+Status bestätigt den Treffer, noch nicht die anschließende Landung. Bei
+Stomp-Aufträgen ist `holdMs` die Mindestanforderung: Während des Aufstiegs darf
+der Motor eine kürzere Anforderung auf bis zu 650 ms Gesamthaltezeit verlängern,
+wenn die horizontale Ausrichtung auf den bewegten Gegner noch fehlt.
+Er erzeugt keinen zusätzlichen Luftsprung. Bei eigenen `run`-Aufträgen ist
+wie bei `jump` die Erreichbarkeit selbst zu prüfen;
+`navigate({ target, enemies: "stomp" })` erzeugt geprüfte lokale Angebote.
+`tools.options()` bleibt ohne zusätzliche Angriffsvorgabe bei normalen Angeboten.
+
+Die Navigation begrenzt wiederholte, technisch erfolgreiche Manöver ohne neuen
+Bestfortschritt auch mit `choose`. Ein blockiertes Ziel wird bei einer erkennbaren
+Änderung sichtbarer Gefahren höchstens zweimal erneut versucht. Unveränderte
+Beobachtungen starten keine Endlosschleife. Nach ausgeschöpftem Budget bleibt
+der Status fehlgeschlagen; ein anderes strategisches Ziel oder Respawn setzt
+den Navigationszyklus zurück.
 
 **`jump` springt standardmäßig sofort ab.** Optional beschreibt `runUpMs`
 einen kurzen Anlauf (0–500 ms) vor dem Absprung. `tools.options()` kann diesen
@@ -229,7 +379,7 @@ Bei `failed` den `reason` auswerten: `danger-ahead` kann vorübergehend sein und
 rechtfertigt kein dauerhaftes Sperren des Ziels. Ein Neuversuch braucht eine neue
 ID. Dauerhafte Hindernisse wie Stacheln verschwinden nicht durch Warten.
 
-Genau ein synchroner `run` ist pro Entscheidung erlaubt; `status()` darf mehrfach
+Höchstens ein synchroner `run` oder `navigate` ist pro Entscheidung erlaubt; `status()` darf mehrfach
 gelesen werden. Tools sind an die aktuelle Entscheidung gebunden und werden nicht
 gespeichert. Dieselbe ID mit identischen Parametern setzt den Auftrag fort.
 Erfolg und Fehler bleiben für diese ID bestehen. Für einen absichtlichen
@@ -238,8 +388,8 @@ aktuellen Auftrag auch im Flug; sie erzeugt keinen zusätzlichen Luftsprung.
 Geänderte Parameter unter der aktuellen ID sind ein Botfehler.
 
 `status()` verarbeitet die aktuelle Beobachtung bereits vor `decide`. Die
-Bot-Datei hält ihren Auftrag in einer Closure und entscheidet bei Erfolg oder
-Fehler selbst über die Fortsetzung. Ohne `run` oder mit abweichend zurückgegebenen
+Bot-Datei hält bei eigener `run`-Steuerung ihren Auftrag in einer Closure und entscheidet bei Erfolg oder
+Fehler selbst über die Fortsetzung. Ohne `run`/`navigate` oder mit abweichend zurückgegebenen
 Actions endet die Helferausführung; `return []` bedeutet Warten/Stoppen.
 Respawn/Epoch-Wechsel setzt den Helfer zurück; eigene Closure-Variablen muss der
 Bot ebenfalls zurücksetzen.
