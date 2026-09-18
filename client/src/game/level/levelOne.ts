@@ -229,8 +229,8 @@ export const LEVEL_ONE: LevelDef = {
       speed: 60,
     },
     {
-      kind: "schnetzler",
-      id: "schnetzler-2",
+      kind: "ninjafrog",
+      id: "ninjafrog-6",
       x: 4044,
       y: GROUND_Y - 16,
       minX: 4044,

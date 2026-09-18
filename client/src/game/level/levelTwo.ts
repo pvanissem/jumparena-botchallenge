@@ -124,7 +124,7 @@ export const LEVEL_TWO: LevelDef = {
       speed: 80,
     },
     // Stachlinger auf P3 (864-1088) und P6 (2096-2320).
-    { kind: "stachlinger", id: "stachlinger-1", x: 950, y: GROUND_Y - 8 },
+    // { kind: "stachlinger", id: "stachlinger-1", x: 950, y: GROUND_Y - 8 },
     { kind: "stachlinger", id: "stachlinger-2", x: 2280, y: GROUND_Y - 8 },
     // Loderix-Gauntlet auf P5 (1632-1920), phasenversetzt.
     { kind: "loderix", id: "loderix-1", x: 1700, y: GROUND_Y - 16, phaseMs: 0 },
