@@ -97,9 +97,24 @@ Bot-Dateien anders laufen lassen. Die Bewegungshelfer bleiben im Framework; die 
 Framework-v1-Bots müssen gezielt migriert oder neu erzeugt werden. Reine Action-Bots
 ohne Framework-Version bleiben nutzbar.
 
-Nur der Betreiber fuehrt zwischen Sessions explizit `npm run reset-bot` aus,
-nachdem die fertige Bot-Datei gesichert wurde. Das kopiert die Vorlage bytegenau
-nach `current-bot.js` und leert `runs/`.
+Nur der Betreiber fuehrt zwischen Sessions explizit `npm run reset-bot` aus.
+Der Befehl sichert die vorhandene Bot-Datei zuerst unverändert unter
+`bots/<author>-<name>-<timestamp>.js` im Repository-Root. Namen werden für
+Dateinamen bereinigt; fehlende oder nicht statisch lesbare Metadaten erhalten
+`unbekannt` bzw. `unbenannt`. Besuchercode wird dabei nicht ausgeführt.
+Vorhandene Archive werden niemals überschrieben, auch unveränderte Vorlagen
+werden gesichert. Das lokale Archiv ist git-ignoriert.
+Erst nach erfolgreicher Sicherung wird die Vorlage bytegenau nach
+`current-bot.js` kopiert und `runs/` geleert. Ohne vorhandene Bot-Datei wird
+direkt die Vorlage angelegt. Scheitert die Sicherung, bleiben Bot und Traces erhalten.
+
+Vor dem Reset prüft der Befehl den Git-Status. Änderungen außerhalb von
+`client/src/bot/current-bot.js` (auch gestagte, gelöschte und unversionierte
+Dateien) lösen eine auffällige Warnung mit Dateiliste aus. Git-ignorierte Dateien
+werden wie bei normalem `git status` nicht gemeldet. Der Betreiber prüft diese
+Änderungen selbst; es gibt kein automatisches Git-Restore. Ist die Git-Prüfung
+nicht möglich, erscheint ebenfalls eine Warnung; Sicherung und Reset werden
+trotzdem versucht. Das ersetzt keine Sandbox oder Zugriffsbeschränkung.
 Kein Start, Update oder Vorschau-Lauf ersetzt vorhandenen Besuchercode automatisch.
 
 ## Offene Abnahme

@@ -169,6 +169,7 @@ npm-debug.log*
 # .features/dev-station-mode/. Nur das Template ist versioniert.
 client/src/bot/current-bot.js
 client/src/bot/runs/
+/bots/
 
 ### Lokaler Superpowers-Brainstorming-Begleiter ###
 .superpowers/
