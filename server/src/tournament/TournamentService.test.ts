@@ -89,6 +89,17 @@ function result(botId: string): MatchResult {
 }
 
 describe("configure", () => {
+  it("rejects starting a pending match until its opponent has been assigned", () => {
+    const svc = service([bot("b1"), bot("b2"), bot("b3")]);
+    const state = svc.configure(configureCommand(["level-one"], ["b1", "b2", "b3"], 3, 2));
+    if (!state) throw new Error("Expected configured tournament");
+    const single = state.rounds[0][1];
+    single.status = "pending";
+    single.result = null;
+    expect(svc.startMatch(single.id)).toBe(false);
+    expect(single.status).toBe("pending");
+  });
+
   it("rejects fewer than 2 participants", () => {
     const svc = service([bot("b1")]);
     const state = svc.configure(configureCommand(["level-one"], ["b1"]));

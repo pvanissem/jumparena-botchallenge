@@ -6,6 +6,7 @@ import {
   isClientRegisterMessage,
   isMatchProgressMessage,
   isMatchResultMessage,
+  isMatchSkipMessage,
   isPingBroadcastMessage,
   isPresentReadyMessage,
   isTournamentConfigureMessage,
@@ -66,6 +67,8 @@ export function parseInboundMessage(raw: string): InboundMessage | null {
   if (isMatchResultMessage(candidate)) {
     return candidate;
   }
+
+  if (isMatchSkipMessage(candidate)) return candidate;
 
   if (isMatchProgressMessage(candidate)) {
     return candidate;

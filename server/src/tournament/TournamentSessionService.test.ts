@@ -110,14 +110,15 @@ function result(): MatchResult {
   };
 }
 
-function setup(options: { presentIds?: string[]; attemptIds?: string[] } = {}) {
+function setup(options: { presentIds?: string[]; attemptIds?: string[]; botCount?: number } = {}) {
   const clock = new FakeClock();
   const scheduler = new FakeScheduler(clock);
+  let matchNumber = 0;
   const tournament = new TournamentService(
-    new BotRegistry([bot("b1"), bot("b2")]),
+    new BotRegistry(Array.from({ length: options.botCount ?? 2 }, (_, i) => bot(`b${i + 1}`))),
     new SingleEliminationStrategy(
       (participants) => [...participants],
-      () => "match-1"
+      () => `match-${++matchNumber}`
     )
   );
   const readyPresentClients = new ClientRegistry();
@@ -140,6 +141,48 @@ function setup(options: { presentIds?: string[]; attemptIds?: string[] } = {}) {
 }
 
 describe("TournamentSessionService", () => {
+  it("automatically plays the best-loser duel on stage one before the final", () => {
+    const { session, scheduler } = setup({ botCount: 3 });
+    session.configure({
+      ...configureMessage(),
+      botIds: ["b1", "b2", "b3"],
+      stageLevelIds: ["level-one", "level-two"],
+    });
+    session.control("start");
+
+    const expectedMatches = [
+      ["b1", "b2"],
+      ["b3", "b2"],
+      ["b1", "b3"],
+    ];
+    for (const [index, expectedBots] of expectedMatches.entries()) {
+      expect(session.getSnapshot().show?.phase).toBe("matchup-intro");
+      scheduler.fireCurrent();
+      scheduler.fireCurrent();
+      const { show, state } = session.getSnapshot();
+      expect(show?.phase).toBe("match-running");
+      expect(show?.activeRoundIndex).toBe(index === 2 ? 1 : 0);
+      const match = state?.rounds.flat().find((m) => m.id === show?.activeMatchId);
+      if (!match || !show?.matchAttemptId) throw new Error("Expected running match attempt");
+      expect(match.participants.map((p) => p.botId)).toEqual(expectedBots);
+      const message = {
+        type: "match-result" as const,
+        matchId: match.id,
+        matchAttemptId: show.matchAttemptId,
+        result: {
+          entries: result().entries.map((entry, i) => ({ ...entry, botId: expectedBots[i] })),
+        },
+      };
+      expect(session.acceptResult("present-1", message)).toBe(true);
+      expect(session.acceptResult("present-1", message)).toBe(false);
+      expect(session.getSnapshot().show?.phase).toBe("match-result");
+      scheduler.fireCurrent();
+      scheduler.fireCurrent();
+    }
+    expect(session.getSnapshot().show?.phase).toBe("champion");
+    expect(session.getSnapshot().state?.championBotId).toBe("b1");
+  });
+
   it("runs automatically through the final bracket before showing the champion", () => {
     const { scheduler, session } = setup();
 

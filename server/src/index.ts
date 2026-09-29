@@ -10,6 +10,7 @@ import { createStaticServer } from "./http/createStaticServer";
 import { createClientRegisterHandler } from "./tournament/handlers/createClientRegisterHandler";
 import { createMatchProgressHandler } from "./tournament/handlers/createMatchProgressHandler";
 import { createMatchResultHandler } from "./tournament/handlers/createMatchResultHandler";
+import { createMatchSkipHandler } from "./tournament/handlers/createMatchSkipHandler";
 import { createPresentReadyHandler } from "./tournament/handlers/createPresentReadyHandler";
 import { createTournamentConfigureHandler } from "./tournament/handlers/createTournamentConfigureHandler";
 import { createTournamentResetHandler } from "./tournament/handlers/createTournamentResetHandler";
@@ -69,6 +70,7 @@ dispatcher.register(
 );
 dispatcher.register("tournament-reset", createTournamentResetHandler(tournamentSession, registry));
 dispatcher.register("match-result", createMatchResultHandler(tournamentSession));
+dispatcher.register("match-skip", createMatchSkipHandler(tournamentSession, registry));
 dispatcher.register(
   "match-progress",
   createMatchProgressHandler(tournamentSession, (message) => broadcastRouter.routeToAll(message))

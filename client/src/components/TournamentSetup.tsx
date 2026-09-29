@@ -92,6 +92,14 @@ export function TournamentSetup({ bots, onStart }: TournamentSetupProps) {
 
       <fieldset>
         <legend>Teilnehmer ({selectedIds.size} ausgewählt)</legend>
+        <button
+          type="button"
+          className="pixel-btn"
+          disabled={bots.length === 0}
+          onClick={() => setSelectedIds(new Set(bots.map((bot) => bot.id)))}
+        >
+          Alle hinzufügen
+        </button>
         {bots.length === 0 && <p>Noch keine Bots eingereicht.</p>}
         {bots.map((bot) => (
           <label key={bot.id} style={{ display: "block" }}>

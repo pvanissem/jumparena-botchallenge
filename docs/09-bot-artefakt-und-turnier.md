@@ -131,6 +131,19 @@ Schutzmassnahmen, keine umfassende Isolation beliebigen Fremdcodes.
   Zeitbonus − Tode − DNF-Abzug. Nur der/die **Erstplatzierte** kommt weiter
   (Zeit als Tie-Breaker).
 - Bei zu wenigen Bots einfach kleinere/weniger Gruppen (kein Auffüllen).
+- **Erstrunden-Zusatzduell im Zweiermodus:** Bei ungerader Teilnehmerzahl
+  wartet der einzelne Bot auf den besten Verlierer aller regulären Matches
+  der ersten Runde (höchster Ergebnis-Score, dann kürzere Zeit, dann stabile
+  Bracket-Reihenfolge). Beide spielen das letzte Match derselben Runde auf
+  deren Level. Erst der Sieger rückt auf. Im Vierermodus und in späteren
+  Runden gelten weiterhin die bisherigen Freilose. Diese Regel gilt für neu
+  aufgestellte Turniere; siehe `.features/tournament-booth-controls/`.
+- **Match überspringen:** In der Show-Steuerung von `/admin` beendet
+  „Überspringen“ das laufende Match auf der ausführenden `/present`-Instanz
+  mit dem zuletzt bekannten Stand. Der Auftrag wird über den Server für
+  den aktuellen Match-Versuch weitergeleitet.
+  Zieleinläufe bleiben erhalten, offene Läufe werden als DNF gewertet.
+  Anschließend läuft die Show regulär über Ergebnis und Bracket weiter.
 - Am Ende: **Champion-Screen**. Bracket-Anzeige zeigt Runden → Matches →
   Gewinner live, ergänzt um den Levelnamen und den aktuellen Rundenstatus
   (ausstehend / läuft / abgeschlossen) je Runde.

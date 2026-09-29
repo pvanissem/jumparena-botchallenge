@@ -59,7 +59,7 @@ export class SingleEliminationStrategy implements TournamentStrategy {
     const groups = chunk(shuffled, groupSize);
     const matches: MatchDef[] = groups.map((group) => {
       const id = this.createId();
-      if (group.length === 1) {
+      if (group.length === 1 && (groupSize !== 2 || participants.length === 1)) {
         return {
           id,
           participants: group,
@@ -93,6 +93,10 @@ export class SingleEliminationStrategy implements TournamentStrategy {
     runningMatch.result = result;
     runningMatch.status = "finished";
 
+    if (currentRoundIndex === 0 && state.groupSize === 2) {
+      this.assignBestLoser(currentRound);
+    }
+
     if (!currentRound.every((match) => match.status === "finished")) {
       return { ...state, rounds, status: state.status === "idle" ? "running" : state.status };
     }
@@ -123,6 +127,30 @@ export class SingleEliminationStrategy implements TournamentStrategy {
     rounds.push(nextRound);
 
     return { ...state, rounds, status: "running" };
+  }
+
+  private assignBestLoser(round: MatchDef[]): void {
+    const waitingMatch = round.find(
+      (match) => match.status === "pending" && match.participants.length === 1
+    );
+    if (!waitingMatch) return;
+
+    const regularMatches = round.filter((match) => match !== waitingMatch);
+    if (!regularMatches.every((match) => match.status === "finished")) return;
+
+    const losers = regularMatches.flatMap((match) =>
+      (match.result?.entries ?? [])
+        .filter((entry) => entry.rank > 1)
+        .map((entry) => ({ entry, match }))
+    );
+    losers.sort(
+      (a, b) => b.entry.score - a.entry.score || a.entry.timeElapsedMs - b.entry.timeElapsedMs
+    );
+    const best = losers[0];
+    const opponent = best?.match.participants.find((p) => p.botId === best.entry.botId);
+    if (opponent) {
+      waitingMatch.participants = [...waitingMatch.participants, opponent];
+    }
   }
 
   private createRoundFromParticipants(

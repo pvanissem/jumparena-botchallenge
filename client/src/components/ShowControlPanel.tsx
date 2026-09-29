@@ -28,6 +28,7 @@ interface ShowControlPanelProps {
   remainingSeconds: number | null;
   onControl: (action: TournamentShowAction) => void;
   onReset: () => void;
+  onSkip?: () => void;
 }
 
 export function ShowControlPanel({
@@ -36,6 +37,7 @@ export function ShowControlPanel({
   remainingSeconds,
   onControl,
   onReset,
+  onSkip,
 }: ShowControlPanelProps) {
   const operatorHeld = show.holds.includes("operator");
   const timedPhase = TIMED_PHASES.has(show.phase);
@@ -75,6 +77,17 @@ export function ShowControlPanel({
       )}
 
       <div className="show-control-panel__actions">
+        {show.phase === "match-running" && (
+          <button
+            type="button"
+            disabled={
+              !onSkip || !show.presentReady || !show.executorClientId || !show.matchAttemptId
+            }
+            onClick={onSkip}
+          >
+            Überspringen
+          </button>
+        )}
         {show.phase === "ready" && (
           <button type="button" onClick={() => onControl("start")}>
             Show starten

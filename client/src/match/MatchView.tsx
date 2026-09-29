@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { useEffect, useRef, useState } from "react";
 import { RacerTileOverlay } from "../components/RacerTileOverlay";
 import { createPhysicsConfig } from "../game/physicsConfig";
+import type { OutboundMessageSubscriber } from "../ws/useWebSocketConnection";
 import { MatchBootScene } from "./MatchBootScene";
 import { MatchRunner, type MatchTiles } from "./MatchRunner";
 import { computeTileOverlays } from "./tileOverlays";
@@ -15,6 +16,8 @@ interface MatchViewProps {
   onProgress: (entries: MatchProgressMessage["entries"]) => void;
   onFinished: (result: MatchResult) => void;
   className?: string;
+  matchAttemptId?: string;
+  subscribe?: OutboundMessageSubscriber;
 }
 
 /**
@@ -31,6 +34,8 @@ export function MatchView({
   onProgress,
   onFinished,
   className,
+  matchAttemptId,
+  subscribe,
 }: MatchViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -84,6 +89,19 @@ export function MatchView({
       runner.stop();
     };
   }, [match, levelId, livesPerRun, sourceById, onProgress, onFinished]);
+
+  useEffect(() => {
+    if (!subscribe || !matchAttemptId) return;
+    return subscribe((message) => {
+      if (
+        message.type === "match-skip" &&
+        message.matchId === match.id &&
+        message.matchAttemptId === matchAttemptId
+      ) {
+        runnerRef.current?.skip();
+      }
+    });
+  }, [subscribe, match.id, matchAttemptId]);
 
   const descriptors = tiles ? computeTileOverlays(tiles) : [];
 

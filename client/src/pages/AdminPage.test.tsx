@@ -58,6 +58,7 @@ describe("AdminTournamentView", () => {
   });
 
   it("shows live standings for the active match", () => {
+    const send = vi.fn();
     const runningShow = {
       ...readyShow,
       phase: "match-running",
@@ -66,16 +67,37 @@ describe("AdminTournamentView", () => {
       matchAttemptId: "attempt-1",
       executorClientId: "present-1",
     } satisfies TournamentShowState;
-    render(
+    const { rerender } = render(
       <AdminTournamentView
         tournament={{ ...tournament, rounds: [[{ ...match, status: "running" }]] }}
         show={runningShow}
         progressByMatch={new Map()}
         clockOffsetMs={0}
-        send={vi.fn()}
+        send={send}
       />
     );
 
     expect(screen.getByRole("heading", { name: "Live Score" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Überspringen" }));
+    expect(send).toHaveBeenCalledWith({
+      type: "match-skip",
+      matchId: "m1",
+      matchAttemptId: "attempt-1",
+    });
+    send.mockClear();
+    rerender(
+      <AdminTournamentView
+        tournament={tournament}
+        show={{ ...runningShow, executorClientId: null, matchAttemptId: null, presentReady: false }}
+        progressByMatch={new Map()}
+        clockOffsetMs={0}
+        send={send}
+      />
+    );
+    expect(
+      (screen.getByRole("button", { name: "Überspringen" }) as HTMLButtonElement).disabled
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Überspringen" }));
+    expect(send).not.toHaveBeenCalled();
   });
 });

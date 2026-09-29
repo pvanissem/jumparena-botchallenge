@@ -59,6 +59,14 @@ export function AdminTournamentView({
         match={active?.match ?? null}
         remainingSeconds={remainingSeconds}
         onControl={onControl}
+        onSkip={() => {
+          if (!show.activeMatchId || !show.matchAttemptId) return;
+          send({
+            type: "match-skip",
+            matchId: show.activeMatchId,
+            matchAttemptId: show.matchAttemptId,
+          });
+        }}
         onReset={() => send({ type: "tournament-reset" })}
       />
 

@@ -15,16 +15,21 @@ const connection = vi.hoisted(() => ({
   send: vi.fn(),
 }));
 const tournamentMusic = vi.hoisted(() => ({ useTournamentMusic: vi.fn() }));
+const matchProps = vi.hoisted(() => ({ received: vi.fn() }));
 
 let matchEngineStarts = 0;
 
 function MatchViewLifecycleProbe({
   onProgress,
   onFinished,
+  ...props
 }: {
   onProgress: unknown;
   onFinished: unknown;
+  subscribe?: unknown;
+  matchAttemptId?: string;
 }) {
+  matchProps.received(props);
   useEffect(() => {
     void onProgress;
     void onFinished;
@@ -165,6 +170,12 @@ describe("PresentPage", () => {
       for (const listener of connection.listeners) listener(message);
     });
     await screen.findByTestId("match-view");
+    expect(matchProps.received).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        matchAttemptId: "attempt-1",
+        subscribe: expect.any(Function),
+      })
+    );
 
     act(() => {
       const message: OutboundMessage = {

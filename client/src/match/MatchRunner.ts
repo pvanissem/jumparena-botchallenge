@@ -49,6 +49,7 @@ export class MatchRunner {
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private stopped = false;
   private reportedFinished = false;
+  private match: MatchDef | null = null;
 
   constructor(
     private readonly game: Phaser.Game,
@@ -59,6 +60,7 @@ export class MatchRunner {
 
   start(options: MatchStartOptions): void {
     if (this.stopped) return;
+    this.match = options.match;
 
     const boot = this.game.scene.getScene(MATCH_BOOT_SCENE_KEY) as MatchBootScene | null;
 
@@ -95,6 +97,7 @@ export class MatchRunner {
         audio: false,
         assetsPreloaded: true,
         onStatusChange: (status) => {
+          if (this.stopped || this.reportedFinished) return;
           const slot = this.slots.find((s) => s.botId === participant.botId);
           if (slot) {
             slot.status = {
@@ -122,7 +125,29 @@ export class MatchRunner {
     this.progressTimer = setInterval(() => this.emitProgress(level), PROGRESS_INTERVAL_MS);
   }
 
+  skip(): void {
+    if (this.stopped || this.reportedFinished || !this.match) return;
+    this.reportedFinished = true;
+
+    const entries = rankMatchResults(
+      this.match.participants.map(({ botId }) => {
+        const status = this.slots.find((slot) => slot.botId === botId)?.status;
+        const racer = status?.racer ?? this.defaultDnfState();
+        return {
+          botId,
+          state: { ...racer, didNotFinish: !racer.finished },
+          disabled: status?.pausedReasonKind != null,
+        };
+      })
+    );
+
+    this.stop();
+    this.onFinished({ entries });
+  }
+
   stop(): void {
+    if (this.stopped) return;
+    this.stopped = true;
     if (this.progressTimer) {
       clearInterval(this.progressTimer);
       this.progressTimer = null;
@@ -135,7 +160,6 @@ export class MatchRunner {
     }
 
     this.slots = [];
-    this.stopped = true;
   }
 
   private emitProgress(level: ReturnType<typeof getLevelById>): void {
@@ -184,7 +208,7 @@ export class MatchRunner {
   }
 
   private checkFinished(): void {
-    if (this.reportedFinished) return;
+    if (this.stopped || this.reportedFinished) return;
 
     const allDone = this.slots.every((slot) => {
       const status = slot.status;

@@ -101,7 +101,7 @@ export class TournamentService {
     if (!this.state) return false;
 
     const match = this.state.rounds.flat().find((m) => m.id === matchId);
-    if (match?.status !== "pending") return false;
+    if (match?.status !== "pending" || match.participants.length < 2) return false;
 
     match.status = "running";
     this.state.status = "running";

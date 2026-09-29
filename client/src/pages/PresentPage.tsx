@@ -24,7 +24,10 @@ import { selectActiveMatch } from "../tournament/showSelectors";
 import { useMatchProgress } from "../tournament/useMatchProgress";
 import { useShowCountdown } from "../tournament/useShowCountdown";
 import { useTournamentSession } from "../tournament/useTournamentSession";
-import { useWebSocketConnection } from "../ws/useWebSocketConnection";
+import {
+  type OutboundMessageSubscriber,
+  useWebSocketConnection,
+} from "../ws/useWebSocketConnection";
 
 interface PresentStageProps {
   tournament: TournamentState | null;
@@ -35,6 +38,7 @@ interface PresentStageProps {
   clockOffsetMs: number;
   onProgress: (entries: MatchProgressMessage["entries"]) => void;
   onFinished: (result: MatchResult) => void;
+  subscribe?: OutboundMessageSubscriber;
 }
 
 function roundLabel(roundIndex: number): string {
@@ -50,6 +54,7 @@ export function PresentStage({
   clockOffsetMs,
   onProgress,
   onFinished,
+  subscribe,
 }: PresentStageProps) {
   const countdown = useShowCountdown(show, clockOffsetMs);
   const active = selectActiveMatch(tournament, show);
@@ -96,6 +101,8 @@ export function PresentStage({
               sourceById={sourceById}
               onProgress={onProgress}
               onFinished={onFinished}
+              matchAttemptId={show.matchAttemptId}
+              subscribe={subscribe}
               className="present-live-stage__game"
             />
           ) : (
@@ -177,6 +184,7 @@ export function PresentPage() {
         clockOffsetMs={clockOffsetMs}
         onProgress={handleProgress}
         onFinished={handleFinished}
+        subscribe={subscribe}
       />
     </EventChrome>
   );

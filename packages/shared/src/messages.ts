@@ -127,6 +127,24 @@ export interface TournamentResetMessage {
   type: "tournament-reset";
 }
 
+/** /admin -> Server -> ausführende /present-Instanz. */
+export interface MatchSkipMessage {
+  type: "match-skip";
+  matchId: string;
+  matchAttemptId: string;
+}
+
+export function isMatchSkipMessage(value: unknown): value is MatchSkipMessage {
+  return (
+    isRecord(value) &&
+    value.type === "match-skip" &&
+    typeof value.matchId === "string" &&
+    value.matchId.length > 0 &&
+    typeof value.matchAttemptId === "string" &&
+    value.matchAttemptId.length > 0
+  );
+}
+
 /** /present -> Server: Ergebnis eines beendeten Matches. */
 export interface MatchResultMessage {
   type: "match-result";
@@ -164,6 +182,7 @@ export interface TournamentStateMessage {
  * Messages a client may send to the server.
  */
 export type InboundMessage =
+  | MatchSkipMessage
   | PingBroadcastMessage
   | AudioSettingsMessage
   | BotAddMessage
@@ -180,6 +199,7 @@ export type InboundMessage =
  * Messages the server relays to other clients.
  */
 export type OutboundMessage =
+  | MatchSkipMessage
   | PingBroadcastMessage
   | AudioSettingsMessage
   | BotAddedMessage

@@ -121,7 +121,7 @@ describe("createRounds", () => {
     expect(rounds[0][1].participants).toHaveLength(4);
   });
 
-  it("creates a bye when participants do not divide evenly for groupSize 2", () => {
+  it("keeps the unpaired first-round bot pending for a best-loser duel in groupSize 2", () => {
     const strategy = new SingleEliminationStrategy(noShuffle);
     const rounds = strategy.createRounds(participants(3), {
       groupSize: 2,
@@ -131,10 +131,8 @@ describe("createRounds", () => {
     expect(rounds[0][0].participants).toHaveLength(2);
     expect(rounds[0][0].status).toBe("pending");
     expect(rounds[0][1].participants).toHaveLength(1);
-    expect(rounds[0][1].status).toBe("finished");
-    expect(rounds[0][1].result?.entries).toEqual([
-      expect.objectContaining({ botId: "b3", rank: 1 }),
-    ]);
+    expect(rounds[0][1].status).toBe("pending");
+    expect(rounds[0][1].result).toBeNull();
   });
 });
 
@@ -172,6 +170,101 @@ describe("advance", () => {
       })),
     };
   }
+
+  it.each([3, 5, 7])("requires a best-loser duel before advancing %s entrants", (count) => {
+    const strategy = new SingleEliminationStrategy(noShuffle);
+    let state = freshState(participants(count), 2);
+    const regularMatchCount = Math.floor(count / 2);
+    for (let index = 0; index < regularMatchCount; index++) {
+      const match = state.rounds[0][index];
+      match.status = "running";
+      const before = structuredClone(state);
+      state = strategy.advance(
+        state,
+        match.id,
+        result(
+          match.participants.map((p, rank) => ({
+            botId: p.botId,
+            rank: rank + 1,
+          }))
+        )
+      );
+      expect(before.rounds[0][regularMatchCount].participants).toHaveLength(1);
+      expect(state.rounds).toHaveLength(1);
+      expect(state.rounds[0][regularMatchCount].status).toBe("pending");
+      if (index < regularMatchCount - 1) {
+        expect(state.rounds[0][regularMatchCount].participants).toHaveLength(1);
+      }
+    }
+    const duel = state.rounds[0][regularMatchCount];
+    expect(duel.participants.map((p) => p.botId)).toEqual([`b${count}`, "b2"]);
+    duel.status = "running";
+    state = strategy.advance(
+      state,
+      duel.id,
+      result([
+        { botId: "b2", rank: 1 },
+        { botId: `b${count}`, rank: 2 },
+      ])
+    );
+    expect(state.rounds).toHaveLength(2);
+    expect(state.rounds[1].flatMap((match) => match.participants.map((p) => p.botId))).toEqual([
+      ...Array.from({ length: regularMatchCount }, (_, i) => `b${i * 2 + 1}`),
+      "b2",
+    ]);
+    if (count === 5) {
+      expect(state.rounds[1][1]).toMatchObject({ status: "finished" });
+    }
+
+    while (state.status !== "finished") {
+      const next = state.rounds.flat().find((match) => match.status === "pending");
+      expect(next).toBeDefined();
+      if (!next) break;
+      next.status = "running";
+      state = strategy.advance(
+        state,
+        next.id,
+        result(
+          next.participants.map((p, index) => ({
+            botId: p.botId,
+            rank: index + 1,
+          }))
+        )
+      );
+    }
+    expect(state.championBotId).toBe("b1");
+  });
+
+  it.each([
+    { scores: [10, 30, 20], times: [1000, 2000, 1000], expected: "b4" },
+    { scores: [30, 30, 20], times: [2000, 1000, 500], expected: "b4" },
+    { scores: [30, 30, 30], times: [1000, 1000, 1000], expected: "b2" },
+  ])(
+    "selects the best loser by score, time, then bracket order: $expected",
+    ({ scores, times, expected }) => {
+      const strategy = new SingleEliminationStrategy(noShuffle);
+      let state = freshState(participants(7), 2);
+      // Finish out of order to distinguish bracket order from arrival order.
+      for (const index of [2, 1, 0]) {
+        const match = state.rounds[0][index];
+        match.status = "running";
+        const matchResult = result(
+          match.participants.map((p, rank) => ({
+            botId: p.botId,
+            rank: rank + 1,
+          }))
+        );
+        matchResult.entries[1].score = scores[index];
+        matchResult.entries[1].timeElapsedMs = times[index];
+        const previous = state;
+        const before = structuredClone(previous);
+        state = strategy.advance(state, match.id, matchResult);
+        expect(previous).toEqual(before);
+      }
+      expect(state.rounds[0][3].participants.map((p) => p.botId)).toEqual(["b7", expected]);
+      expect(state.rounds).toHaveLength(1);
+    }
+  );
 
   it("sets the result on the running match", () => {
     const state = freshState(participants(2));

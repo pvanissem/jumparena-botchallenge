@@ -21,6 +21,53 @@ describe("TournamentSetup", () => {
     cleanup();
   });
 
+  it("selects all current bots including later uploads and still allows individual deselection", () => {
+    const onStart = vi.fn();
+    const { rerender } = render(<TournamentSetup bots={[]} onStart={onStart} />);
+    const addAll = () => screen.getByRole("button", { name: "Alle hinzufügen" });
+    expect((addAll() as HTMLButtonElement).disabled).toBe(true);
+
+    rerender(<TournamentSetup bots={[bot("b1"), bot("b2")]} onStart={onStart} />);
+    fireEvent.click(addAll());
+    expect(screen.getByText("Teilnehmer (2 ausgewählt)")).toBeTruthy();
+    for (const checkbox of screen.getAllByRole("checkbox")) {
+      expect((checkbox as HTMLInputElement).checked).toBe(true);
+    }
+
+    rerender(<TournamentSetup bots={[bot("b1"), bot("b2"), bot("b3")]} onStart={onStart} />);
+    fireEvent.click(addAll());
+    expect(screen.getByText("Teilnehmer (3 ausgewählt)")).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: "Bot b3 (A)" }) as HTMLInputElement).checked).toBe(
+      true
+    );
+    expect(onStart).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bot b2 (A)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Turnier aufstellen" }));
+    expect(onStart).toHaveBeenCalledWith(
+      [LEVEL_REGISTRY[0].id],
+      ["b1", "b3"],
+      expect.any(Number),
+      DEFAULT_GROUP_SIZE
+    );
+  });
+
+  it("uses only bots still in the registry when selecting all", () => {
+    const onStart = vi.fn();
+    const { rerender } = render(
+      <TournamentSetup bots={[bot("b1"), bot("b2")]} onStart={onStart} />
+    );
+    rerender(<TournamentSetup bots={[bot("b2"), bot("b3")]} onStart={onStart} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alle hinzufügen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Turnier aufstellen" }));
+    expect(onStart).toHaveBeenCalledWith(
+      [LEVEL_REGISTRY[0].id],
+      ["b2", "b3"],
+      expect.any(Number),
+      DEFAULT_GROUP_SIZE
+    );
+  });
+
   it("renders group size buttons for every allowed size", () => {
     const { container } = render(
       <TournamentSetup bots={[bot("b1"), bot("b2")]} onStart={vi.fn()} />
