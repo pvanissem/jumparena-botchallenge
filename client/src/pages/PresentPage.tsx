@@ -14,6 +14,7 @@ import { RosterAttractView } from "../components/RosterAttractView";
 import { EventChrome } from "../components/tournament/EventChrome";
 import { LiveScoreboard } from "../components/tournament/LiveScoreboard";
 import { MatchupStage } from "../components/tournament/MatchupStage";
+import { PresentCelebration } from "../components/tournament/PresentCelebration";
 import { TournamentBracket } from "../components/tournament/TournamentBracket";
 import { audioSettings } from "../game/audio/audioSettings";
 import { useShowAudioCue } from "../game/audio/useShowAudioCue";
@@ -79,6 +80,7 @@ export function PresentStage({
     case "countdown":
       return active ? (
         <MatchupStage
+          key={active.match.id}
           match={active.match}
           roundLabel={roundLabel(active.roundIndex)}
           countdown={show.phase === "countdown" ? countdown : null}
@@ -115,12 +117,16 @@ export function PresentStage({
     }
     case "match-result":
       return active?.match.result ? (
-        <MatchResultView result={active.match.result} state={tournament} />
+        <MatchResultView key={active.match.id} result={active.match.result} state={tournament} />
       ) : (
         <TournamentBracket state={tournament} show={show} variant="present" />
       );
     case "champion":
-      return <ChampionView state={tournament} />;
+      return (
+        <PresentCelebration key={tournament.championBotId}>
+          <ChampionView state={tournament} />
+        </PresentCelebration>
+      );
   }
 }
 

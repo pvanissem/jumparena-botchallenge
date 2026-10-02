@@ -101,6 +101,81 @@ function runningShow(executorClientId: string): TournamentShowState {
 }
 
 describe("PresentStage", () => {
+  it("keeps an intro stable for updates but replays it for a new match", () => {
+    const props = {
+      clientId: "exec",
+      bots: [],
+      progressByMatch: new Map(),
+      clockOffsetMs: 0,
+      onProgress: vi.fn(),
+      onFinished: vi.fn(),
+    };
+    const show = { ...runningShow("exec"), phase: "matchup-intro" as const };
+    const { rerender } = render(<PresentStage {...props} tournament={tournament} show={show} />);
+    const intro = screen.getByRole("region", { name: "Matchup" });
+    rerender(<PresentStage {...props} tournament={{ ...tournament }} show={{ ...show }} />);
+    expect(screen.getByRole("region", { name: "Matchup" })).toBe(intro);
+    rerender(
+      <PresentStage
+        {...props}
+        tournament={{ ...tournament, rounds: [[{ ...match, id: "m2" }]] }}
+        show={{ ...show, activeMatchId: "m2" }}
+      />
+    );
+    expect(screen.getByRole("region", { name: "Matchup" })).not.toBe(intro);
+  });
+
+  it("shows celebration only for the champion phase", () => {
+    const props = {
+      clientId: "exec",
+      bots: [],
+      progressByMatch: new Map(),
+      clockOffsetMs: 0,
+      onProgress: vi.fn(),
+      onFinished: vi.fn(),
+    };
+    const champion = { ...tournament, championBotId: "b1", status: "finished" as const };
+    const { container, rerender } = render(
+      <PresentStage
+        {...props}
+        tournament={champion}
+        show={{ ...runningShow("exec"), phase: "champion" }}
+      />
+    );
+    expect(container.querySelector(".present-celebration")).not.toBeNull();
+    expect(screen.getByText("Alpha")).toBeTruthy();
+    rerender(<PresentStage {...props} tournament={tournament} show={runningShow("exec")} />);
+    expect(container.querySelector(".present-celebration")).toBeNull();
+  });
+
+  it("replays result entry only for a different match", () => {
+    const props = {
+      clientId: "exec",
+      bots: [],
+      progressByMatch: new Map(),
+      clockOffsetMs: 0,
+      onProgress: vi.fn(),
+      onFinished: vi.fn(),
+    };
+    const finished = { ...match, result: { entries: [] }, status: "finished" as const };
+    const state = { ...tournament, rounds: [[finished]] };
+    const show = { ...runningShow("exec"), phase: "match-result" as const };
+    const { container, rerender } = render(
+      <PresentStage {...props} tournament={state} show={show} />
+    );
+    const result = container.querySelector(".match-result-view");
+    rerender(<PresentStage {...props} tournament={{ ...state }} show={{ ...show }} />);
+    expect(container.querySelector(".match-result-view")).toBe(result);
+    rerender(
+      <PresentStage
+        {...props}
+        tournament={{ ...state, rounds: [[{ ...finished, id: "m2" }]] }}
+        show={{ ...show, activeMatchId: "m2" }}
+      />
+    );
+    expect(container.querySelector(".match-result-view")).not.toBe(result);
+  });
+
   it("keeps display-only clients from mounting Phaser", () => {
     const { container } = render(
       <PresentStage

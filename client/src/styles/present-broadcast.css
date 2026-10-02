@@ -390,9 +390,379 @@
   }
 }
 
+/* Show-Inszenierung: einmalige Auftritte, ausschließlich auf der Bühne. */
+.event-chrome .matchup-stage {
+  isolation: isolate;
+  overflow: hidden;
+  animation: present-stage-reveal 450ms ease-out both;
+}
+
+.event-chrome .matchup-stage__header {
+  animation: present-title-impact 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.event-chrome .matchup-stage__participant {
+  --entry-x: -70px;
+  --entry-tilt: -4deg;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  animation: present-contender-land 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.event-chrome .matchup-stage__participant:nth-child(even) {
+  --entry-x: 70px;
+  --entry-tilt: 4deg;
+}
+
+.event-chrome .matchup-stage__participant:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.event-chrome .matchup-stage__participant:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+.event-chrome .matchup-stage__participant:nth-child(4) {
+  animation-delay: 300ms;
+}
+
+.event-chrome .matchup-stage__participant::after,
+.event-chrome .match-result-view__scores li[data-winner="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(56, 232, 255, 0.22), transparent 65%);
+  animation: present-light-sweep 850ms 300ms ease-out both;
+}
+
+.event-chrome .matchup-stage__countdown {
+  isolation: isolate;
+  animation: present-countdown-impact 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.event-chrome .matchup-stage__countdown::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  z-index: -1;
+  border: 3px solid var(--neon-cyan);
+  box-shadow: 0 0 22px rgba(56, 232, 255, 0.35);
+  pointer-events: none;
+  animation: present-countdown-ring 700ms ease-out both;
+}
+
+.event-chrome .match-result-view {
+  overflow: hidden;
+  animation: present-stage-reveal 350ms ease-out both;
+}
+
+.event-chrome .match-result-view__header {
+  padding-block: clamp(12px, 2vw, 32px);
+  animation: present-title-impact 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.event-chrome .match-result-view__header h2 {
+  font-size: clamp(18px, 3.2vw, 52px);
+  overflow-wrap: anywhere;
+  text-shadow:
+    4px 4px 0 var(--border-dark),
+    0 0 24px rgba(255, 210, 63, 0.3);
+}
+
+.event-chrome .match-result-view__scores li {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  animation: present-result-row 450ms 250ms ease-out both;
+}
+
+.event-chrome .match-result-view__scores li:nth-child(2) {
+  animation-delay: 350ms;
+}
+
+.event-chrome .match-result-view__scores li:nth-child(3) {
+  animation-delay: 450ms;
+}
+
+.event-chrome .match-result-view__scores li:nth-child(4) {
+  animation-delay: 550ms;
+}
+
+.event-chrome .match-result-view__scores li > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.event-chrome .roster-attract article {
+  animation: present-result-row 480ms 320ms ease-out both;
+}
+
+.event-chrome .roster-attract article:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.event-chrome .roster-attract article:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.event-chrome .roster-attract article:nth-child(3) {
+  animation-delay: 160ms;
+}
+
+.event-chrome .roster-attract article:nth-child(4) {
+  animation-delay: 240ms;
+}
+
+/* Nur Opacity: Die SVG-Verbindungen werden anhand der DOM-Positionen vermessen. */
+.event-chrome .tournament-bracket--present .tournament-bracket__round {
+  animation: present-stage-reveal 500ms ease-out both;
+}
+
+.event-chrome .tournament-bracket--present .tournament-bracket__round:nth-of-type(2) {
+  animation-delay: 120ms;
+}
+
+.event-chrome .tournament-bracket--present .tournament-bracket__round:nth-of-type(3) {
+  animation-delay: 240ms;
+}
+
+.present-celebration {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 65vh;
+  background: var(--arena-panel);
+}
+
+.present-celebration::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  z-index: -1;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 210, 63, 0.1) 0deg 12deg,
+    transparent 12deg 30deg
+  );
+  mask-image: radial-gradient(ellipse, black 5%, transparent 65%);
+  animation: present-champion-rays 1400ms ease-out both;
+}
+
+.present-celebration__confetti {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.present-celebration__confetti > span {
+  position: absolute;
+  top: -24px;
+  width: clamp(6px, 0.7vw, 12px);
+  height: clamp(10px, 1vw, 18px);
+  opacity: 0;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.25);
+  animation: present-pixel-fall 2400ms cubic-bezier(0.2, 0.55, 0.65, 1) both;
+}
+
+.event-chrome .present-celebration .champion-view {
+  min-height: 65vh;
+  background: transparent;
+  padding: clamp(24px, 4vw, 64px);
+}
+
+.event-chrome .present-celebration .champion-view__crown {
+  animation: present-crown-land 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.event-chrome .present-celebration .champion-view h2 {
+  animation: present-result-row 500ms 150ms ease-out both;
+}
+
+.event-chrome .present-celebration .champion-view__name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--neon-yellow);
+  text-shadow:
+    5px 5px 0 var(--border-dark),
+    0 0 30px rgba(255, 210, 63, 0.38);
+  animation: present-title-impact 650ms 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes present-stage-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes present-contender-land {
+  0% {
+    opacity: 0;
+    transform: translateX(var(--entry-x)) scale(0.85) rotate(var(--entry-tilt));
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(0) scale(1.025) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes present-title-impact {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.88);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scale(1.035);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes present-light-sweep {
+  from {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@keyframes present-countdown-impact {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.4) rotate(-6deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.94) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes present-countdown-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes present-result-row {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes present-crown-land {
+  0% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.3) rotate(-12deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(6px) scale(0.96) rotate(3deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes present-champion-rays {
+  from {
+    opacity: 0;
+    transform: rotate(-25deg) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes present-pixel-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  10%,
+  65% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--pixel-drift), 75vh, 0) rotate(var(--pixel-turn));
+  }
+}
+
+@media (max-width: 700px) {
+  .event-chrome .matchup-stage__participant {
+    --entry-x: -24px;
+    --entry-tilt: -2deg;
+  }
+
+  .event-chrome .matchup-stage__participant:nth-child(even) {
+    --entry-x: 24px;
+    --entry-tilt: 2deg;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .matchup-stage,
-  .matchup-stage__participant {
+  .event-chrome .matchup-stage,
+  .event-chrome .matchup-stage__header,
+  .event-chrome .matchup-stage__participant,
+  .event-chrome .matchup-stage__participant::after,
+  .event-chrome .matchup-stage__countdown,
+  .event-chrome .matchup-stage__countdown::before,
+  .event-chrome .match-result-view,
+  .event-chrome .match-result-view__header,
+  .event-chrome .match-result-view__scores li,
+  .event-chrome .match-result-view__scores li[data-winner="true"]::after,
+  .event-chrome .roster-attract article,
+  .event-chrome .tournament-bracket--present .tournament-bracket__round,
+  .present-celebration::before,
+  .present-celebration__confetti > span,
+  .event-chrome .present-celebration .champion-view__crown,
+  .event-chrome .present-celebration .champion-view h2,
+  .event-chrome .present-celebration .champion-view__name {
     animation: none;
+    transition: none;
+  }
+
+  .present-celebration__confetti,
+  .event-chrome .matchup-stage__countdown::before,
+  .event-chrome .matchup-stage__participant::after,
+  .event-chrome .match-result-view__scores li[data-winner="true"]::after {
+    display: none;
   }
 }

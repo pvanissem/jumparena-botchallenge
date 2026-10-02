@@ -20,6 +20,21 @@ function match(count: number): MatchDef {
 }
 
 describe("MatchupStage", () => {
+  it("restarts only the countdown digit when its value changes", () => {
+    const current = match(4);
+    const { rerender } = render(<MatchupStage match={current} roundLabel="Finale" countdown={3} />);
+    const cards = screen.getAllByRole("article");
+    const three = screen.getByRole("timer");
+    rerender(<MatchupStage match={{ ...current }} roundLabel="Finale" countdown={3} />);
+    expect(screen.getByRole("timer")).toBe(three);
+    rerender(<MatchupStage match={current} roundLabel="Finale" countdown={2} />);
+    expect(screen.getByRole("timer")).not.toBe(three);
+    expect(screen.getByRole("timer").textContent).toBe("2");
+    screen.getAllByRole("article").forEach((card, index) => {
+      expect(card).toBe(cards[index]);
+    });
+  });
+
   it.each([2, 3, 4])("renders a %s-player matchup", (count) => {
     const { container } = render(
       <MatchupStage match={match(count)} roundLabel="Halbfinale" countdown={null} />

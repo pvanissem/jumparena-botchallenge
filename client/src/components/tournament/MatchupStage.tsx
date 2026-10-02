@@ -34,6 +34,7 @@ export function MatchupStage({ match, roundLabel, countdown }: MatchupStageProps
 
       {countdown !== null && (
         <strong
+          key={countdown}
           className="matchup-stage__countdown"
           role="timer"
           aria-label={`Start in ${countdown} Sekunden`}
